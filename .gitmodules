@@ -1,0 +1,9 @@
+[submodule "asteria"]
+	path = asteria
+	url = https://github.com/lhmouse/asteria.git
+[submodule "taxon"]
+	path = taxon
+	url = https://github.com/lhmouse/taxon.git
+[submodule "poseidon"]
+	path = poseidon
+	url = https://github.com/lhmouse/poseidon.git

@@ -1,0 +1,13 @@
+.*
+*.rej
+*.orig
+*.save*
+*.swp
+*.deb
+*.log
+/build_*
+/profiling/*
+/var
+/asteria
+/poseidon
+/taxon

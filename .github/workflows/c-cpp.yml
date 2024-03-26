@@ -1,0 +1,46 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches:
+    - master
+    - releases/*
+
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  ubuntu:
+    name: Ubuntu native build (x86-64)
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: >-
+           sudo apt-get install -y --no-install-recommends g++ ninja-build
+           python3 python3-pip pkgconf libedit-dev libpcre2-dev libssl-dev
+           zlib1g-dev libunwind-dev libmysqlclient-dev libmongoc-dev
+           libhiredis-dev uuid-dev
+
+    - name: Install newest meson
+      run: >-
+           sudo pip3 install meson  # --break-system-packages
+
+    - name: Build and install submodules
+      run: >-
+           git submodule update --init && git submodule foreach
+           'rm -f *.deb && ./makedeb.sh && sudo dpkg -i *.deb'
+
+    - name: Run tests (minimal)
+      run: >-
+           meson setup -Denable-debug-checks=true build_ci
+           -Denable-{mysql,mongo,redis}=false
+           && meson test -Cbuild_ci
+
+    - name: Run tests (full)
+      run: >-
+           meson setup -Denable-debug-checks=true build_ci
+           && meson test -Cbuild_ci
