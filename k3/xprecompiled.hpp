@@ -1,4 +1,4 @@
-// This file is part of Poseidon.
+// This file is part of k3.
 // Copyleft 2024, LH_Mouse. All wrongs reserved.
 
 #ifndef K3_XPRECOMPILED_

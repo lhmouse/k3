@@ -1,5 +1,5 @@
-// This file is part of Poseidon.
-// Copyleft 2022 - 2024, LH_Mouse. All wrongs reserved.
+// This file is part of k3.
+// Copyleft 2024, LH_Mouse. All wrongs reserved.
 
 #include "../xprecompiled.hpp"
 
