@@ -72,9 +72,14 @@ add_project_dependencies(dependency('zlib'), language: 'cpp')
 #===========================================================
 # Rules for modules
 #===========================================================
+libk3_common = shared_library('k3-common',
+      cpp_pch: 'k3/xprecompiled.hpp',
+      sources: [
+      ])
+
 shared_module('k3-agent',
       cpp_pch: 'k3/xprecompiled.hpp',
-      install: false,
+      link_with: [ libk3_common ],
       sources: [
         'k3/agent/module_main.cpp',
       ])
