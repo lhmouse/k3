@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-_san_so_list=$(ldd ./build_debug/libk3-agent.so |
+_san_so_list=$(ldd ./build_debug/libk3_agent.so |
                grep -Eho '\<lib(a|ub|t)san\.so.[0-9]+\>' |
                sort -u)
 
