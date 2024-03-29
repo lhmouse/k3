@@ -69,20 +69,14 @@
 #include <limits.h>
 #include <wchar.h>
 #include <cxxabi.h>
-
-#ifdef __SSE4_2__
 #include <x86intrin.h>
 #include <nmmintrin.h>
-#endif
-
-#ifdef __AVX__
 #include <immintrin.h>
-#endif
 
 #include <asteria/fwd.hpp>
 #include <asteria/utils.hpp>
-
 #include <poseidon/fwd.hpp>
 #include <poseidon/utils.hpp>
+#include <taxon.hpp>
 
 #endif
