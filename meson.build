@@ -17,17 +17,13 @@ project('k3', 'cpp', version: '1.0.alpha-0')
 #===========================================================
 # Global configuration
 #===========================================================
-if get_option('enable-avx')
-  add_project_arguments('-mavx', language: [ 'c', 'cpp' ])
-endif
-
 if get_option('enable-debug-checks')
   add_project_arguments('-D_GLIBCXX_DEBUG', '-D_LIBCPP_DEBUG', language: 'cpp')
 endif
 
 add_project_arguments(
-    '-Wall', '-Wextra', '-Winvalid-pch', '-D_FILE_OFFSET_BITS=64',
-    '-D_POSIX_C_SOURCE=200809', '-D_DEFAULT_SOURCE', '-ffast-math',
+    '-Wall', '-Wextra', '-Winvalid-pch', '-masm=intel', '-mavx', '-ffast-math',
+    '-D_FILE_OFFSET_BITS=64', '-D_POSIX_C_SOURCE=200809', '-D_DEFAULT_SOURCE',
     '-fstrict-aliasing', '-fstrict-overflow', '-fmerge-all-constants',
     '-fno-devirtualize-speculatively', '-fno-semantic-interposition',
     '-Werror=conversion', '-Werror=sign-compare', '-Werror=sign-conversion',
