@@ -26,11 +26,9 @@ if get_option('enable-debug-checks')
 endif
 
 add_project_arguments(
-    '-Wall', '-Wextra', '-Winvalid-pch', '-masm=intel', '-msse4.2',
-    '-D_FILE_OFFSET_BITS=64', '-D_POSIX_C_SOURCE=200809', '-D_DEFAULT_SOURCE',
-    '-D_DARWIN_C_SOURCE',  '-fno-stack-protector',
+    '-Wall', '-Wextra', '-Winvalid-pch', '-D_FILE_OFFSET_BITS=64',
+    '-D_POSIX_C_SOURCE=200809', '-D_DEFAULT_SOURCE', '-ffast-math',
     '-fstrict-aliasing', '-fstrict-overflow', '-fmerge-all-constants',
-    '-frounding-math', '-fno-math-errno', '-fno-trapping-math', '-fno-ident',
     '-fno-devirtualize-speculatively', '-fno-semantic-interposition',
     '-Werror=conversion', '-Werror=sign-compare', '-Werror=sign-conversion',
     '-Werror=write-strings', '-Werror=return-type', '-Werror=double-promotion',
