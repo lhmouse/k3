@@ -4,7 +4,7 @@
 #include "../xprecompiled.hpp"
 
 void
-poseidon_addon_main(void)
+poseidon_module_main(void)
   {
     POSEIDON_LOG_TRACE(("agent main"));
     POSEIDON_LOG_DEBUG(("agent main"));
