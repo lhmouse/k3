@@ -2,6 +2,7 @@
 // Copyleft 2024, LH_Mouse. All wrongs reserved.
 
 #include "../xprecompiled.hpp"
+#include "globals.hpp"
 
 void
 poseidon_module_main(void)
