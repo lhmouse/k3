@@ -62,7 +62,7 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     struct Redis_Task : ::poseidon::Abstract_Async_Task, ::poseidon::Abstract_Future
       {
         ::poseidon::UUID in_uuid;
-        cow_string in_app_name;
+        cow_string in_app_name_slash;
         ::taxon::V_object in_properties;
         seconds in_ttl;
         snapshot_map out_remotes;
@@ -88,15 +88,15 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             ::taxon::Parser_Context pctx;
 
             // Connect to the default Redis server and get my local address.
-            auto rconn = ::poseidon::redis_connector.allocate_default_connection();
-            if(rconn->local_address() == ::poseidon::ipv6_unspecified) {
+            auto redis = ::poseidon::redis_connector.allocate_default_connection();
+            if(redis->local_address() == ::poseidon::ipv6_unspecified) {
               cmd[0] = &"ping";
-              rconn->execute(cmd, 1);
-              POSEIDON_LOG_DEBUG(("Got local address `$1` from Redis"), rconn->local_address());
+              redis->execute(cmd, 1);
+              POSEIDON_LOG_DEBUG(("Got local address `$1` from Redis connection"), redis->local_address());
             }
 
             // Upload my service information.
-            rconn->local_address().print_to(fmt);
+            redis->local_address().print_to(fmt);
             taxon.mut_object().try_emplace(&"host", fmt.extract_string());
             fmt << (uint32_t) ::getpid();
             taxon.mut_object().try_emplace(&"pid", fmt.extract_string());
@@ -104,23 +104,23 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             taxon.mut_object().try_emplace(&"properties", this->in_properties);
 
             cmd[0] = &"set";
-            fmt << this->in_app_name << '/' << this->in_uuid;
+            fmt << this->in_app_name_slash << this->in_uuid;
             cmd[1] = fmt.extract_string();
             taxon.print_to(cmd[2]);
             cmd[3] = &"ex";
             fmt << this->in_ttl.count();
             cmd[4] = fmt.extract_string();
-            rconn->execute(cmd, 5);
+            redis->execute(cmd, 5);
 
             // Get keys of all service.
             cmd[0] = &"scan";
             cmd[2] = &"match";
-            fmt << this->in_app_name << '/' << '*';
+            fmt << this->in_app_name_slash << '*';
             cmd[3] = fmt.extract_string();
             do {
               cmd[1] = cursor;
-              rconn->execute(cmd, 4);
-              rconn->fetch_reply(reply);
+              redis->execute(cmd, 4);
+              redis->fetch_reply(reply);
 
               cursor = reply.as_array().at(0).as_string();
               for(const auto& r : reply.as_array().at(1).as_array())
@@ -130,19 +130,18 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
             for(const auto& key : keys) {
               // Validate the key.
-              if((key.length() != this->in_app_name.length() + 1 + 36)
-                  || (::memcmp(key.c_str(), this->in_app_name.c_str(),
-                               this->in_app_name.length()) != 0)
-                  || (*(key.c_str() + this->in_app_name.length()) != '/')
-                  || (uuid.parse_partial(key.c_str() + this->in_app_name.length() + 1) != 36)) {
+              if((key.length() != this->in_app_name_slash.length() + 36)
+                  || (::memcmp(key.c_str(), this->in_app_name_slash.c_str(), this->in_app_name_slash.length()) != 0)
+                  || (uuid.parse_partial(key.c_str() + this->in_app_name_slash.length()) != 36))
+              {
                 POSEIDON_LOG_WARN(("Could not parse service name `$1`"), key);
                 continue;
               }
 
               cmd[0] = "get";
               cmd[1] = key;
-              rconn->execute(cmd, 2);
-              rconn->fetch_reply(reply);
+              redis->execute(cmd, 2);
+              redis->fetch_reply(reply);
 
               taxon.parse_with(pctx, reply.as_string());
               if(pctx.error) {
@@ -158,17 +157,17 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               this->out_remotes.insert_or_assign(uuid, move(taxon.mut_object()));
             }
 
-            POSEIDON_LOG_INFO(("Done synchronizing services; size `$1`"), this->out_remotes.size());
+            if(redis->reset())
+              ::poseidon::redis_connector.pool_connection(move(redis));
 
-            if(rconn->reset())
-              ::poseidon::redis_connector.pool_connection(move(rconn));
+            POSEIDON_LOG_INFO(("Done synchronizing services; size `$1`"), this->out_remotes.size());
           }
       };
 
     // This needs to be done in an asynchronous way.
     auto task = new_sh<Redis_Task>();
     task->in_uuid = this->m_uuid;
-    task->in_app_name = this->m_app_name;
+    task->in_app_name_slash = this->m_app_name + '/';
     task->in_properties = this->m_properties;
     task->in_ttl = ttl;
 
