@@ -73,10 +73,9 @@
 #include <nmmintrin.h>
 #include <immintrin.h>
 
-#include <asteria/fwd.hpp>
 #include <asteria/utils.hpp>
-#include <poseidon/fwd.hpp>
 #include <poseidon/utils.hpp>
+#include <poseidon/base/uuid.hpp>
 #include <taxon.hpp>
 
 #endif
