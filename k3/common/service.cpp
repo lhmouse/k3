@@ -137,7 +137,7 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
                 POSEIDON_LOG_WARN(("Unrecognizable service name `$1`: invalid UUID"), key);
                 continue;
               }
-              else if(!uuid.parse_partial(key.c_str() + this->in_app_name_slash.length()) != 36)) {
+              else if(uuid.parse_partial(key.c_str() + this->in_app_name_slash.length()) != 36) {
                 POSEIDON_LOG_WARN(("Unrecognizable service name `$1`: invalid UUID"), key);
                 continue;
               }
