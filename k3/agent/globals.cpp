@@ -32,5 +32,6 @@ poseidon_module_main(void)
 
     s_config.reload(&"k3.conf");
     s_service.set_application_name(s_config.query("application_name").as_string());
+    s_service.set_property(&"type", &"agent");
     s_service_update_timer.start(0s, 30s);
   }
