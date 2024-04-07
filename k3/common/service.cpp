@@ -120,8 +120,8 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             do {
               cmd[1] = cursor;
               redis->execute(cmd, 4);
-              redis->fetch_reply(reply);
 
+              redis->fetch_reply(reply);
               cursor = reply.as_array().at(0).as_string();
               for(const auto& r : reply.as_array().at(1).as_array())
                 keys.emplace_back(r.as_string());
@@ -130,26 +130,30 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
             for(const auto& key : keys) {
               // Validate the key.
-              if((key.length() != this->in_app_name_slash.length() + 36)
-                  || (::memcmp(key.c_str(), this->in_app_name_slash.c_str(), this->in_app_name_slash.length()) != 0)
-                  || (uuid.parse_partial(key.c_str() + this->in_app_name_slash.length()) != 36))
-              {
-                POSEIDON_LOG_WARN(("Could not parse service name `$1`"), key);
+              if(!key.starts_with(this->in_app_name_slash))
+                continue;
+
+              if(key.length() != this->in_app_name_slash.length() + 36) {
+                POSEIDON_LOG_WARN(("Unrecognizable service name `$1`: invalid UUID"), key);
+                continue;
+              }
+              else if(!uuid.parse_partial(key.c_str() + this->in_app_name_slash.length()) != 36)) {
+                POSEIDON_LOG_WARN(("Unrecognizable service name `$1`: invalid UUID"), key);
                 continue;
               }
 
               cmd[0] = "get";
               cmd[1] = key;
               redis->execute(cmd, 2);
-              redis->fetch_reply(reply);
 
+              redis->fetch_reply(reply);
               taxon.parse_with(pctx, reply.as_string());
               if(pctx.error) {
-                POSEIDON_LOG_WARN(("Could not parse service `$1`: $2"), key, pctx.error);
+                POSEIDON_LOG_WARN(("Invalid service data `$1`: $2"), key, pctx.error);
                 continue;
               }
               else if(!taxon.is_object() || !taxon.as_object().count(&"host")) {
-                POSEIDON_LOG_WARN(("Could not parse service `$1`: missing `host` field"), key);
+                POSEIDON_LOG_WARN(("Invalid service data `$1`: missing `host` field"), key);
                 continue;
               }
 
@@ -160,7 +164,7 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             if(redis->reset())
               ::poseidon::redis_connector.pool_connection(move(redis));
 
-            POSEIDON_LOG_INFO(("Done synchronizing services; size `$1`"), this->out_remotes.size());
+            POSEIDON_LOG_INFO(("Done synchronizing services: size = `$1`"), this->out_remotes.size());
           }
       };
 
