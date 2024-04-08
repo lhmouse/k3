@@ -4,6 +4,8 @@
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
 #include <poseidon/easy/easy_timer.hpp>
+#include <poseidon/easy/easy_hws_server.hpp>
+#include <poseidon/easy/easy_hwss_server.hpp>
 namespace k3::agent {
 namespace {
 
@@ -29,11 +31,19 @@ poseidon_module_main(void)
     using namespace k3;
     using namespace k3::agent;
 
+    POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
     s_config.reload(&"k3.conf");
-    auto app_name = s_config.query("application_name").as_string();
-    POSEIDON_LOG_INFO(("Initializing `$1`: agent"), app_name);
 
-    s_service.set_application_name(app_name);
+    auto conf_val = s_config.query("application_name");
+    POSEIDON_LOG_DEBUG(("> `application_name` = $1"), conf_val);
+    s_service.set_application_name(conf_val.as_string());
     s_service.set_property(&"type", &"agent");
+
+
+
+
+
+
+
     s_service_update_timer.start(0s, 30s);
   }
