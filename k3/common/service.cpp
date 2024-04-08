@@ -94,7 +94,7 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               // address has been set.
               cmd[0] = &"ping";
               redis->execute(cmd, 1);
-              POSEIDON_LOG_DEBUG(("< local address = `$1`"), redis->local_address());
+              POSEIDON_LOG_DEBUG(("Local address: `$1`"), redis->local_address());
             }
 
             // Upload my service information.
@@ -113,7 +113,7 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             fmt << this->in_ttl.count();
             cmd[4] = fmt.extract_string();
             redis->execute(cmd, 5);
-            POSEIDON_LOG_DEBUG(("> local service `$1` = $2"), this->in_uuid, taxon);
+            POSEIDON_LOG_DEBUG(("Local service: `$1` = $2"), this->in_uuid, taxon);
 
             // Get keys of all service.
             cmd[0] = &"scan";
@@ -143,17 +143,24 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
                 continue;
               }
 
+              auto ins_result = this->out_remotes.try_emplace(uuid);
+              if(!ins_result.second)
+                continue;  // already exists
+
               cmd[0] = "get";
               cmd[1] = key;
               redis->execute(cmd, 2);
               redis->fetch_reply(reply);
 
               taxon.parse_with(pctx, reply.as_string());
-              if(pctx.error || !taxon.is_object())
+              if(pctx.error || !taxon.is_object()) {
+                this->out_remotes.erase(ins_result.first);
+                POSEIDON_LOG_WARN(("Invalid service: `$1` = $2"), key, reply);
                 continue;
+              }
 
-              POSEIDON_LOG_DEBUG(("< remote service `$1` = $2"), uuid, taxon);
-              this->out_remotes[uuid] = move(taxon.mut_object());
+              POSEIDON_LOG_DEBUG(("Remote service: `$1` = $2"), uuid, taxon);
+              ins_result.first->second = move(taxon.mut_object());
             }
 
             if(redis->reset())
