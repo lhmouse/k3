@@ -30,9 +30,7 @@ set_application_name(cow_stringR app_name)
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~";
 
     if(app_name.empty() || (app_name.find_not_of(name_chars) != cow_string::npos))
-      POSEIDON_THROW((
-          "Invalid application name `$1`"),
-          app_name);
+      POSEIDON_THROW(("Invalid application name `$1`"), app_name);
 
     this->m_uuid = ::poseidon::UUID::random();
     this->m_app_name = app_name;
