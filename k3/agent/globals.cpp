@@ -11,11 +11,10 @@ namespace {
 Service s_service;
 
 ::poseidon::Easy_Timer s_service_update_timer(
-  static_cast<::poseidon::Easy_Timer::thunk_type::function_type*>(
-    [](shptrR<::poseidon::Abstract_Timer> /*timer*/,
-       ::poseidon::Abstract_Fiber& fiber,
-       ::poseidon::steady_time /*now*/)
-    { s_service.synchronize_services(fiber, 60s);  }));
+    +[](shptrR<::poseidon::Abstract_Timer> /*timer*/,
+        ::poseidon::Abstract_Fiber& fiber,
+        ::poseidon::steady_time /*now*/)
+    { s_service.synchronize_services(fiber, 60s);  });
 
 }  // namespace
 
@@ -31,7 +30,10 @@ poseidon_module_main(void)
     using namespace k3::agent;
 
     s_config.reload(&"k3.conf");
-    s_service.set_application_name(s_config.query("application_name").as_string());
+    auto app_name = s_config.query("application_name").as_string();
+    POSEIDON_LOG_INFO(("Initializing `$1`: agent"), app_name);
+
+    s_service.set_application_name(app_name);
     s_service.set_property(&"type", &"agent");
     s_service_update_timer.start(0s, 30s);
   }
