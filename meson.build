@@ -12,7 +12,7 @@
 ## NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 ## CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-project('k3', 'cpp', version: '1.0.alpha-0')
+project('k3', 'cpp', version: '0.0.internal')
 
 #===========================================================
 # Global configuration
