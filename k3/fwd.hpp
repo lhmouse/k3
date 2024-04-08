@@ -120,6 +120,7 @@ using ::rocket::any_of;
 using ::rocket::none_of;
 using ::rocket::nullopt;
 
+using ::poseidon::chars_view;
 using ::poseidon::vfptr;
 using ::poseidon::cow_bivector;
 using ::poseidon::cow_stringR;

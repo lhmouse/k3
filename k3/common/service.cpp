@@ -27,7 +27,7 @@ Service::
 set_application_name(cow_stringR app_name)
   {
     static constexpr char name_chars[] =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~";
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~";
 
     if(app_name.empty() || (app_name.find_not_of(name_chars) != cow_string::npos))
       POSEIDON_THROW((
@@ -59,7 +59,8 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     if(this->m_app_name.empty())
       POSEIDON_THROW(("Missing application name"));
 
-    struct Redis_Task : ::poseidon::Abstract_Async_Task, ::poseidon::Abstract_Future
+    struct Redis_Task
+      : ::poseidon::Abstract_Async_Task, ::poseidon::Abstract_Future
       {
         ::poseidon::UUID in_uuid;
         cow_string in_app_name_slash;
@@ -87,12 +88,13 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             ::poseidon::UUID uuid;
             ::taxon::Parser_Context pctx;
 
-            // Connect to the default Redis server and get my local address.
             auto redis = ::poseidon::redis_connector.allocate_default_connection();
             if(redis->local_address() == ::poseidon::ipv6_unspecified) {
+              // Ensure a socket connection has been established and the local
+              // address has been set.
               cmd[0] = &"ping";
               redis->execute(cmd, 1);
-              POSEIDON_LOG_DEBUG(("Got local address `$1` from Redis connection"), redis->local_address());
+              POSEIDON_LOG_DEBUG(("< local address = `$1`"), redis->local_address());
             }
 
             // Upload my service information.
@@ -111,6 +113,7 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             fmt << this->in_ttl.count();
             cmd[4] = fmt.extract_string();
             redis->execute(cmd, 5);
+            POSEIDON_LOG_DEBUG(("> local service `$1` = $2"), this->in_uuid, taxon);
 
             // Get keys of all service.
             cmd[0] = &"scan";
@@ -120,8 +123,8 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             do {
               cmd[1] = cursor;
               redis->execute(cmd, 4);
-
               redis->fetch_reply(reply);
+
               cursor = reply.as_array().at(0).as_string();
               for(const auto& r : reply.as_array().at(1).as_array())
                 keys.emplace_back(r.as_string());
@@ -133,38 +136,28 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               if(!key.starts_with(this->in_app_name_slash))
                 continue;
 
-              if(key.length() != this->in_app_name_slash.length() + 36) {
-                POSEIDON_LOG_WARN(("Unrecognizable service name `$1`: invalid UUID"), key);
-                continue;
-              }
-              else if(uuid.parse_partial(key.c_str() + this->in_app_name_slash.length()) != 36) {
-                POSEIDON_LOG_WARN(("Unrecognizable service name `$1`: invalid UUID"), key);
+              chars_view key_suffix = key;
+              key_suffix >>= this->in_app_name_slash.length();
+              if(uuid.parse(key_suffix) == 0) {
+                POSEIDON_LOG_WARN(("Invalid service name `$1`"), key);
                 continue;
               }
 
               cmd[0] = "get";
               cmd[1] = key;
               redis->execute(cmd, 2);
-
               redis->fetch_reply(reply);
-              taxon.parse_with(pctx, reply.as_string());
-              if(pctx.error) {
-                POSEIDON_LOG_WARN(("Invalid service data `$1`: $2"), key, pctx.error);
-                continue;
-              }
-              else if(!taxon.is_object() || !taxon.as_object().count(&"host")) {
-                POSEIDON_LOG_WARN(("Invalid service data `$1`: missing `host` field"), key);
-                continue;
-              }
 
-              POSEIDON_LOG_DEBUG(("Downloaded service `$1`: $2"), uuid, taxon);
-              this->out_remotes.insert_or_assign(uuid, move(taxon.mut_object()));
+              taxon.parse_with(pctx, reply.as_string());
+              if(pctx.error || !taxon.is_object())
+                continue;
+
+              POSEIDON_LOG_DEBUG(("< remote service `$1` = $2"), uuid, taxon);
+              this->out_remotes[uuid] = move(taxon.mut_object());
             }
 
             if(redis->reset())
               ::poseidon::redis_connector.pool_connection(move(redis));
-
-            POSEIDON_LOG_INFO(("Done synchronizing services: size = `$1`"), this->out_remotes.size());
           }
       };
 
@@ -177,7 +170,10 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
     ::poseidon::async_task_executor.enqueue(task);
     ::poseidon::fiber_scheduler.yield(fiber, task);
+
     this->m_remotes = move(task->out_remotes);
+    POSEIDON_LOG_DEBUG(("Finished synchronizing services: size = $1"),
+                       this->m_remotes.size());
   }
 
 }  // namespace k3
