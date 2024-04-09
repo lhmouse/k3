@@ -12,11 +12,10 @@ namespace {
 ::poseidon::Config_File s_config;
 Service s_service;
 
+constexpr seconds s_service_ttl = 60s;
 ::poseidon::Easy_Timer s_service_update_timer(
-    +[](shptrR<::poseidon::Abstract_Timer> /*timer*/,
-        ::poseidon::Abstract_Fiber& fiber,
-        ::poseidon::steady_time /*now*/)
-    { s_service.synchronize_services(fiber, 60s);  });
+    ::std::bind(&Service::synchronize_services,
+        &s_service, ::std::placeholders::_2, s_service_ttl));
 
 }  // namespace
 
@@ -45,5 +44,5 @@ poseidon_module_main(void)
 
 
 
-    s_service_update_timer.start(0s, 30s);
+    s_service_update_timer.start(0s, s_service_ttl / 2);
   }
