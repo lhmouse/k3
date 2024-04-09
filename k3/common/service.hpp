@@ -25,7 +25,7 @@ class Service
     snapshot_map m_remotes;
 
   public:
-    Service() noexcept;
+    Service();
     Service(const Service&) = delete;
     Service& operator=(const Service&) & = delete;
     ~Service();
@@ -89,7 +89,7 @@ class Service
     // has not been called, an exception is thrown.
     // The operation is atomic. If an exception is thrown, there is no effect.
     void
-    synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl);
+    synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl);
   };
 
 }  // namespace k3

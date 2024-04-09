@@ -14,8 +14,8 @@ Service s_service;
 
 constexpr seconds s_service_ttl = 60s;
 ::poseidon::Easy_Timer s_service_update_timer(
-    ::std::bind(&Service::synchronize_services,
-        &s_service, ::std::placeholders::_2, s_service_ttl));
+    ::std::bind(&Service::synchronize_services_with_redis,
+                &s_service, ::std::placeholders::_2, s_service_ttl));
 
 }  // namespace
 

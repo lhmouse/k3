@@ -13,7 +13,7 @@
 namespace k3 {
 
 Service::
-Service() noexcept
+Service()
   {
   }
 
@@ -52,7 +52,7 @@ unset_property(phsh_stringR name)
 
 void
 Service::
-synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
+synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
   {
     if(this->m_app_name.empty())
       POSEIDON_THROW(("Missing application name"));
