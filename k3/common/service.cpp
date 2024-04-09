@@ -118,7 +118,6 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             fmt << this->in_ttl.count();
             cmd[4] = fmt.extract_string();
             redis->execute(cmd, 5);
-            POSEIDON_LOG_DEBUG(("Local service: `$1` = $2"), this->in_uuid, taxon);
 
             // Get keys of all service.
             cmd[0] = &"scan";
@@ -158,7 +157,10 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
                 continue;
               }
 
-              POSEIDON_LOG_DEBUG(("Remote service: `$1` = $2"), uuid, taxon);
+              POSEIDON_LOG_DEBUG(("Received service: `$1`$3 = $2"),
+                                 uuid, taxon,
+                                 (uuid == this->in_uuid) ? " (self)" : "");
+
               this->out_remotes[uuid] = move(taxon.mut_object());
             }
           }
