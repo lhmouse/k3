@@ -80,13 +80,20 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             ::taxon::Value taxon;
             ::rocket::tinyfmt_str fmt;
             cow_string cmd[6];
-            cow_string cursor = &"0";
             ::poseidon::Redis_Value reply;
             vector<cow_string> keys;
             ::poseidon::UUID uuid;
             ::taxon::Parser_Context pctx;
 
+            // Connect to the default Redis server. The connection shall be put
+            // back before this function returns.
             auto redis = ::poseidon::redis_connector.allocate_default_connection();
+            const auto redis_guard = make_unique_handle(&redis,
+                [&](void*) {
+                  if(redis && redis->reset())
+                    ::poseidon::redis_connector.pool_connection(move(redis));
+                });
+
             if(redis->local_address() == ::poseidon::ipv6_unspecified) {
               // Ensure a socket connection has been established and the local
               // address has been set.
@@ -96,12 +103,12 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             }
 
             // Upload my service information.
+            taxon.mut_object().try_emplace(&"timestamp", system_clock::now());
+            taxon.mut_object().try_emplace(&"properties", this->in_properties);
             redis->local_address().print_to(fmt);
             taxon.mut_object().try_emplace(&"host", fmt.extract_string());
             fmt << (uint32_t) ::getpid();
             taxon.mut_object().try_emplace(&"pid", fmt.extract_string());
-            taxon.mut_object().try_emplace(&"timestamp", system_clock::now());
-            taxon.mut_object().try_emplace(&"properties", this->in_properties);
 
             cmd[0] = &"set";
             fmt << this->in_app_name_slash << this->in_uuid;
@@ -115,22 +122,21 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
             // Get keys of all service.
             cmd[0] = &"scan";
+            cmd[1] = &"0";
             cmd[2] = &"match";
             fmt << this->in_app_name_slash << '*';
             cmd[3] = fmt.extract_string();
             do {
-              cmd[1] = cursor;
               redis->execute(cmd, 4);
               redis->fetch_reply(reply);
 
-              cursor = reply.as_array().at(0).as_string();
               for(const auto& r : reply.as_array().at(1).as_array())
                 keys.emplace_back(r.as_string());
-            }
-            while(cursor != "0");
+
+              cmd[1] = reply.as_array().at(0).as_string();
+            } while(cmd[1] != "0");
 
             for(const auto& key : keys) {
-              // Validate the key.
               if(!key.starts_with(this->in_app_name_slash))
                 continue;
 
@@ -155,9 +161,6 @@ synchronize_services(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               POSEIDON_LOG_DEBUG(("Remote service: `$1` = $2"), uuid, taxon);
               this->out_remotes[uuid] = move(taxon.mut_object());
             }
-
-            if(redis->reset())
-              ::poseidon::redis_connector.pool_connection(move(redis));
           }
       };
 

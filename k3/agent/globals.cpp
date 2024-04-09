@@ -25,17 +25,17 @@ const Service& service = s_service;
 
 }  // namespace k3::agent
 
+using namespace k3;
+using namespace k3::agent;
+
 void
 poseidon_module_main(void)
   {
-    using namespace k3;
-    using namespace k3::agent;
-
     POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
     s_config.reload(&"k3.conf");
 
     auto conf_val = s_config.query("application_name");
-    POSEIDON_LOG_DEBUG(("> `application_name` = $1"), conf_val);
+    POSEIDON_LOG_DEBUG(("- `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_property(&"type", &"agent");
 
