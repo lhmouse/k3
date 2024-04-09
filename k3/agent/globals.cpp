@@ -34,7 +34,7 @@ poseidon_module_main(void)
     s_config.reload(&"k3.conf");
 
     auto conf_val = s_config.query("application_name");
-    POSEIDON_LOG_DEBUG(("- `application_name` = $1"), conf_val);
+    POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_property(&"type", &"agent");
 
