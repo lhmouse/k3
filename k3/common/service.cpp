@@ -99,7 +99,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               // address has been set.
               cmd[0] = &"ping";
               redis->execute(cmd, 1);
-              POSEIDON_LOG_DEBUG(("Local address: `$1`"), redis->local_address());
+              POSEIDON_LOG_DEBUG(("Using local address from Redis connection: `$1`"),
+                                 redis->local_address());
             }
 
             // Upload my service information.
