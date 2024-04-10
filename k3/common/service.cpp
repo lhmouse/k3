@@ -119,13 +119,17 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
             // Upload my service information.
             taxon.mut_object().try_emplace(&"application_type", this->in_app_type);
-            taxon.mut_object().try_emplace(&"timestamp", system_clock::now());
-            taxon.mut_object().try_emplace(&"process_id", (double) ::getpid());
             taxon.mut_object().try_emplace(&"properties", this->in_props);
+            taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
 
-            auto private_address = redis->local_address();
-            private_address.set_port(this->in_app_port);
-            fmt << private_address;
+            auto sys_time = system_clock::now();
+            using hires_milliseconds = ::std::chrono::duration<double, ::std::milli>;
+            auto hires_dur = time_point_cast<hires_milliseconds>(sys_time).time_since_epoch();
+            taxon.mut_object().try_emplace(&"timestamp", hires_dur.count());
+
+            auto saddr = redis->local_address();
+            saddr.set_port(this->in_app_port);
+            fmt << saddr;
             taxon.mut_object().try_emplace(&"private_address", fmt.extract_string());
 
             cmd[0] = &"set";
