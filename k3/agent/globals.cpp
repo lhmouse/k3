@@ -85,7 +85,7 @@ poseidon_module_main(void)
       tinyfmt_str fmt;
       format(fmt, "[::]:$1", conf_val.as_integer());
       s_client_acceptor_tcp.start(fmt.get_string());
-      s_service.set_property(&"client_port_tcp", (double) conf_val.as_integer());
+      s_service.set_property(&"client_port_tcp", static_cast<double>(conf_val.as_integer()));
     }
 
     conf_val = s_config.query("agent", "client_port_ssl");
@@ -94,7 +94,7 @@ poseidon_module_main(void)
       tinyfmt_str fmt;
       format(fmt, "[::]:$1", conf_val.as_integer());
       s_client_acceptor_ssl.start(fmt.get_string());
-      s_service.set_property(&"client_port_ssl", (double) conf_val.as_integer());
+      s_service.set_property(&"client_port_ssl", static_cast<double>(conf_val.as_integer()));
     }
 
     // Publish myself to Redis.
