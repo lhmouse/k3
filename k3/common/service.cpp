@@ -54,14 +54,14 @@ void
 Service::
 set_property(phsh_stringR name, ::taxon::Value value)
   {
-    this->m_properties.insert_or_assign(name, move(value));
+    this->m_props.insert_or_assign(name, move(value));
   }
 
 bool
 Service::
 unset_property(phsh_stringR name)
   {
-    return this->m_properties.erase(name);
+    return this->m_props.erase(name);
   }
 
 void
@@ -78,7 +78,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
         cow_string in_app_name_slash;
         cow_string in_app_type;
         uint16_t in_app_port;
-        ::taxon::V_object in_properties;
+        ::taxon::V_object in_props;
         seconds in_ttl;
         snapshot_map out_remotes;
 
@@ -121,7 +121,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             taxon.mut_object().try_emplace(&"application_type", this->in_app_type);
             taxon.mut_object().try_emplace(&"timestamp", system_clock::now());
             taxon.mut_object().try_emplace(&"process_id", (double) ::getpid());
-            taxon.mut_object().try_emplace(&"properties", this->in_properties);
+            taxon.mut_object().try_emplace(&"properties", this->in_props);
 
             auto private_address = redis->local_address();
             private_address.set_port(this->in_app_port);
@@ -189,7 +189,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     task->in_app_name_slash = this->m_app_name + '/';
     task->in_app_type = this->m_app_type;
     task->in_app_port = this->m_app_port;
-    task->in_properties = this->m_properties;
+    task->in_props = this->m_props;
     task->in_ttl = ttl;
 
     ::poseidon::async_task_executor.enqueue(task);

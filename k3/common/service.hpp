@@ -21,7 +21,7 @@ class Service
     cow_string m_app_name;
     cow_string m_app_type;
     uint16_t m_app_port = 0;
-    ::taxon::V_object m_properties;
+    ::taxon::V_object m_props;
 
     // remote
     snapshot_map m_remotes;
@@ -64,12 +64,12 @@ class Service
     // and shared amongst all services.
     const ::taxon::V_object&
     properties() const noexcept
-      { return this->m_properties;  }
+      { return this->m_props;  }
 
     const ::taxon::Value&
     property(phsh_stringR name) const noexcept
       {
-        auto pval = this->m_properties.ptr(name);
+        auto pval = this->m_props.ptr(name);
         if(!pval)
           pval = &::taxon::null;
         return *pval;
@@ -77,7 +77,7 @@ class Service
 
     bool
     has_property(phsh_stringR name) const noexcept
-      { return this->m_properties.count(name);  }
+      { return this->m_props.count(name);  }
 
     void
     set_property(phsh_stringR name, ::taxon::Value value);
