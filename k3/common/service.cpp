@@ -38,6 +38,20 @@ set_application_name(cow_stringR app_name)
 
 void
 Service::
+set_application_type(cow_stringR app_type)
+  {
+    this->m_app_type = app_type;
+  }
+
+void
+Service::
+set_private_port(uint16_t app_port)
+  {
+    this->m_app_port = app_port;
+  }
+
+void
+Service::
 set_property(phsh_stringR name, ::taxon::Value value)
   {
     this->m_properties.insert_or_assign(name, move(value));
@@ -62,6 +76,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
       {
         ::poseidon::UUID in_uuid;
         cow_string in_app_name_slash;
+        cow_string in_app_type;
+        uint16_t in_app_port;
         ::taxon::V_object in_properties;
         seconds in_ttl;
         snapshot_map out_remotes;
@@ -79,11 +95,9 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
           {
             ::taxon::Value taxon;
             ::rocket::tinyfmt_str fmt;
+            vector<cow_string> keys;
             cow_string cmd[6];
             ::poseidon::Redis_Value reply;
-            vector<cow_string> keys;
-            ::poseidon::UUID uuid;
-            ::taxon::Parser_Context pctx;
 
             // Connect to the default Redis server. The connection shall be put
             // back before this function returns.
@@ -105,11 +119,16 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
             // Upload my service information.
             taxon.mut_object().try_emplace(&"timestamp", system_clock::now());
+            taxon.mut_object().try_emplace(&"application_type", this->in_app_type);
             taxon.mut_object().try_emplace(&"properties", this->in_properties);
-            redis->local_address().print_to(fmt);
-            taxon.mut_object().try_emplace(&"host", fmt.extract_string());
+
+            auto private_address = redis->local_address();
+            private_address.set_port(this->in_app_port);
+            fmt << private_address;
+            taxon.mut_object().try_emplace(&"private_address", fmt.extract_string());
+
             fmt << (uint32_t) ::getpid();
-            taxon.mut_object().try_emplace(&"pid", fmt.extract_string());
+            taxon.mut_object().try_emplace(&"process_id", fmt.extract_string());
 
             cmd[0] = &"set";
             fmt << this->in_app_name_slash << this->in_uuid;
@@ -140,9 +159,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               if(!key.starts_with(this->in_app_name_slash))
                 continue;
 
-              chars_view key_suffix = key;
-              key_suffix >>= this->in_app_name_slash.length();
-              if(uuid.parse(key_suffix) == 0) {
+              ::poseidon::UUID uuid;
+              if(uuid.parse(chars_view(key) >>  this->in_app_name_slash.length()) == 0) {
                 POSEIDON_LOG_WARN(("Invalid service name `$1`"), key);
                 continue;
               }
@@ -152,6 +170,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               redis->execute(cmd, 2);
               redis->fetch_reply(reply);
 
+              ::taxon::Parser_Context pctx;
               taxon.parse_with(pctx, reply.as_string());
               if(pctx.error || !taxon.is_object()) {
                 POSEIDON_LOG_WARN(("Invalid service: `$1` = $2"), key, reply);
@@ -159,8 +178,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               }
 
               POSEIDON_LOG_DEBUG(("Received service: `$1`$3 = $2"),
-                                 uuid, taxon,
-                                 (uuid == this->in_uuid) ? " (self)" : "");
+                                 uuid, taxon, (uuid == this->in_uuid) ? " (self)" : "");
 
               this->out_remotes[uuid] = move(taxon.mut_object());
             }
@@ -171,6 +189,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     auto task = new_sh<Redis_Task>();
     task->in_uuid = this->m_uuid;
     task->in_app_name_slash = this->m_app_name + '/';
+    task->in_app_type = this->m_app_type;
+    task->in_app_port = this->m_app_port;
     task->in_properties = this->m_properties;
     task->in_ttl = ttl;
 
