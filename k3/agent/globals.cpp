@@ -15,9 +15,8 @@ constexpr seconds s_service_ttl = 60s;
 
 ::poseidon::Easy_HWS_Server s_private_acceptor(
     static_cast<::poseidon::Easy_HWS_Server::thunk_type::function_type*>(
-      [](shptrR<::poseidon::WS_Server_Session> session,
-         ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
-         ::rocket::linear_buffer&& data)
+      [](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
+         ::poseidon::Easy_HWS_Event event, ::rocket::linear_buffer&& data)
       {
         POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
       }
@@ -25,9 +24,8 @@ constexpr seconds s_service_ttl = 60s;
 
 ::poseidon::Easy_HWS_Server s_client_acceptor_tcp(
     static_cast<::poseidon::Easy_HWS_Server::thunk_type::function_type*>(
-      [](shptrR<::poseidon::WS_Server_Session> session,
-         ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
-         ::rocket::linear_buffer&& data)
+      [](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
+         ::poseidon::Easy_HWS_Event event, ::rocket::linear_buffer&& data)
       {
         POSEIDON_LOG_WARN(("client [$1]: $2 $3"), session->remote_address(), event, data);
       }
