@@ -25,10 +25,12 @@ void
 Service::
 set_application_name(cow_stringR app_name)
   {
-    static constexpr char name_chars[] =
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~";
-
-    if(app_name.empty() || (app_name.find_not_of(name_chars) != cow_string::npos))
+    if(app_name.empty() || !all_of(app_name,
+        [](char ch) {
+          return ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'))
+                 || ((ch >= '0') && (ch <= '9'))
+                 || (ch == '.') || (ch == '-') || (ch == '_') || (ch == '~');
+        }))
       POSEIDON_THROW(("Invalid application name `$1`"), app_name);
 
     this->m_uuid = ::poseidon::UUID::random();
