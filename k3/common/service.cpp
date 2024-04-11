@@ -4,7 +4,7 @@
 #include "../xprecompiled.hpp"
 #include "service.hpp"
 #include <poseidon/fiber/abstract_future.hpp>
-#include <poseidon/static/async_task_executor.hpp>
+#include <poseidon/static/task_executor.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/redis/redis_connection.hpp>
 #include <poseidon/redis/redis_value.hpp>
@@ -189,7 +189,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     task->in_props = this->m_props;
     task->in_ttl = ttl;
 
-    ::poseidon::async_task_executor.enqueue(task);
+    ::poseidon::task_executor.enqueue(task);
     ::poseidon::fiber_scheduler.yield(fiber, task);
 
     this->m_remotes = move(task->out_remotes);
