@@ -45,8 +45,8 @@ constexpr seconds s_service_ttl = 60s;
 
 ::poseidon::Easy_Timer s_service_update_timer(
     static_cast<::poseidon::Easy_Timer::thunk_type::function_type*>(
-      [](shptrR<::poseidon::Abstract_Timer> /*timer*/,
-         ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+      [](shptrR<::poseidon::Abstract_Timer> /*timer*/, ::poseidon::Abstract_Fiber& fiber,
+         steady_time /*now*/)
       { s_service.synchronize_services_with_redis(fiber, s_service_ttl);  }
     ));
 
