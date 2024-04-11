@@ -3,9 +3,8 @@
 
 #include "../xprecompiled.hpp"
 #include "service.hpp"
-#include <poseidon/base/abstract_async_task.hpp>
-#include <poseidon/static/async_task_executor.hpp>
 #include <poseidon/fiber/abstract_future.hpp>
+#include <poseidon/static/async_task_executor.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/redis/redis_connection.hpp>
 #include <poseidon/redis/redis_value.hpp>
@@ -71,8 +70,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     if(this->m_app_name.empty())
       POSEIDON_THROW(("Missing application name"));
 
-    struct Redis_Task
-      : ::poseidon::Abstract_Async_Task, ::poseidon::Abstract_Future
+    struct Redis_Task : ::poseidon::Abstract_Future
       {
         ::poseidon::UUID in_uuid;
         cow_string in_app_name_slash;
@@ -81,13 +79,6 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
         ::taxon::V_object in_props;
         seconds in_ttl;
         snapshot_map out_remotes;
-
-        virtual
-        void
-        do_on_abstract_async_task_execute() override
-          {
-            this->do_abstract_future_request();
-          }
 
         virtual
         void
