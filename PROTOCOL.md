@@ -25,7 +25,7 @@ individual messages, are implementation-defined and vary between applications.
 1. A message from a client peer may be delivered as an HTTP GET request, an HTTP
    HEAD request, a WebSocket text message, or a WebSocket binary message. The
    representation, limitation and requirements about how a message is delivered
-   have no effect on the semantics of the message.
+   have no effect on the semantics of it.
 2. A client peer that sends an HTTP request shall include authentication
    information within its URI query. The URI fragment and HTTP request body have
    no meaning and should be empty.
