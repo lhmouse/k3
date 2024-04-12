@@ -14,10 +14,10 @@ individual messages, are implementation-defined and vary between applications.
    a connection.
 4. A _handshake_ is a special piece of data that a host sends via a connection
    for authentication.
-5. The _client peer_ of a connection is the host that is to initiate the
-   connection and to send a handshake.
+5. The _client peer_ of a connection is the host that initiates connections and
+   send handshakes.
 6. The _server peer_ of a connection is the host that listens for incoming
-   connections and receive handshakes.
+   connections and receives handshakes.
 7. A _peer_ is either a client peer or a server peer.
 
 ## Connection Management and Message Delivery
