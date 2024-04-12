@@ -183,7 +183,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     // This needs to be done in an asynchronous way.
     auto task = new_sh<Redis_Task>();
     task->in_uuid = this->m_uuid;
-    task->in_app_name_slash = this->m_app_name + '/';
+    task->in_app_name_slash = this->m_app_name + "/services/";
     task->in_app_type = this->m_app_type;
     task->in_app_port = this->m_app_port;
     task->in_props = this->m_props;
