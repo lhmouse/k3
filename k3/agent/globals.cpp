@@ -13,6 +13,13 @@ namespace {
 Service s_service;
 constexpr seconds s_service_ttl = 60s;
 
+::poseidon::Easy_Timer s_service_update_timer(
+    static_cast<::poseidon::Easy_Timer::thunk_type::function_type*>(
+      [](shptrR<::poseidon::Abstract_Timer> /*timer*/, ::poseidon::Abstract_Fiber& fiber,
+         steady_time /*now*/)
+      { s_service.synchronize_services_with_redis(fiber, s_service_ttl);  }
+    ));
+
 ::poseidon::Easy_HWS_Server s_private_acceptor(
     static_cast<::poseidon::Easy_HWS_Server::thunk_type::function_type*>(
       [](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
@@ -41,13 +48,6 @@ constexpr seconds s_service_ttl = 60s;
       }
     ));
 
-::poseidon::Easy_Timer s_service_update_timer(
-    static_cast<::poseidon::Easy_Timer::thunk_type::function_type*>(
-      [](shptrR<::poseidon::Abstract_Timer> /*timer*/, ::poseidon::Abstract_Fiber& fiber,
-         steady_time /*now*/)
-      { s_service.synchronize_services_with_redis(fiber, s_service_ttl);  }
-    ));
-
 }  // namespace
 
 const ::poseidon::Config_File& config = s_config;
@@ -68,12 +68,14 @@ poseidon_module_main(void)
     POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
     s_config.reload(&"k3.conf");
 
+    // Start the service.
     auto conf_val = s_config.query("application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_application_type(&"agent");
     s_private_acceptor.start("[::]:0");
     s_service.set_private_port(s_private_acceptor.local_address().port());
+    s_service_update_timer.start(0s, s_service_ttl / 2);
 
     // Open ports for incoming connections from clients from public network.
     // These ports are optional.
@@ -94,7 +96,4 @@ poseidon_module_main(void)
       s_client_acceptor_ssl.start(fmt.get_string());
       s_service.set_property(&"client_port_ssl", static_cast<double>(conf_val.as_integer()));
     }
-
-    // Publish myself to Redis.
-    s_service_update_timer.start(0s, s_service_ttl / 2);
   }
