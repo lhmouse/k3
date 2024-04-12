@@ -151,11 +151,11 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             } while(cmd[1] != "0");
 
             for(const auto& key : keys) {
-              if(!key.starts_with(this->in_app_name_slash))
+              if(key.size() != this->in_app_name_slash.size() + 36)
                 continue;
 
               ::poseidon::UUID uuid;
-              if(uuid.parse(chars_view(key) >>  this->in_app_name_slash.length()) == 0) {
+              if(uuid.parse_partial(key.data() + this->in_app_name_slash.size()) != 36) {
                 POSEIDON_LOG_WARN(("Invalid service name `$1`"), key);
                 continue;
               }
