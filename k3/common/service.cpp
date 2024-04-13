@@ -75,7 +75,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     struct Redis_Task : ::poseidon::Abstract_Future
       {
         ::poseidon::UUID in_uuid;
-        cow_string in_app_name_slash;
+        cow_string in_redis_key_prefix;
         cow_string in_app_type;
         uint16_t in_app_port;
         ::taxon::V_object in_props;
@@ -126,7 +126,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             taxon.mut_object().try_emplace(&"private_address", fmt.extract_string());
 
             cmd[0] = &"set";
-            fmt << this->in_app_name_slash << this->in_uuid;
+            fmt << this->in_redis_key_prefix << this->in_uuid;
             cmd[1] = fmt.extract_string();
             taxon.print_to(cmd[2]);
             cmd[3] = &"ex";
@@ -138,7 +138,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             cmd[0] = &"scan";
             cmd[1] = &"0";
             cmd[2] = &"match";
-            fmt << this->in_app_name_slash << '*';
+            fmt << this->in_redis_key_prefix << '*';
             cmd[3] = fmt.extract_string();
             do {
               redis->execute(cmd, 4);
@@ -151,11 +151,11 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             } while(cmd[1] != "0");
 
             for(const auto& key : keys) {
-              if(key.size() != this->in_app_name_slash.size() + 36)
+              if(key.size() != this->in_redis_key_prefix.size() + 36)
                 continue;
 
               ::poseidon::UUID uuid;
-              if(uuid.parse_partial(key.data() + this->in_app_name_slash.size()) != 36) {
+              if(uuid.parse_partial(key.data() + this->in_redis_key_prefix.size()) != 36) {
                 POSEIDON_LOG_WARN(("Invalid service name `$1`"), key);
                 continue;
               }
@@ -183,7 +183,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     // This needs to be done in an asynchronous way.
     auto task = new_sh<Redis_Task>();
     task->in_uuid = this->m_uuid;
-    task->in_app_name_slash = this->m_app_name + "/services/";
+    task->in_redis_key_prefix = this->m_app_name + "/services/";
     task->in_app_type = this->m_app_type;
     task->in_app_port = this->m_app_port;
     task->in_props = this->m_props;
