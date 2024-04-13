@@ -61,3 +61,10 @@ shared_module('k3_agent',
       'k3/common/service.cpp',
       'k3/agent/globals.cpp',
     ])
+
+shared_module('k3_logic',
+    cpp_pch: 'k3/xprecompiled.hpp',
+    sources: [
+      'k3/common/service.cpp',
+      'k3/logic/globals.cpp',
+    ])
