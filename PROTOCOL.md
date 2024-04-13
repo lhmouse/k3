@@ -22,16 +22,16 @@ individual messages, are implementation-defined and vary between applications.
 
 ## Connection Management and Message Delivery
 
-1. A message from a client peer may be delivered as an HTTP GET request, an HTTP
-   HEAD request, a WebSocket text message, or a WebSocket binary message. The
-   representation, limitation and requirements about how a message is delivered
-   have no effect on the semantics of it.
-2. A client peer that sends an HTTP request shall include authentication
-   information within its URI query. The URI fragment and HTTP request body have
-   no meaning and should be empty.
-3. A client peer that sends a WebSocket message shall include authentication
-   information within the URI query of the WebSocket handshake of the connection
-   where the message is being delivered.
+1. A message from a peer may be delivered as a WebSocket text or binary message.
+   In addition, a message from a client peer may be delivered as an HTTP GET or
+   HEAD request, and a message from a server peer may be delivered as an HTTP
+   response. The representation, limitation and requirements how a message is
+   delivered shall have no effect on the semantics of it.
+2. In an HTTP request, the URI fragment and request body have no meaning and
+   should be empty.
+3. When authentication is required, a client peer shall include authentication
+   information within URI queries of the HTTP requests or WebSocket handshakes
+   that it sends.
 4. A peer of a WebSocket connection which wishes to shut a connection down
    should send a WebSocket Close frame with an appropriate status code and error
    message. It can then close the connection and release associated resources
