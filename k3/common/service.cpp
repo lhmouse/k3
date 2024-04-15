@@ -138,8 +138,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             cmd[0] = &"scan";
             cmd[1] = &"0";
             cmd[2] = &"match";
-            fmt << this->in_redis_key_prefix << '*';
-            cmd[3] = fmt.extract_string();
+            cmd[3] = this->in_redis_key_prefix + "*";
             do {
               redis->execute(cmd, 4);
               redis->fetch_reply(reply);
