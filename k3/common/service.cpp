@@ -23,32 +23,32 @@ Service::
 
 void
 Service::
-set_application_name(cow_stringR app_name)
+set_application_name(cow_stringR name)
   {
-    if(app_name.empty() || !all_of(app_name,
+    if(name.empty() || !all_of(name,
         [](char ch) {
           return ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'))
                  || ((ch >= '0') && (ch <= '9'))
                  || (ch == '.') || (ch == '-') || (ch == '_') || (ch == '~');
         }))
-      POSEIDON_THROW(("Invalid application name `$1`"), app_name);
+      POSEIDON_THROW(("Invalid application name `$1`"), name);
 
     this->m_uuid = ::poseidon::UUID::random();
-    this->m_app_name = app_name;
+    this->m_app_name = name;
   }
 
 void
 Service::
-set_application_type(cow_stringR app_type)
+set_private_type(cow_stringR type)
   {
-    this->m_app_type = app_type;
+    this->m_prv_type = type;
   }
 
 void
 Service::
-set_private_port(uint16_t app_port)
+set_private_port(uint16_t port)
   {
-    this->m_app_port = app_port;
+    this->m_prv_port = port;
   }
 
 void
@@ -76,8 +76,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
       {
         ::poseidon::UUID in_uuid;
         cow_string in_redis_key_prefix;
-        cow_string in_app_type;
-        uint16_t in_app_port;
+        cow_string in_prv_type;
+        uint16_t in_prv_port;
         ::taxon::V_object in_props;
         seconds in_ttl;
         snapshot_map out_remotes;
@@ -111,8 +111,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             }
 
             // Upload my service information.
-            taxon.mut_object().try_emplace(&"application_type", this->in_app_type);
             taxon.mut_object().try_emplace(&"properties", this->in_props);
+            taxon.mut_object().try_emplace(&"private_type", this->in_prv_type);
             taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
 
             auto sys_time = system_clock::now();
@@ -120,9 +120,9 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             auto hires_dur = time_point_cast<hires_milliseconds>(sys_time).time_since_epoch();
             taxon.mut_object().try_emplace(&"timestamp", hires_dur.count());
 
-            auto saddr = redis->local_address();
-            saddr.set_port(this->in_app_port);
-            fmt << saddr;
+            auto prv_addr = redis->local_address();
+            prv_addr.set_port(this->in_prv_port);
+            fmt << prv_addr;
             taxon.mut_object().try_emplace(&"private_address", fmt.extract_string());
 
             cmd[0] = &"set";
@@ -183,8 +183,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     auto task = new_sh<Redis_Task>();
     task->in_uuid = this->m_uuid;
     task->in_redis_key_prefix = this->m_app_name + "/services/";
-    task->in_app_type = this->m_app_type;
-    task->in_app_port = this->m_app_port;
+    task->in_prv_type = this->m_prv_type;
+    task->in_prv_port = this->m_prv_port;
     task->in_props = this->m_props;
     task->in_ttl = ttl;
 

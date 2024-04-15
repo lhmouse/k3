@@ -45,7 +45,7 @@ poseidon_module_main(void)
     auto conf_val = s_config.query("application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
-    s_service.set_application_type(&"logic");
+    s_service.set_private_type(&"logic");
     s_private_acceptor.start("[::]:0");
     s_service.set_private_port(s_private_acceptor.local_address().port());
     s_service_update_timer.start(0s, s_service_ttl / 2);

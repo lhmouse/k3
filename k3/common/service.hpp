@@ -19,8 +19,8 @@ class Service
     // local
     ::poseidon::UUID m_uuid;
     cow_string m_app_name;
-    cow_string m_app_type;
-    uint16_t m_app_port = 0;
+    cow_string m_prv_type;
+    uint16_t m_prv_port = 0;
     ::taxon::V_object m_props;
 
     // remote
@@ -44,21 +44,21 @@ class Service
       { return this->m_app_name;  }
 
     void
-    set_application_name(cow_stringR app_name);
+    set_application_name(cow_stringR name);
 
     cow_stringR
-    application_type() const noexcept
-      { return this->m_app_type;  }
+    private_type() const noexcept
+      { return this->m_prv_type;  }
 
     void
-    set_application_type(cow_stringR app_type);
+    set_private_type(cow_stringR type);
 
     uint16_t
     private_port() const noexcept
-      { return this->m_app_port;  }
+      { return this->m_prv_port;  }
 
     void
-    set_private_port(uint16_t app_port);
+    set_private_port(uint16_t port);
 
     // Each service may have its own properties, which are published to Redis
     // and shared amongst all services.
