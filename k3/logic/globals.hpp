@@ -11,7 +11,6 @@ namespace k3::logic {
 
 extern const ::poseidon::Config_File& config;
 extern const Service& service;
-extern const ::poseidon::Easy_HWS_Server& private_acceptor;
 
 }  // namespace k3::logic
 #endif

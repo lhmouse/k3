@@ -28,7 +28,6 @@ constexpr seconds s_service_ttl = 60s;
 
 const ::poseidon::Config_File& config = s_config;
 const Service& service = s_service;
-const ::poseidon::Easy_HWS_Server& private_acceptor = s_private_acceptor;
 
 }  // namespace k3::logic
 

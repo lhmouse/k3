@@ -43,9 +43,6 @@ Service s_service;
 
 const ::poseidon::Config_File& config = s_config;
 const Service& service = s_service;
-const ::poseidon::Easy_HWS_Server& private_acceptor = s_private_acceptor;
-const ::poseidon::Easy_HWS_Server& client_acceptor_tcp = s_client_acceptor_tcp;
-const ::poseidon::Easy_HWSS_Server& client_acceptor_ssl = s_client_acceptor_ssl;
 
 }  // namespace k3::agent
 
