@@ -11,11 +11,10 @@ namespace {
 ::poseidon::Config_File s_config;
 Service s_service;
 
-constexpr seconds s_service_ttl = 60s;
 ::poseidon::Easy_Timer s_service_update_timer(
   *[](shptrR<::poseidon::Abstract_Timer> /*timer*/, ::poseidon::Abstract_Fiber& fiber,
       steady_time /*now*/)
-    { s_service.synchronize_services_with_redis(fiber, s_service_ttl);  });
+    { s_service.synchronize_services_with_redis(fiber, 60s);  });
 
 ::poseidon::Easy_HWS_Server s_private_acceptor(
   *[](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
@@ -47,7 +46,7 @@ poseidon_module_main(void)
     s_service.set_private_type(&"logic");
     s_private_acceptor.start("[::]:0");
     s_service.set_private_port(s_private_acceptor.local_address().port());
-    s_service_update_timer.start(0s, s_service_ttl / 2);
+    s_service_update_timer.start(1s, 30s);
 
     // TODO logic
   }
