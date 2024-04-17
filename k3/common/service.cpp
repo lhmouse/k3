@@ -106,7 +106,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
               // address has been set.
               cmd[0] = &"ping";
               redis->execute(cmd, 1);
-              POSEIDON_LOG_DEBUG(("Using local address from Redis connection: `$1`"),
+              POSEIDON_LOG_TRACE(("Using local address from Redis connection: `$1`"),
                                  redis->local_address());
             }
 
@@ -171,7 +171,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
                 continue;
               }
 
-              POSEIDON_LOG_DEBUG(("Received service: `$1`$3 = $2"),
+              POSEIDON_LOG_TRACE(("Received service: `$1`$3 = $2"),
                                  uuid, taxon, (uuid == this->in_uuid) ? " (self)" : "");
 
               this->out_remotes[uuid] = move(taxon.mut_object());
@@ -192,7 +192,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     ::poseidon::fiber_scheduler.yield(fiber, task);
 
     this->m_remotes = move(task->out_remotes);
-    POSEIDON_LOG_DEBUG(("Finished synchronizing services: size = $1"),
+    POSEIDON_LOG_TRACE(("Finished synchronizing services: size = $1"),
                        this->m_remotes.size());
   }
 
