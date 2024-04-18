@@ -6,6 +6,7 @@
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_hwss_server.hpp>
+#include <poseidon/socket/tcp_acceptor.hpp>
 namespace k3::agent {
 namespace {
 
@@ -19,22 +20,21 @@ Service s_service;
 
 ::poseidon::Easy_HWS_Server s_private_acceptor(
   *[](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
-      ::poseidon::Easy_HWS_Event event, ::rocket::linear_buffer&& data)
+      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
     {
       POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
     });
 
 ::poseidon::Easy_HWS_Server s_client_acceptor_tcp(
   *[](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
-      ::poseidon::Easy_HWS_Event event, ::rocket::linear_buffer&& data)
+      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
     {
       POSEIDON_LOG_WARN(("client [$1]: $2 $3"), session->remote_address(), event, data);
     });
 
 ::poseidon::Easy_HWSS_Server s_client_acceptor_ssl(
-  *[](shptrR<::poseidon::WSS_Server_Session> session,
-      ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
-      ::rocket::linear_buffer&& data)
+  *[](shptrR<::poseidon::WSS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
+      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
     {
       POSEIDON_LOG_WARN(("client(ssl) [$1]: $2 $3"), session->remote_address(), event, data);
     });
@@ -60,8 +60,8 @@ poseidon_module_main(void)
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_private_type(&"agent");
-    s_private_acceptor.start("[::]:0");
-    s_service.set_private_port(s_private_acceptor.local_address().port());
+    auto lc = s_private_acceptor.start("[::]:0");
+    s_service.set_private_port(lc->local_address().port());
     s_service_update_timer.start(0s, 10s);
 
     // Open ports for incoming connections from clients from public network.
