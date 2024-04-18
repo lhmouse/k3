@@ -121,7 +121,6 @@ using ::rocket::none_of;
 using ::rocket::nullopt;
 
 using ::poseidon::chars_view;
-using ::poseidon::vfptr;
 using ::poseidon::cow_bivector;
 using ::poseidon::cow_stringR;
 using phsh_stringR = const ::rocket::prehashed_string&;
