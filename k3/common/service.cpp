@@ -128,7 +128,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             cmd[0] = &"set";
             fmt << this->in_redis_key_prefix << this->in_uuid;
             cmd[1] = fmt.extract_string();
-            taxon.print_to(cmd[2]);
+            fmt << taxon;
+            cmd[2] = fmt.extract_string();
             cmd[3] = &"ex";
             fmt << this->in_ttl.count();
             cmd[4] = fmt.extract_string();
@@ -154,7 +155,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
                 continue;
 
               ::poseidon::UUID uuid;
-              if(uuid.parse_partial(key.data() + this->in_redis_key_prefix.size()) != 36) {
+              if(uuid.parse_partial(key.data() + key.size() - 36) != 36) {
                 POSEIDON_LOG_WARN(("Invalid service name `$1`"), key);
                 continue;
               }
