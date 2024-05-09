@@ -74,6 +74,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
     struct Redis_Task : ::poseidon::Abstract_Future
       {
+        uniptr<::poseidon::Redis_Connection> redis;
         ::poseidon::UUID in_uuid;
         cow_string in_redis_key_prefix;
         cow_string in_prv_type;
@@ -94,20 +95,14 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
             // Connect to the default Redis server. The connection shall be put
             // back before this function returns.
-            auto redis = ::poseidon::redis_connector.allocate_default_connection();
-            const auto redis_guard = make_unique_handle(&redis,
-                [&](void*) {
-                  if(redis && redis->reset())
-                    ::poseidon::redis_connector.pool_connection(move(redis));
-                });
-
-            if(redis->local_address() == ::poseidon::ipv6_unspecified) {
+            this->redis = ::poseidon::redis_connector.allocate_default_connection();
+            if(this->redis->local_address() == ::poseidon::ipv6_unspecified) {
               // Ensure a socket connection has been established and the local
               // address has been set.
               cmd[0] = &"ping";
-              redis->execute(cmd, 1);
+              this->redis->execute(cmd, 1);
               POSEIDON_LOG_TRACE(("Using local address from Redis connection: `$1`"),
-                                 redis->local_address());
+                                 this->redis->local_address());
             }
 
             // Upload my service information.
@@ -120,7 +115,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             auto hires_dur = time_point_cast<hires_milliseconds>(sys_time).time_since_epoch();
             taxon.mut_object().try_emplace(&"timestamp", hires_dur.count());
 
-            auto prv_addr = redis->local_address();
+            auto prv_addr = this->redis->local_address();
             prv_addr.set_port(this->in_prv_port);
             fmt << prv_addr;
             taxon.mut_object().try_emplace(&"private_address", fmt.extract_string());
@@ -133,7 +128,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             cmd[3] = &"ex";
             fmt << this->in_ttl.count();
             cmd[4] = fmt.extract_string();
-            redis->execute(cmd, 5);
+            this->redis->execute(cmd, 5);
 
             // Get keys of all service.
             cmd[0] = &"scan";
@@ -141,8 +136,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             cmd[2] = &"match";
             cmd[3] = this->in_redis_key_prefix + "*";
             do {
-              redis->execute(cmd, 4);
-              redis->fetch_reply(reply);
+              this->redis->execute(cmd, 4);
+              this->redis->fetch_reply(reply);
 
               for(const auto& r : reply.as_array().at(1).as_array())
                 keys.emplace_back(r.as_string());
@@ -162,8 +157,8 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
               cmd[0] = "get";
               cmd[1] = key;
-              redis->execute(cmd, 2);
-              redis->fetch_reply(reply);
+              this->redis->execute(cmd, 2);
+              this->redis->fetch_reply(reply);
 
               ::taxon::Parser_Context pctx;
               taxon.parse_with(pctx, reply.as_string());
@@ -177,6 +172,14 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
               this->out_remotes[uuid] = move(taxon.mut_object());
             }
+          }
+
+        virtual
+        void
+        do_on_abstract_future_finalize() noexcept
+          {
+            if(this->redis && this->redis->reset())
+              ::poseidon::redis_connector.pool_connection(move(this->redis));
           }
       };
 
