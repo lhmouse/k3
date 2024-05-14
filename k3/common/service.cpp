@@ -3,12 +3,14 @@
 
 #include "../xprecompiled.hpp"
 #include "service.hpp"
-#include <poseidon/fiber/abstract_future.hpp>
+#include <poseidon/socket/ipv6_address.hpp>
+#include <poseidon/fiber/redis_query_future.hpp>
+#include <poseidon/fiber/redis_scan_and_get_future.hpp>
 #include <poseidon/static/task_executor.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
-#include <poseidon/redis/redis_connection.hpp>
-#include <poseidon/redis/redis_value.hpp>
-#include <poseidon/static/redis_connector.hpp>
+#include <sys/types.h>
+#include <net/if.h>
+#include <ifaddrs.h>
 namespace k3 {
 
 Service::
@@ -72,132 +74,99 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     if(this->m_app_name.empty())
       POSEIDON_THROW(("Missing application name"));
 
-    struct Redis_Task : ::poseidon::Abstract_Future
-      {
-        uniptr<::poseidon::Redis_Connection> redis;
-        ::poseidon::UUID in_uuid;
-        cow_string in_redis_key_prefix;
-        cow_string in_prv_type;
-        uint16_t in_prv_port;
-        ::taxon::V_object in_props;
-        seconds in_ttl;
-        snapshot_map out_remotes;
+    ::taxon::Value taxon;
+    ::rocket::tinyfmt_str fmt;
+    ::poseidon::IPv6_Address ipaddr;
+    ::taxon::V_array addr_array;
+    ::poseidon::UUID uuid;
+    ::taxon::Parser_Context pctx;
+    snapshot_map remotes;
 
-        virtual
-        void
-        do_on_abstract_future_execute() override
+    // Get all operational non-loopback network addresses.
+    ::ifaddrs* ifap;
+    if(::getifaddrs(&ifap) != 0)
+      POSEIDON_THROW(("Failed to list network interfaces: ${errno:full}]"));
+
+    const ::rocket::unique_ptr<::ifaddrs, void (::ifaddrs*)> ifguard(ifap, ::freeifaddrs);
+    if(!ifguard)
+      return;
+
+    for(;  ifap;  ifap = ifap->ifa_next)
+      if(ifap->ifa_addr && (ifap->ifa_flags & IFF_RUNNING) && !(ifap->ifa_flags & IFF_LOOPBACK))
+        switch(ifap->ifa_addr->sa_family)
           {
-            ::taxon::Value taxon;
-            ::rocket::tinyfmt_str fmt;
-            vector<cow_string> keys;
-            cow_string cmd[6];
-            ::poseidon::Redis_Value reply;
+          case AF_INET:
+            ::memcpy(ipaddr.mut_data(), ::poseidon::ipv4_loopback.data(), 12);
+            ::memcpy(ipaddr.mut_data() + 12, &(reinterpret_cast<const ::sockaddr_in*>(
+                                                              ifap->ifa_addr)->sin_addr), 4);
+            ipaddr.set_port(this->m_prv_port);
+            fmt << ipaddr;
+            addr_array.emplace_back(fmt.extract_string());
+            break;
 
-            // Connect to the default Redis server. The connection shall be put
-            // back before this function returns.
-            this->redis = ::poseidon::redis_connector.allocate_default_connection();
-            if(this->redis->local_address() == ::poseidon::ipv6_unspecified) {
-              // Ensure a socket connection has been established and the local
-              // address has been set.
-              cmd[0] = &"ping";
-              this->redis->execute(cmd, 1);
-              POSEIDON_LOG_TRACE(("Using local address from Redis connection: `$1`"),
-                                 this->redis->local_address());
-            }
-
-            // Upload my service information.
-            taxon.mut_object().try_emplace(&"properties", this->in_props);
-            taxon.mut_object().try_emplace(&"private_type", this->in_prv_type);
-            taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
-
-            auto sys_time = system_clock::now();
-            using hires_milliseconds = ::std::chrono::duration<double, ::std::milli>;
-            auto hires_dur = time_point_cast<hires_milliseconds>(sys_time).time_since_epoch();
-            taxon.mut_object().try_emplace(&"timestamp", hires_dur.count());
-
-            auto prv_addr = this->redis->local_address();
-            prv_addr.set_port(this->in_prv_port);
-            fmt << prv_addr;
-            taxon.mut_object().try_emplace(&"private_address", fmt.extract_string());
-
-            cmd[0] = &"set";
-            fmt << this->in_redis_key_prefix << this->in_uuid;
-            cmd[1] = fmt.extract_string();
-            fmt << taxon;
-            cmd[2] = fmt.extract_string();
-            cmd[3] = &"ex";
-            fmt << this->in_ttl.count();
-            cmd[4] = fmt.extract_string();
-            this->redis->execute(cmd, 5);
-
-            // Get keys of all service.
-            cmd[0] = &"scan";
-            cmd[1] = &"0";
-            cmd[2] = &"match";
-            cmd[3] = this->in_redis_key_prefix + "*";
-            do {
-              this->redis->execute(cmd, 4);
-              this->redis->fetch_reply(reply);
-
-              for(const auto& r : reply.as_array().at(1).as_array())
-                keys.emplace_back(r.as_string());
-
-              cmd[1] = reply.as_array().at(0).as_string();
-            } while(cmd[1] != "0");
-
-            for(const auto& key : keys) {
-              if(key.size() != this->in_redis_key_prefix.size() + 36)
-                continue;
-
-              ::poseidon::UUID uuid;
-              if(uuid.parse_partial(key.data() + key.size() - 36) != 36) {
-                POSEIDON_LOG_WARN(("Invalid service name `$1`"), key);
-                continue;
-              }
-
-              cmd[0] = "get";
-              cmd[1] = key;
-              this->redis->execute(cmd, 2);
-              this->redis->fetch_reply(reply);
-
-              ::taxon::Parser_Context pctx;
-              taxon.parse_with(pctx, reply.as_string());
-              if(pctx.error || !taxon.is_object()) {
-                POSEIDON_LOG_WARN(("Invalid service: `$1` = $2"), key, reply);
-                continue;
-              }
-
-              POSEIDON_LOG_TRACE(("Received service: `$1`$3 = $2"),
-                                 uuid, taxon, (uuid == this->in_uuid) ? " (self)" : "");
-
-              this->out_remotes[uuid] = move(taxon.mut_object());
-            }
+          case AF_INET6:
+            ::memcpy(ipaddr.mut_data(), &(reinterpret_cast<const ::sockaddr_in6*>(
+                                                         ifap->ifa_addr)->sin6_addr), 16);
+            ipaddr.set_port(this->m_prv_port);
+            fmt << ipaddr;
+            addr_array.emplace_back(fmt.extract_string());
+            break;
           }
 
-        virtual
-        void
-        do_on_abstract_future_finalize() noexcept
-          {
-            if(this->redis && this->redis->reset())
-              ::poseidon::redis_connector.pool_connection(move(this->redis));
-          }
-      };
+    // Upload my service information.
+    taxon.mut_object().try_emplace(&"private_address", move(addr_array));
+    taxon.mut_object().try_emplace(&"private_type", this->m_prv_type);
+    taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
+    taxon.mut_object().try_emplace(&"properties", this->m_props);
+    taxon.mut_object().try_emplace(&"timestamp",
+            time_point_cast<duration<double, ::std::milli>>(
+                   system_clock::now()).time_since_epoch().count());
 
-    // This needs to be done in an asynchronous way.
-    auto task = new_sh<Redis_Task>();
-    task->in_uuid = this->m_uuid;
-    task->in_redis_key_prefix = this->m_app_name + "/services/";
-    task->in_prv_type = this->m_prv_type;
-    task->in_prv_port = this->m_prv_port;
-    task->in_props = this->m_props;
-    task->in_ttl = ttl;
+    // Publish myself.
+    cow_vector<cow_string> cmd;
+    cmd.resize(5);
+    cmd.mut(0) = &"SET";
+    fmt << this->m_app_name << "/services/" << this->m_uuid;
+    cmd.mut(1) = fmt.extract_string();
+    fmt << taxon;
+    cmd.mut(2) = fmt.extract_string();
+    cmd.mut(3) = &"EX";
+    fmt << ttl.count();
+    cmd.mut(4) = fmt.extract_string();
 
-    ::poseidon::task_executor.enqueue(task);
-    ::poseidon::fiber_scheduler.yield(fiber, task);
+    auto task_publish = new_sh<::poseidon::Redis_Query_Future>(
+                             ::poseidon::redis_connector, move(cmd));
+    ::poseidon::task_executor.enqueue(task_publish);
+    ::poseidon::fiber_scheduler.yield(fiber, task_publish);
 
-    this->m_remotes = move(task->out_remotes);
-    POSEIDON_LOG_TRACE(("Finished synchronizing services: size = $1"),
-                       this->m_remotes.size());
+    // Get a list of all services.
+    auto task_scan = new_sh<::poseidon::Redis_Scan_and_Get_Future>(
+                      ::poseidon::redis_connector, this->m_app_name + "/services/*");
+    ::poseidon::task_executor.enqueue(task_scan);
+    ::poseidon::fiber_scheduler.yield(fiber, task_scan);
+
+    for(const auto& r : task_scan->result().pairs) {
+      if(r.first.size() < 36)  // ??
+        continue;
+
+      if(uuid.parse_partial(r.first.data() + r.first.size() - 36) != 36) {
+        POSEIDON_LOG_WARN(("Invalid service name `$1`"), r.first);
+        continue;
+      }
+
+      taxon.parse_with(pctx, r.second);
+      if(pctx.error || !taxon.is_object()) {
+        POSEIDON_LOG_WARN(("Invalid service: `$1` = $2"), r.first, r.second);
+        continue;
+      }
+
+      POSEIDON_LOG_TRACE(("Received service: `$1` = $2"), uuid, taxon);
+      remotes.try_emplace(uuid, move(taxon.mut_object()));
+    }
+
+    // Update `m_remotes` atomically.
+    this->m_remotes = move(remotes);
+    POSEIDON_LOG_TRACE(("Done synchronizing services: size = $1"), this->m_remotes.size());
   }
 
 }  // namespace k3
