@@ -10,28 +10,37 @@ individual messages, are implementation-defined and vary between applications.
    data.
 2. A _connection_ is a binary relationship between two hosts for direct exchange
    of data. A connection may be established from a host to itself.
-3. A _message_ is a piece of data that can be sent from one host to another via
-   a connection.
-4. A _handshake_ is a special piece of data that a host sends via a connection
+3. A _handshake_ is a special piece of data that a host sends via a connection
    for authentication.
-5. The _client peer_ of a connection is the host that initiates connections and
+4. The _client peer_ of a connection is the host that initiates connections and
    sends handshakes.
-6. The _server peer_ of a connection is the host that listens for incoming
+5. The _server peer_ of a connection is the host that listens for incoming
    connections and receives handshakes.
-7. A _peer_ is either a client peer or a server peer.
+6. A _peer_ is either a client peer or a server peer.
+7. A _message_ is a piece of data that can be sent from one host to another via
+   a connection.
+8. The _path_ of a message is a string that starts with "/", which is used to
+   find a handler for the message. A message may have zero or one path.
+9. The _cookie_ of a message is a string that starts with "#", which is used to
+   determine the correspondence of two messages between two peers. A message
+   may have zero or more cookies. If a peer has received a message with cookies,
+   it must eventually send back with another message with the same sequence of
+   cookies. A cookie shall not affect the meaning of a message.
+10. The _payload_ of a message is a (possibly empty) sequence of bytes of a
+    message that defines the meaning of the message.
 
-## Message Syntax
+## Connection Management
 
-1. The production rules are defined as
-   * _message_ ::= _metadata-line_ * _path-line_ ? _payload_
-   * _metadata-line_ ::= "#" [^ "\n" ]* "\n"
-   * _path-line_ ::= "/" [^ "\n" ]* "\n"
-   * _payload_ ::= ( [^ "\n" ] "\n" ? )*
-2. _metadata_ lines are optional, and shall not have an effect on the meaning of
-   this message. A receiver may ignore arbitrary parts of the metadata.
-3. _path_ determines the meaning of this message.
-4. _payload_ shall be a JSON string that determines the meaning of this message
-   in addition to the path.
+1. When authentication is required, a client peer shall include authentication
+   information within URI queries of the HTTP requests or WebSocket handshakes
+   that it sends.
+2. A peer of a WebSocket connection which wishes to shut a connection down
+   should send a Close frame with an appropriate status code and error message.
+   It can then close the connection and release associated resources without
+   having to await a response from the other peer.
+3. A peer of a WebSocket connection which has received a Close frame shall close
+   the connection and release associated resources. The closure is normal if and
+   only if a Close frame with status 1000 has been received.
 
 ## Message Delivery
 
@@ -60,16 +69,3 @@ individual messages, are implementation-defined and vary between applications.
    * If a line starts with "/", then it produces _path-line_.
    * Otherwise, this line and all the remaining lines are joined to produce
      _payload_.
-
-## Connection Management
-
-1. When authentication is required, a client peer shall include authentication
-   information within URI queries of the HTTP requests or WebSocket handshakes
-   that it sends.
-2. A peer of a WebSocket connection which wishes to shut a connection down
-   should send a Close frame with an appropriate status code and error message.
-   It can then close the connection and release associated resources without
-   having to await a response from the other peer.
-3. A peer of a WebSocket connection which has received a Close frame shall close
-   the connection and release associated resources. The closure is normal if and
-   only if a Close frame with status 1000 has been received.
