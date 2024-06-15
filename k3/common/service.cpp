@@ -94,14 +94,16 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
           {
           case AF_INET:
             ::memcpy(ipaddr.mut_data(), ::poseidon::ipv4_loopback.data(), 12);
-            ::memcpy(ipaddr.mut_data() + 12, &(reinterpret_cast<const ::sockaddr_in*>(ifap->ifa_addr)->sin_addr), 4);
+            ::memcpy(ipaddr.mut_data() + 12,
+                &(reinterpret_cast<const ::sockaddr_in*>(ifap->ifa_addr)->sin_addr), 4);
             ipaddr.set_port(this->m_prv_port);
             fmt << ipaddr;
             addr_array.emplace_back(fmt.extract_string());
             break;
 
           case AF_INET6:
-            ::memcpy(ipaddr.mut_data(), &(reinterpret_cast<const ::sockaddr_in6*>(ifap->ifa_addr)->sin6_addr), 16);
+            ::memcpy(ipaddr.mut_data(),
+                &(reinterpret_cast<const ::sockaddr_in6*>(ifap->ifa_addr)->sin6_addr), 16);
             ipaddr.set_port(this->m_prv_port);
             fmt << ipaddr;
             addr_array.emplace_back(fmt.extract_string());
@@ -113,7 +115,9 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     taxon.mut_object().try_emplace(&"private_type", this->m_prv_type);
     taxon.mut_object().try_emplace(&"properties", this->m_props);
     taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
-    taxon.mut_object().try_emplace(&"timestamp", time_point_cast<duration<double, ::std::milli>>(system_clock::now()).time_since_epoch().count());
+    taxon.mut_object().try_emplace(&"timestamp",
+        time_point_cast<duration<double, ::std::milli>>(system_clock::now())
+          .time_since_epoch().count());
 
     // Publish myself.
     cow_vector<cow_string> cmd;
@@ -127,12 +131,14 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     fmt << ttl.count();
     cmd.mut(4) = fmt.extract_string();
 
-    auto task_publish = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, move(cmd));
+    auto task_publish = new_sh<::poseidon::Redis_Query_Future>(
+                           ::poseidon::redis_connector, move(cmd));
     ::poseidon::task_executor.enqueue(task_publish);
     ::poseidon::fiber_scheduler.yield(fiber, task_publish);
 
     // Get a list of all services.
-    auto task_scan = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, this->m_app_name + "/services/*");
+    auto task_scan = new_sh<::poseidon::Redis_Scan_and_Get_Future>(
+                        ::poseidon::redis_connector, this->m_app_name + "/services/*");
     ::poseidon::task_executor.enqueue(task_scan);
     ::poseidon::fiber_scheduler.yield(fiber, task_scan);
 
