@@ -47,9 +47,9 @@ individual messages, are implementation-defined and vary between applications.
 1. A message may be delivered as an HTTP or WebSocket text message.
 2. A server peer that has received an HTTP GET or HEAD request shall translate
    it to a message as follows:
-   * The request URI produces _path-line_.
+   * The request URI produces _path_.
    * The query of the request URI produces _payload_, as an object of strings.
-   * There shall be no metadata.
+   * There shall be no cookie.
    * The fragment of the request URI, the HTTP request headers and the request
      payload shall be ignored.
 3. A client peer that has received an HTTP response shall translate it to a
@@ -57,15 +57,15 @@ individual messages, are implementation-defined and vary between applications.
    * If the status code is not 200, then the message is empty. If the status
      code is 200, further actions apply.
    * The response payload is decomposed to lines.
-   * If a line starts with "#", then it produces _metadata-line_.
-   * If a line starts with "/", then it produces _path-line_.
+   * If a line starts with "#", then it produces a _cookie_.
+   * If a line starts with "/", then it produces a _path_.
    * Otherwise, this line and all the remaining lines are joined to produce
      _payload_.
    * The HTTP response headers shall be ignored.
 4. A peer that has received a WebSocket text message shall translate it to a
    message as follows:
    * The message payload is decomposed to lines.
-   * If a line starts with "#", then it produces _metadata-line_.
-   * If a line starts with "/", then it produces _path-line_.
+   * If a line starts with "#", then it produces a _cookie_.
+   * If a line starts with "/", then it produces a _path_.
    * Otherwise, this line and all the remaining lines are joined to produce
      _payload_.
