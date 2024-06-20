@@ -60,7 +60,7 @@ individual messages, are implementation-defined and vary between applications.
    * If a line starts with "#", then it produces a _cookie_.
    * If a line starts with "/", then it produces a _path_.
    * Otherwise, this line and all the remaining lines are joined to produce
-     _payload_.
+     the _payload_.
    * The HTTP response headers shall be ignored.
 4. A peer that has received a WebSocket text message shall translate it to a
    message as follows:
@@ -68,4 +68,4 @@ individual messages, are implementation-defined and vary between applications.
    * If a line starts with "#", then it produces a _cookie_.
    * If a line starts with "/", then it produces a _path_.
    * Otherwise, this line and all the remaining lines are joined to produce
-     _payload_.
+     the _payload_.
