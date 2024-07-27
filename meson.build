@@ -15,7 +15,7 @@
 project('k3', 'cpp', version: '0.0.internal')
 
 #===========================================================
-# Global configuration
+# Configuration
 #===========================================================
 if get_option('enable-avx')
   add_project_arguments('-mavx', language: [ 'c', 'cpp' ])
@@ -35,7 +35,7 @@ add_project_arguments(
     '-Wmissing-declarations', '-Wmissing-field-initializers', '-Wshadow',
     '-Wsuggest-attribute=noreturn', '-Wswitch-enum', '-Wunused-function',
     '-Wunused-label', '-Wunused-local-typedefs', '-Wunused-but-set-variable',
-    '-Wunused-but-set-parameter',
+    '-Wunused-but-set-parameter', '-Wno-stringop-overflow', '-Wno-array-bounds',
     language: [ 'c', 'cpp' ])
 
 add_project_arguments(
@@ -44,16 +44,13 @@ add_project_arguments(
     '-Wno-redundant-move', '-Werror=non-virtual-dtor',
     language: [ 'cpp' ])
 
-#===========================================================
-# Dependencies
-#===========================================================
 add_project_dependencies(dependency('threads'), language: 'cpp')
 add_project_dependencies(dependency('asteria'), language: 'cpp')
 add_project_dependencies(dependency('poseidon'), language: 'cpp')
 add_project_dependencies(dependency('taxon'), language: 'cpp')
 
 #===========================================================
-# Rules for modules
+# Modules
 #===========================================================
 k3_common = shared_library('k3_common',
     cpp_pch: 'k3/xprecompiled.hpp',
