@@ -42,12 +42,14 @@ add_project_arguments(
     '-std=c++17', '-fno-elide-constructors', '-fvisibility-inlines-hidden',
     '-fnothrow-opt', '-fno-enforce-eh-specs', '-Wzero-as-null-pointer-constant',
     '-Wno-redundant-move', '-Werror=non-virtual-dtor',
-    language: [ 'cpp' ])
+    language: 'cpp')
 
-add_project_dependencies(dependency('threads'), language: 'cpp')
-add_project_dependencies(dependency('asteria'), language: 'cpp')
-add_project_dependencies(dependency('poseidon'), language: 'cpp')
-add_project_dependencies(dependency('taxon'), language: 'cpp')
+add_project_dependencies(
+    dependency('threads'),
+    dependency('asteria'),
+    dependency('poseidon'),
+    dependency('taxon'),
+    language: 'cpp')
 
 #===========================================================
 # Modules
