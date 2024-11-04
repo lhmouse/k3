@@ -12,7 +12,11 @@
 ## NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 ## CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-project('k3', 'cpp', version: '0.0.internal')
+project('poseidon',
+        'cpp',
+        version: '0.0.internal',
+        license: 'BSD-3-Clause',
+        meson_version: '>= 1.3.0')
 
 #===========================================================
 # Configuration
@@ -45,9 +49,7 @@ add_project_arguments(
     language: 'cpp')
 
 add_project_dependencies(
-    dependency('threads'),
-    dependency('asteria'),
-    dependency('poseidon'),
+    dependency('threads'), dependency('asteria'), dependency('poseidon'),
     dependency('taxon'),
     language: 'cpp')
 
@@ -56,20 +58,17 @@ add_project_dependencies(
 #===========================================================
 k3_common = shared_library('k3_common',
     cpp_pch: 'k3/xprecompiled.hpp',
-    sources: [
-      'k3/common/service.cpp',
-    ])
+    sources: [ 'k3/common/service.cpp' ],
+    install: true)
 
 shared_module('k3_agent',
     cpp_pch: 'k3/xprecompiled.hpp',
     link_with: k3_common,
-    sources: [
-      'k3/agent/globals.cpp',
-    ])
+    sources: [ 'k3/agent/globals.cpp' ],
+    install: true)
 
 shared_module('k3_logic',
     cpp_pch: 'k3/xprecompiled.hpp',
     link_with: k3_common,
-    sources: [
-      'k3/logic/globals.cpp',
-    ])
+    sources: [ 'k3/logic/globals.cpp' ],
+    install: true)
