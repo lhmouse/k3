@@ -49,8 +49,8 @@ add_project_arguments(
     language: 'cpp')
 
 add_project_dependencies(
-    dependency('threads'), dependency('asteria'), dependency('poseidon'),
-    dependency('taxon'),
+    dependency('threads'), dependency('openssl'), dependency('asteria'),
+    dependency('poseidon'), dependency('taxon'),
     language: 'cpp')
 
 #===========================================================
