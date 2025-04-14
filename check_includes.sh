@@ -1,16 +1,8 @@
 #!/bin/bash -e
 
-# setup
+export CPPFLAGS="-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Ibuild_debug"
 export CXX=${CXX:-"g++"}
-export CXXFLAGS="-D_FILE_OFFSET_BITS=64 -D_POSIX_C_SOURCE=200809
-                 -D_GNU_SOURCE -Ibuild_debug -std=c++17 -mavx"
 
-# note: `sem` is not always available
-_sem="parallel --will-cite --semaphore --halt soon,fail=1"
-
-for _f in $(find "k3" -name "*.[hc]pp")
-do
-  echo "Checking includes:  ${_f}"
-  ${_sem} -j+0 -- ${CXX} ${CXXFLAGS} -x c++ ${_f} -S -o /dev/null
-done
-${_sem} --wait
+find ~+/"k3" -name "*.[hc]pp"  \
+  | xargs -n 1 -P $(nproc) --  \
+    sh -xec '${CXX} ${CPPFLAGS} -x c++ -std=c++17 $1 -S -o /dev/null' 0
