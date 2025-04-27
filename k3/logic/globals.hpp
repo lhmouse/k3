@@ -1,5 +1,5 @@
 // This file is part of k3.
-// Copyleft 2024, LH_Mouse. All wrongs reserved.
+// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #ifndef K3VR5NZE_LOGIC_GLOBALS_
 #define K3VR5NZE_LOGIC_GLOBALS_
