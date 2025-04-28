@@ -111,7 +111,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
           }
 
     // Upload my service information.
-    taxon.mut_object().try_emplace(&"private_address", move(addr_array));
+    taxon.mut_object().try_emplace(&"private_addresses", move(addr_array));
     taxon.mut_object().try_emplace(&"private_type", this->m_prv_type);
     taxon.mut_object().try_emplace(&"properties", this->m_props);
     taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
