@@ -43,14 +43,14 @@ void
 Service::
 set_private_type(cow_stringR type)
   {
-    this->m_prv_type = type;
+    this->m_priv_type = type;
   }
 
 void
 Service::
 set_private_port(uint16_t port)
   {
-    this->m_prv_port = port;
+    this->m_priv_port = port;
   }
 
 void
@@ -96,7 +96,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
             ::memcpy(ipaddr.mut_data(), ::poseidon::ipv4_loopback.data(), 12);
             ::memcpy(ipaddr.mut_data() + 12,
                 &(reinterpret_cast<const ::sockaddr_in*>(ifap->ifa_addr)->sin_addr), 4);
-            ipaddr.set_port(this->m_prv_port);
+            ipaddr.set_port(this->m_priv_port);
             fmt << ipaddr;
             addr_array.emplace_back(fmt.extract_string());
             break;
@@ -104,7 +104,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
           case AF_INET6:
             ::memcpy(ipaddr.mut_data(),
                 &(reinterpret_cast<const ::sockaddr_in6*>(ifap->ifa_addr)->sin6_addr), 16);
-            ipaddr.set_port(this->m_prv_port);
+            ipaddr.set_port(this->m_priv_port);
             fmt << ipaddr;
             addr_array.emplace_back(fmt.extract_string());
             break;
@@ -112,7 +112,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
     // Upload my service information.
     taxon.mut_object().try_emplace(&"private_addresses", move(addr_array));
-    taxon.mut_object().try_emplace(&"private_type", this->m_prv_type);
+    taxon.mut_object().try_emplace(&"private_type", this->m_priv_type);
     taxon.mut_object().try_emplace(&"properties", this->m_props);
     taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
     taxon.mut_object().try_emplace(&"timestamp",

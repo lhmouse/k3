@@ -19,8 +19,8 @@ class Service
     // local
     ::poseidon::UUID m_uuid;
     cow_string m_app_name;
-    cow_string m_prv_type;
-    uint16_t m_prv_port = 0;
+    cow_string m_priv_type;
+    uint16_t m_priv_port = 0;
     ::taxon::V_object m_props;
 
     // remote
@@ -48,14 +48,14 @@ class Service
 
     cow_stringR
     private_type() const noexcept
-      { return this->m_prv_type;  }
+      { return this->m_priv_type;  }
 
     void
     set_private_type(cow_stringR type);
 
     uint16_t
     private_port() const noexcept
-      { return this->m_prv_port;  }
+      { return this->m_priv_port;  }
 
     void
     set_private_port(uint16_t port);
