@@ -55,27 +55,27 @@ if get_option('enable-debug-checks')
   add_project_arguments('-D_GLIBCXX_DEBUG', '-D_LIBCPP_DEBUG', language: 'cpp')
 endif
 
-add_project_dependencies(
-    dependency('threads'), dependency('openssl'), dependency('libunwind'),
-    dependency('asteria'), dependency('poseidon'), dependency('taxon'),
-    language: 'cpp')
-
 #===========================================================
-# Modules
+# Common library
 #===========================================================
 k3_common = shared_library('k3_common',
     cpp_pch: 'k3/xprecompiled.hpp',
     sources: [ 'k3/common/service.cpp' ],
+    dependencies: [ dependency('poseidon'), dependency('asteria'),
+                    dependency('taxon') ],
     install: true)
 
+#===========================================================
+# Modules
+#===========================================================
 shared_module('k3_agent',
     cpp_pch: 'k3/xprecompiled.hpp',
-    link_with: k3_common,
     sources: [ 'k3/agent/globals.cpp' ],
+    link_with: k3_common,
     install: true)
 
 shared_module('k3_logic',
     cpp_pch: 'k3/xprecompiled.hpp',
-    link_with: k3_common,
     sources: [ 'k3/logic/globals.cpp' ],
+    link_with: k3_common,
     install: true)
