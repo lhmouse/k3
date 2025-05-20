@@ -56,7 +56,7 @@ poseidon_module_main(void)
     s_config.reload(&"k3.conf");
 
     // Start the service.
-    auto conf_val = s_config.query("application_name");
+    auto conf_val = s_config.query(&"application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_private_type(&"agent");
@@ -66,7 +66,7 @@ poseidon_module_main(void)
 
     // Open ports for incoming connections from clients from public network.
     // These ports are optional.
-    conf_val = s_config.query("agent", "client_port_tcp");
+    conf_val = s_config.query(&"agent.client_port_tcp");
     POSEIDON_LOG_DEBUG(("* `agent.client_port_tcp` = $1"), conf_val);
     if(!conf_val.is_null()) {
       tinyfmt_str fmt;
@@ -75,7 +75,7 @@ poseidon_module_main(void)
       s_service.set_property(&"client_port_tcp", static_cast<double>(conf_val.as_integer()));
     }
 
-    conf_val = s_config.query("agent", "client_port_ssl");
+    conf_val = s_config.query(&"agent.client_port_ssl");
     POSEIDON_LOG_DEBUG(("* `agent.client_port_ssl` = $1"), conf_val);
     if(!conf_val.is_null()) {
       tinyfmt_str fmt;
