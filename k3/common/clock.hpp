@@ -5,11 +5,61 @@
 #define K3VR5NZE_COMMON_CLOCK_
 
 #include "../fwd.hpp"
+#include <poseidon/base/datetime.hpp>
 namespace k3 {
 
 class Clock
   {
+  public:
+    // wall clock fields in ISO format
+    struct system_time_fields
+      {
+        uint32_t year         : 12;  //    0 - 4095
+        uint32_t month         : 4;  //    1 - 12
+        uint32_t day_of_month  : 5;  //    1 - 31
+        uint32_t hour          : 5;  //    0 - 23
+        uint32_t minute        : 6;  //    0 - 59
+        uint32_t second        : 6;  //    0 - 60 (leap)
+        uint32_t milliseconds : 10;  //    0 - 999
+        int32_t tz_offset     : 10;  // -720 - 720
+        uint32_t dst          :  1;  // daylight saving time
+        uint32_t day_of_week   : 3;  //    1 - 7
+        uint32_t reserved     :  2;
+      };
 
+  private:
+    seconds m_offset = 0s;
+    mutable ::time_t m_cached_time = 0;
+    static_assert(sizeof(system_time_fields) == 8);
+    mutable system_time_fields m_cached_fields = { };
+
+  public:
+    Clock();
+    Clock(const Clock&) = delete;
+    Clock& operator=(const Clock&) & = delete;
+    ~Clock();
+
+    // The virtual clock offset is the number of seconds from the physical time
+    // of the current system to the virtual time of this process.
+    seconds
+    virtual_offset() const noexcept
+      { return this->m_offset;  }
+
+    void
+    set_virtual_offset(seconds secs) noexcept;
+
+    // These functions obtain the current virtual time.
+    ::time_t
+    get_time_t() const noexcept;
+
+    system_time
+    get_system_time() const noexcept;
+
+    ::poseidon::DateTime
+    get_date_time() const noexcept;
+
+    system_time_fields
+    get_system_time_fields() const noexcept;
   };
 
 }  // namespace k3
