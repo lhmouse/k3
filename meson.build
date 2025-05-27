@@ -64,7 +64,7 @@ add_project_dependencies(
 #===========================================================
 k3_common = shared_library('k3_common',
     cpp_pch: 'k3/xprecompiled.hpp',
-    sources: [ 'k3/common/service.cpp' ],
+    sources: [ 'k3/common/service.cpp', 'k3/common/clock.cpp' ],
     install: true)
 
 shared_module('k3_agent',
