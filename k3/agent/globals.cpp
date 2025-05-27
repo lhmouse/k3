@@ -12,37 +12,50 @@ namespace {
 
 ::poseidon::Config_File s_config;
 Service s_service;
+Clock s_clock;
 
-::poseidon::Easy_Timer s_service_update_timer(
-  *[](shptrR<::poseidon::Abstract_Timer> /*timer*/, ::poseidon::Abstract_Fiber& fiber,
-      steady_time /*now*/)
-    { s_service.synchronize_services_with_redis(fiber, 60s);  });
+void
+do_synchronize_service(shptrR<::poseidon::Abstract_Timer> /*timer*/,
+                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+  {
+    POSEIDON_LOG_TRACE(("Synchronizing services"));
+    s_service.synchronize_services_with_redis(fiber, 60s);
+  }
 
-::poseidon::Easy_HWS_Server s_private_acceptor(
-  *[](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
-      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
-    {
-      POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
-    });
+void
+do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
+                            ::poseidon::Abstract_Fiber& fiber,
+                            ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+  {
+    POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
+  }
 
-::poseidon::Easy_HWS_Server s_client_acceptor_tcp(
-  *[](shptrR<::poseidon::WS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
-      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
-    {
-      POSEIDON_LOG_WARN(("client [$1]: $2 $3"), session->remote_address(), event, data);
-    });
+void
+do_accept_client_tcp_connection(shptrR<::poseidon::WS_Server_Session> session,
+                                ::poseidon::Abstract_Fiber& fiber,
+                                ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+  {
+    POSEIDON_LOG_WARN(("client [$1]: $2 $3"), session->remote_address(), event, data);
+  }
 
-::poseidon::Easy_HWSS_Server s_client_acceptor_ssl(
-  *[](shptrR<::poseidon::WSS_Server_Session> session, ::poseidon::Abstract_Fiber& fiber,
-      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
-    {
-      POSEIDON_LOG_WARN(("client(ssl) [$1]: $2 $3"), session->remote_address(), event, data);
-    });
+void
+do_accept_client_ssl_connection(shptrR<::poseidon::WSS_Server_Session> session,
+                                ::poseidon::Abstract_Fiber& fiber,
+                                ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+  {
+    POSEIDON_LOG_ERROR(("client [$1]: $2 $3"), session->remote_address(), event, data);
+  }
+
+::poseidon::Easy_Timer s_service_timer(do_synchronize_service);
+::poseidon::Easy_HWS_Server s_service_acceptor(do_accept_server_connection);
+::poseidon::Easy_HWS_Server s_client_tcp_acceptor(do_accept_client_tcp_connection);
+::poseidon::Easy_HWSS_Server s_client_ssl_acceptor(do_accept_client_ssl_connection);
 
 }  // namespace
 
 const ::poseidon::Config_File& config = s_config;
 const Service& service = s_service;
+const Clock& clock = s_clock;
 
 }  // namespace k3::agent
 
@@ -60,27 +73,29 @@ poseidon_module_main(void)
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_private_type(&"agent");
-    auto lc = s_private_acceptor.start("[::]:0");
+    auto lc = s_service_acceptor.start("[::]:0");
     s_service.set_private_port(lc->local_address().port());
-    s_service_update_timer.start(0s, 10s);
+    s_service_timer.start(0s, 10s);
 
     // Open ports for incoming connections from clients from public network.
     // These ports are optional.
     conf_val = s_config.query(&"agent.client_port_tcp");
     POSEIDON_LOG_DEBUG(("* `agent.client_port_tcp` = $1"), conf_val);
     if(!conf_val.is_null()) {
-      tinyfmt_str fmt;
-      format(fmt, "[::]:$1", conf_val.as_integer());
-      s_client_acceptor_tcp.start(fmt.get_string());
-      s_service.set_property(&"client_port_tcp", static_cast<double>(conf_val.as_integer()));
+      POSEIDON_CHECK(conf_val.is_integer());
+      int64_t client_port_tcp = conf_val.as_integer();
+      POSEIDON_CHECK((client_port_tcp >= 1) && (client_port_tcp <= 49151));
+      s_client_tcp_acceptor.start(::asteria::format_string("[::]:$1", client_port_tcp));
+      s_service.set_property(&"client_port_tcp", static_cast<double>(client_port_tcp));
     }
 
     conf_val = s_config.query(&"agent.client_port_ssl");
     POSEIDON_LOG_DEBUG(("* `agent.client_port_ssl` = $1"), conf_val);
     if(!conf_val.is_null()) {
-      tinyfmt_str fmt;
-      format(fmt, "[::]:$1", conf_val.as_integer());
-      s_client_acceptor_ssl.start(fmt.get_string());
-      s_service.set_property(&"client_port_ssl", static_cast<double>(conf_val.as_integer()));
+      POSEIDON_CHECK(conf_val.is_integer());
+      int64_t client_port_ssl = conf_val.as_integer();
+      POSEIDON_CHECK((client_port_ssl >= 1) && (client_port_ssl <= 49151));
+      s_client_ssl_acceptor.start(::asteria::format_string("[::]:$1", client_port_ssl));
+      s_service.set_property(&"client_port_tcp", static_cast<double>(client_port_ssl));
     }
   }
