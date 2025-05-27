@@ -27,12 +27,10 @@ void
 Service::
 set_application_name(cow_stringR name)
   {
-    if(name.empty() || !all_of(name,
-        [](char ch) {
-          return ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'))
-                 || ((ch >= '0') && (ch <= '9'))
-                 || (ch == '.') || (ch == '-') || (ch == '_') || (ch == '~');
-        }))
+    size_t cl = name.find_not_of(::rocket::sref("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                                "abcdefghijklmnopqrstuvwxyz"
+                                                "0123456789-._~"));
+    if((cl != name.npos) || name.empty())
       POSEIDON_THROW(("Invalid application name `$1`"), name);
 
     this->m_uuid = ::poseidon::UUID::random();

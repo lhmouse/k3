@@ -32,7 +32,7 @@ class Service
     Service& operator=(const Service&) & = delete;
     ~Service();
 
-    // The application name shall be a string matching `[A-Za-z0-9.-_~]+`. This
+    // The application name shall be a string matching `[-._~A-Za-z0-9]+`. This
     // limitation exists because it is used as a prefix for Redis keys. A new
     // random UUID is generated for each request to alter the application name.
     const ::poseidon::UUID&
