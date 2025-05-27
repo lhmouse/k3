@@ -34,18 +34,18 @@ do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
 
 }  // namespace
 
-const ::poseidon::Config_File& config = s_config;
-const Service& service = s_service;
-const Clock& clock = s_clock;
+::poseidon::Config_File config;
+Service service;
+Clock clock;
 
 }  // namespace k3::logic
-
-using namespace k3;
-using namespace k3::logic;
 
 void
 poseidon_module_main(void)
   {
+    using namespace k3;
+    using namespace k3::logic;
+
     POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
     s_config.reload(&"k3.conf");
 

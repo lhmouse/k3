@@ -10,9 +10,9 @@
 #include <poseidon/base/config_file.hpp>
 namespace k3::agent {
 
-extern const ::poseidon::Config_File& config;
-extern const Service& service;
-extern const Clock& clock;
+extern ::poseidon::Config_File config;
+extern Service service;
+extern Clock clock;
 
 }  // namespace k3::agent
 #endif

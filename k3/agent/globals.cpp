@@ -10,16 +10,12 @@
 namespace k3::agent {
 namespace {
 
-::poseidon::Config_File s_config;
-Service s_service;
-Clock s_clock;
-
 void
 do_synchronize_service(shptrR<::poseidon::Abstract_Timer> /*timer*/,
                        ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     POSEIDON_LOG_TRACE(("Synchronizing services"));
-    s_service.synchronize_services_with_redis(fiber, 60s);
+    service.synchronize_services_with_redis(fiber, 60s);
   }
 
 void
@@ -53,49 +49,49 @@ do_accept_client_ssl_connection(shptrR<::poseidon::WSS_Server_Session> session,
 
 }  // namespace
 
-const ::poseidon::Config_File& config = s_config;
-const Service& service = s_service;
-const Clock& clock = s_clock;
+::poseidon::Config_File config;
+Service service;
+Clock clock;
 
 }  // namespace k3::agent
-
-using namespace k3;
-using namespace k3::agent;
 
 void
 poseidon_module_main(void)
   {
+    using namespace k3;
+    using namespace k3::agent;
+
     POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
-    s_config.reload(&"k3.conf");
+    config.reload(&"k3.conf");
 
     // Start the service.
-    auto conf_val = s_config.query(&"application_name");
+    auto conf_val = config.query(&"application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
-    s_service.set_application_name(conf_val.as_string());
-    s_service.set_private_type(&"agent");
+    service.set_application_name(conf_val.as_string());
+    service.set_private_type(&"agent");
     auto lc = s_service_acceptor.start("[::]:0");
-    s_service.set_private_port(lc->local_address().port());
+    service.set_private_port(lc->local_address().port());
     s_service_timer.start(0s, 10s);
 
     // Open ports for incoming connections from clients from public network.
     // These ports are optional.
-    conf_val = s_config.query(&"agent.client_port_tcp");
+    conf_val = config.query(&"agent.client_port_tcp");
     POSEIDON_LOG_DEBUG(("* `agent.client_port_tcp` = $1"), conf_val);
     if(!conf_val.is_null()) {
       POSEIDON_CHECK(conf_val.is_integer());
       int64_t client_port_tcp = conf_val.as_integer();
       POSEIDON_CHECK((client_port_tcp >= 1) && (client_port_tcp <= 49151));
       s_client_tcp_acceptor.start(::asteria::format_string("[::]:$1", client_port_tcp));
-      s_service.set_property(&"client_port_tcp", static_cast<double>(client_port_tcp));
+      service.set_property(&"client_port_tcp", static_cast<double>(client_port_tcp));
     }
 
-    conf_val = s_config.query(&"agent.client_port_ssl");
+    conf_val = config.query(&"agent.client_port_ssl");
     POSEIDON_LOG_DEBUG(("* `agent.client_port_ssl` = $1"), conf_val);
     if(!conf_val.is_null()) {
       POSEIDON_CHECK(conf_val.is_integer());
       int64_t client_port_ssl = conf_val.as_integer();
       POSEIDON_CHECK((client_port_ssl >= 1) && (client_port_ssl <= 49151));
       s_client_ssl_acceptor.start(::asteria::format_string("[::]:$1", client_port_ssl));
-      s_service.set_property(&"client_port_tcp", static_cast<double>(client_port_ssl));
+      service.set_property(&"client_port_tcp", static_cast<double>(client_port_ssl));
     }
   }
