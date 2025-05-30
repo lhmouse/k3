@@ -69,7 +69,7 @@ poseidon_module_main(void)
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     service.set_application_name(conf_val.as_string());
     service.set_private_type(&"agent");
-    auto lc = s_service_acceptor.start("[::]:0");
+    auto lc = s_service_acceptor.start_any(0);
     service.set_private_port(lc->local_address().port());
     s_service_timer.start(0s, 10s);
 
@@ -81,7 +81,7 @@ poseidon_module_main(void)
       POSEIDON_CHECK(conf_val.is_integer());
       int64_t client_port_tcp = conf_val.as_integer();
       POSEIDON_CHECK((client_port_tcp >= 1) && (client_port_tcp <= 49151));
-      s_client_tcp_acceptor.start(::asteria::format_string("[::]:$1", client_port_tcp));
+      s_client_tcp_acceptor.start_any(static_cast<uint16_t>(client_port_tcp));
       service.set_property(&"client_port_tcp", static_cast<double>(client_port_tcp));
     }
 
@@ -91,7 +91,7 @@ poseidon_module_main(void)
       POSEIDON_CHECK(conf_val.is_integer());
       int64_t client_port_ssl = conf_val.as_integer();
       POSEIDON_CHECK((client_port_ssl >= 1) && (client_port_ssl <= 49151));
-      s_client_ssl_acceptor.start(::asteria::format_string("[::]:$1", client_port_ssl));
+      s_client_ssl_acceptor.start_any(static_cast<uint16_t>(client_port_ssl));
       service.set_property(&"client_port_tcp", static_cast<double>(client_port_ssl));
     }
   }
