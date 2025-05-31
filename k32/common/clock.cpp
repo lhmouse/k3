@@ -1,10 +1,10 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
 #include "clock.hpp"
 #include <time.h>
-namespace k3 {
+namespace k32 {
 
 Clock::
 Clock()
@@ -83,4 +83,4 @@ get_system_time_fields() const noexcept
     return this->m_cached_fields;
   }
 
-}  // namespace k3
+}  // namespace k32

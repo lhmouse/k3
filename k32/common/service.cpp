@@ -1,4 +1,4 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <net/if.h>
 #include <ifaddrs.h>
-namespace k3 {
+namespace k32 {
 
 Service::
 Service()
@@ -164,4 +164,4 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     POSEIDON_LOG_TRACE(("Services synchronized: size = $1"), this->m_remotes.size());
   }
 
-}  // namespace k3
+}  // namespace k32

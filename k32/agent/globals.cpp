@@ -1,4 +1,4 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
@@ -7,7 +7,7 @@
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_hwss_server.hpp>
 #include <poseidon/socket/tcp_acceptor.hpp>
-namespace k3::agent {
+namespace k32::agent {
 namespace {
 
 void
@@ -53,16 +53,16 @@ do_accept_client_ssl_connection(shptrR<::poseidon::WSS_Server_Session> session,
 Service service;
 Clock clock;
 
-}  // namespace k3::agent
+}  // namespace k32::agent
 
 void
 poseidon_module_main(void)
   {
-    using namespace k3;
-    using namespace k3::agent;
+    using namespace k32;
+    using namespace k32::agent;
 
-    POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
-    config.reload(&"k3.conf");
+    POSEIDON_LOG_INFO(("Loading configuration from 'k32.conf'..."));
+    config.reload(&"k32.conf");
 
     // Start the service.
     auto conf_val = config.query(&"application_name");

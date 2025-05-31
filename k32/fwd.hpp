@@ -1,15 +1,24 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K3VR5NZE_FWD_
-#define K3VR5NZE_FWD_
+#ifndef K32_FWD_
+#define K32_FWD_
 
 #include <asteria/utils.hpp>
 #include <poseidon/utils.hpp>
 #include <poseidon/base/uuid.hpp>
 #include <taxon.hpp>
-namespace k3 {
-namespace noadl = k3;
+#include <array>
+#include <vector>
+#include <deque>
+#include <list>
+#include <forward_list>
+#include <map>
+#include <set>
+#include <unordered_map>
+#include <unordered_set>
+namespace k32 {
+namespace noadl = k32;
 
 using ::std::initializer_list;
 using ::std::nullptr_t;
@@ -132,5 +141,5 @@ using ::poseidon::shptr;
 using ::poseidon::wkptr;
 using ::poseidon::new_sh;
 
-}  // namespace k3
+}  // namespace k32
 #endif

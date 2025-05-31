@@ -1,8 +1,8 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K3_XPRECOMPILED_
-#define K3_XPRECOMPILED_
+#ifndef K32_XPRECOMPILED_
+#define K32_XPRECOMPILED_
 
 // Prevent use of standard streams.
 #define _IOS_BASE_H  1

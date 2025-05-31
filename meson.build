@@ -12,7 +12,7 @@
 ## NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 ## CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-project('k3',
+project('k32',
         'cpp',
         version: '0.0.internal',
         license: 'BSD-3-Clause',
@@ -62,19 +62,19 @@ add_project_dependencies(
 #===========================================================
 # Modules
 #===========================================================
-k3_common = shared_library('k3_common',
-    cpp_pch: 'k3/xprecompiled.hpp',
-    sources: [ 'k3/common/service.cpp', 'k3/common/clock.cpp' ],
+k32_common = shared_library('k32_common',
+    cpp_pch: 'k32/xprecompiled.hpp',
+    sources: [ 'k32/common/service.cpp', 'k32/common/clock.cpp' ],
     install: true)
 
-shared_module('k3_agent',
-    cpp_pch: 'k3/xprecompiled.hpp',
-    sources: [ 'k3/agent/globals.cpp' ],
-    link_with: k3_common,
+shared_module('k32_agent',
+    cpp_pch: 'k32/xprecompiled.hpp',
+    sources: [ 'k32/agent/globals.cpp' ],
+    link_with: k32_common,
     install: true)
 
-shared_module('k3_logic',
-    cpp_pch: 'k3/xprecompiled.hpp',
-    sources: [ 'k3/logic/globals.cpp' ],
-    link_with: k3_common,
+shared_module('k32_logic',
+    cpp_pch: 'k32/xprecompiled.hpp',
+    sources: [ 'k32/logic/globals.cpp' ],
+    link_with: k32_common,
     install: true)

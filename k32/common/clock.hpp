@@ -1,12 +1,12 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K3VR5NZE_COMMON_CLOCK_
-#define K3VR5NZE_COMMON_CLOCK_
+#ifndef K32_COMMON_CLOCK_
+#define K32_COMMON_CLOCK_
 
 #include "../fwd.hpp"
 #include <poseidon/base/datetime.hpp>
-namespace k3 {
+namespace k32 {
 
 class Clock
   {
@@ -62,5 +62,5 @@ class Clock
     get_system_time_fields() const noexcept;
   };
 
-}  // namespace k3
+}  // namespace k32
 #endif

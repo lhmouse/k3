@@ -1,11 +1,11 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K3VR5NZE_COMMON_SERVICE_
-#define K3VR5NZE_COMMON_SERVICE_
+#ifndef K32_COMMON_SERVICE_
+#define K32_COMMON_SERVICE_
 
 #include "../fwd.hpp"
-namespace k3 {
+namespace k32 {
 
 class Service
   {
@@ -108,5 +108,5 @@ class Service
     synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl);
   };
 
-}  // namespace k3
+}  // namespace k32
 #endif

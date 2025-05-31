@@ -1,3 +1,3 @@
 #!/bin/bash -e
 
-rm -fv var/k3.{pid,log,err}
+rm -fv var/k32.{pid,log,err}

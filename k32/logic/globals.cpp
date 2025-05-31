@@ -1,4 +1,4 @@
-// This file is part of k3.
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
@@ -6,7 +6,7 @@
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/socket/tcp_acceptor.hpp>
-namespace k3::logic {
+namespace k32::logic {
 namespace {
 
 ::poseidon::Config_File s_config;
@@ -38,16 +38,16 @@ do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
 Service service;
 Clock clock;
 
-}  // namespace k3::logic
+}  // namespace k32::logic
 
 void
 poseidon_module_main(void)
   {
-    using namespace k3;
-    using namespace k3::logic;
+    using namespace k32;
+    using namespace k32::logic;
 
-    POSEIDON_LOG_INFO(("Loading configuration from 'k3.conf'..."));
-    s_config.reload(&"k3.conf");
+    POSEIDON_LOG_INFO(("Loading configuration from 'k32.conf'..."));
+    s_config.reload(&"k32.conf");
 
     // Start the service.
     auto conf_val = s_config.query(&"application_name");
