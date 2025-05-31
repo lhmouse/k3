@@ -3,13 +3,13 @@
 
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
+#include <poseidon/static/main_config.hpp>
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/socket/tcp_acceptor.hpp>
 namespace k32::logic {
 namespace {
 
-::poseidon::Config_File s_config;
 Service s_service;
 Clock s_clock;
 
@@ -34,7 +34,6 @@ do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
 
 }  // namespace
 
-::poseidon::Config_File config;
 Service service;
 Clock clock;
 
@@ -46,11 +45,10 @@ poseidon_module_main(void)
     using namespace k32;
     using namespace k32::logic;
 
-    POSEIDON_LOG_INFO(("Loading configuration from 'k32.conf'..."));
-    s_config.reload(&"k32.conf");
+    auto config = ::poseidon::main_config.copy();
 
     // Start the service.
-    auto conf_val = s_config.query(&"application_name");
+    auto conf_val = config.query(&"k32.application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_private_type(&"logic");

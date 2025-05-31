@@ -3,6 +3,7 @@
 
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
+#include <poseidon/static/main_config.hpp>
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_hwss_server.hpp>
@@ -49,7 +50,6 @@ do_accept_client_ssl_connection(shptrR<::poseidon::WSS_Server_Session> session,
 
 }  // namespace
 
-::poseidon::Config_File config;
 Service service;
 Clock clock;
 
@@ -61,11 +61,10 @@ poseidon_module_main(void)
     using namespace k32;
     using namespace k32::agent;
 
-    POSEIDON_LOG_INFO(("Loading configuration from 'k32.conf'..."));
-    config.reload(&"k32.conf");
+    auto config = ::poseidon::main_config.copy();
 
     // Start the service.
-    auto conf_val = config.query(&"application_name");
+    auto conf_val = config.query(&"k32.application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     service.set_application_name(conf_val.as_string());
     service.set_private_type(&"agent");
@@ -75,8 +74,8 @@ poseidon_module_main(void)
 
     // Open ports for incoming connections from clients from public network.
     // These ports are optional.
-    conf_val = config.query(&"agent.client_port_tcp");
-    POSEIDON_LOG_DEBUG(("* `agent.client_port_tcp` = $1"), conf_val);
+    conf_val = config.query(&"k32.agent.client_port_tcp");
+    POSEIDON_LOG_DEBUG(("* `client_port_tcp` = $1"), conf_val);
     if(!conf_val.is_null()) {
       POSEIDON_CHECK(conf_val.is_integer());
       int64_t client_port_tcp = conf_val.as_integer();
@@ -85,8 +84,8 @@ poseidon_module_main(void)
       service.set_property(&"client_port_tcp", static_cast<double>(client_port_tcp));
     }
 
-    conf_val = config.query(&"agent.client_port_ssl");
-    POSEIDON_LOG_DEBUG(("* `agent.client_port_ssl` = $1"), conf_val);
+    conf_val = config.query(&"k32.agent.client_port_ssl");
+    POSEIDON_LOG_DEBUG(("* `client_port_ssl` = $1"), conf_val);
     if(!conf_val.is_null()) {
       POSEIDON_CHECK(conf_val.is_integer());
       int64_t client_port_ssl = conf_val.as_integer();

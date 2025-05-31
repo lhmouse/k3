@@ -7,10 +7,8 @@
 #include "../fwd.hpp"
 #include "../common/service.hpp"
 #include "../common/clock.hpp"
-#include <poseidon/base/config_file.hpp>
 namespace k32::logic {
 
-extern ::poseidon::Config_File config;
 extern Service service;
 extern Clock clock;
 
