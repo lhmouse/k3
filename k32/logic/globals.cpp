@@ -45,10 +45,11 @@ poseidon_module_main(void)
     using namespace k32;
     using namespace k32::logic;
 
-    auto config = ::poseidon::main_config.copy();
+    const auto config = ::poseidon::main_config.copy();
+    ::asteria::Value conf_val;
 
     // Start the service.
-    auto conf_val = config.query(&"k32.application_name");
+    conf_val = config.query(&"k32.application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
     s_service.set_application_name(conf_val.as_string());
     s_service.set_private_type(&"logic");

@@ -61,16 +61,8 @@ poseidon_module_main(void)
     using namespace k32;
     using namespace k32::agent;
 
-    auto config = ::poseidon::main_config.copy();
-
-    // Start the service.
-    auto conf_val = config.query(&"k32.application_name");
-    POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
-    service.set_application_name(conf_val.as_string());
-    service.set_private_type(&"agent");
-    auto lc = s_service_acceptor.start_any(0);
-    service.set_private_port(lc->local_address().port());
-    s_service_timer.start(0s, 10s);
+    const auto config = ::poseidon::main_config.copy();
+    ::asteria::Value conf_val;
 
     // Open ports for incoming connections from clients from public network.
     // These ports are optional.
@@ -93,4 +85,13 @@ poseidon_module_main(void)
       s_client_ssl_acceptor.start_any(static_cast<uint16_t>(client_port_ssl));
       service.set_property(&"client_port_tcp", static_cast<double>(client_port_ssl));
     }
+
+    // Start the service.
+    conf_val = config.query(&"k32.application_name");
+    POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
+    service.set_application_name(conf_val.as_string());
+    service.set_private_type(&"agent");
+    auto lc = s_service_acceptor.start_any(0);
+    service.set_private_port(lc->local_address().port());
+    s_service_timer.start(0s, 10s);
   }
