@@ -52,6 +52,7 @@ do_accept_client_ssl_connection(shptrR<::poseidon::WSS_Server_Session> session,
 
 Service service;
 Clock clock;
+Account_Supervisor account_supervisor;
 
 }  // namespace k32::agent
 

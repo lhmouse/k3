@@ -7,10 +7,12 @@
 #include "../fwd.hpp"
 #include "../common/service.hpp"
 #include "../common/clock.hpp"
+#include "account_supervisor.hpp"
 namespace k32::agent {
 
 extern Service service;
 extern Clock clock;
+extern Account_Supervisor account_supervisor;
 
 }  // namespace k32::agent
 #endif
