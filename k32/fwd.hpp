@@ -6,7 +6,6 @@
 
 #include <asteria/utils.hpp>
 #include <poseidon/utils.hpp>
-#include <poseidon/base/uuid.hpp>
 #include <taxon.hpp>
 #include <array>
 #include <vector>

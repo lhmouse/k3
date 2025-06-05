@@ -5,6 +5,7 @@
 #define K32_COMMON_SERVICE_
 
 #include "../fwd.hpp"
+#include <poseidon/base/uuid.hpp>
 namespace k32 {
 
 class Service
