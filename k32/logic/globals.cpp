@@ -5,7 +5,7 @@
 #include "globals.hpp"
 #include <poseidon/static/main_config.hpp>
 #include <poseidon/easy/easy_timer.hpp>
-#include <poseidon/easy/easy_hws_server.hpp>
+#include <poseidon/easy/easy_ws_server.hpp>
 #include <poseidon/socket/tcp_acceptor.hpp>
 namespace k32::logic {
 namespace {
@@ -19,15 +19,15 @@ do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
   }
 
 void
-do_on_service_event(const shptr<::poseidon::WS_Server_Session>& session,
+do_on_service_event(const shptr<::poseidon::HTTP_Server_Session>& session,
                     ::poseidon::Abstract_Fiber& fiber,
-                    ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+                    ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
     POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
   }
 
 ::poseidon::Easy_Timer s_service_timer(do_synchronize_service);
-::poseidon::Easy_HWS_Server s_service_acceptor(do_on_service_event);
+::poseidon::Easy_WS_Server s_service_acceptor(do_on_service_event);
 
 }  // namespace
 

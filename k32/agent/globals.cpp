@@ -5,9 +5,10 @@
 #include "globals.hpp"
 #include <poseidon/static/main_config.hpp>
 #include <poseidon/easy/easy_timer.hpp>
+#include <poseidon/easy/easy_ws_server.hpp>
+#include <poseidon/socket/tcp_acceptor.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_hwss_server.hpp>
-#include <poseidon/socket/tcp_acceptor.hpp>
 namespace k32::agent {
 namespace {
 
@@ -22,7 +23,7 @@ do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
 void
 do_on_service_event(const shptr<::poseidon::WS_Server_Session>& session,
                     ::poseidon::Abstract_Fiber& fiber,
-                    ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+                    ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
     POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
   }
@@ -44,7 +45,7 @@ do_on_client_event_ssl(const shptr<::poseidon::WSS_Server_Session>& session,
   }
 
 ::poseidon::Easy_Timer s_service_timer(do_synchronize_service);
-::poseidon::Easy_HWS_Server s_service_acceptor(do_on_service_event);
+::poseidon::Easy_WS_Server s_service_acceptor(do_on_service_event);
 ::poseidon::Easy_HWS_Server s_client_acceptor_tcp(do_on_client_event_tcp);
 ::poseidon::Easy_HWSS_Server s_client_acceptor_ssl(do_on_client_event_ssl);
 
