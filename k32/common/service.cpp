@@ -8,7 +8,6 @@
 #include <poseidon/fiber/redis_scan_and_get_future.hpp>
 #include <poseidon/static/task_executor.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
-#include <sys/types.h>
 #include <net/if.h>
 #include <ifaddrs.h>
 namespace k32 {
@@ -110,13 +109,9 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
           }
 
     // Upload my service information.
-    taxon.mut_object().try_emplace(&"private_addresses", move(addr_array));
+    taxon.mut_object().try_emplace(&"address_list", addr_array);
     taxon.mut_object().try_emplace(&"private_type", this->m_priv_type);
     taxon.mut_object().try_emplace(&"properties", this->m_props);
-    taxon.mut_object().try_emplace(&"process_id", static_cast<double>(::getpid()));
-    taxon.mut_object().try_emplace(&"timestamp",
-        time_point_cast<duration<double, ::std::milli>>(system_clock::now())
-          .time_since_epoch().count());
 
     // Publish myself.
     cow_vector<cow_string> cmd;
@@ -131,13 +126,13 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     cmd.mut(4) = fmt.extract_string();
 
     auto task_publish = new_sh<::poseidon::Redis_Query_Future>(
-                           ::poseidon::redis_connector, move(cmd));
+                                    ::poseidon::redis_connector, move(cmd));
     ::poseidon::task_executor.enqueue(task_publish);
     ::poseidon::fiber_scheduler.yield(fiber, task_publish);
 
     // Get a list of all services.
     auto task_scan = new_sh<::poseidon::Redis_Scan_and_Get_Future>(
-                        ::poseidon::redis_connector, this->m_app_name + "/services/*");
+                ::poseidon::redis_connector, this->m_app_name + "/services/*");
     ::poseidon::task_executor.enqueue(task_scan);
     ::poseidon::fiber_scheduler.yield(fiber, task_scan);
 
