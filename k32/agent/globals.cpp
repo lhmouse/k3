@@ -13,40 +13,40 @@ namespace {
 
 void
 do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+                       ::poseidon::Abstract_Fiber& fiber,
+                       steady_time /*now*/)
   {
-    POSEIDON_LOG_TRACE(("Synchronizing services"));
     service.synchronize_services_with_redis(fiber, 60s);
   }
 
 void
-do_accept_server_connection(const shptr<::poseidon::WS_Server_Session>& session,
-                            ::poseidon::Abstract_Fiber& fiber,
-                            ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+do_on_service_event(const shptr<::poseidon::WS_Server_Session>& session,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
     POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
   }
 
 void
-do_accept_client_tcp_connection(const shptr<::poseidon::WS_Server_Session>& session,
-                                ::poseidon::Abstract_Fiber& fiber,
-                                ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+do_on_client_event_tcp(const shptr<::poseidon::WS_Server_Session>& session,
+                       ::poseidon::Abstract_Fiber& fiber,
+                       ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
     POSEIDON_LOG_WARN(("client [$1]: $2 $3"), session->remote_address(), event, data);
   }
 
 void
-do_accept_client_ssl_connection(const shptr<::poseidon::WSS_Server_Session>& session,
-                                ::poseidon::Abstract_Fiber& fiber,
-                                ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+do_on_client_event_ssl(const shptr<::poseidon::WSS_Server_Session>& session,
+                       ::poseidon::Abstract_Fiber& fiber,
+                       ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
     POSEIDON_LOG_ERROR(("client [$1]: $2 $3"), session->remote_address(), event, data);
   }
 
 ::poseidon::Easy_Timer s_service_timer(do_synchronize_service);
-::poseidon::Easy_HWS_Server s_service_acceptor(do_accept_server_connection);
-::poseidon::Easy_HWS_Server s_client_tcp_acceptor(do_accept_client_tcp_connection);
-::poseidon::Easy_HWSS_Server s_client_ssl_acceptor(do_accept_client_ssl_connection);
+::poseidon::Easy_HWS_Server s_service_acceptor(do_on_service_event);
+::poseidon::Easy_HWS_Server s_client_tcp_acceptor(do_on_client_event_tcp);
+::poseidon::Easy_HWSS_Server s_client_ssl_acceptor(do_on_client_event_ssl);
 
 }  // namespace
 

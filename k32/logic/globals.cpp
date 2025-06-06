@@ -10,27 +10,24 @@
 namespace k32::logic {
 namespace {
 
-Service s_service;
-Clock s_clock;
-
 void
 do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+                       ::poseidon::Abstract_Fiber& fiber,
+                       steady_time /*now*/)
   {
-    POSEIDON_LOG_TRACE(("Synchronizing services"));
-    s_service.synchronize_services_with_redis(fiber, 60s);
+    service.synchronize_services_with_redis(fiber, 60s);
   }
 
 void
-do_accept_server_connection(const shptr<::poseidon::WS_Server_Session>& session,
-                            ::poseidon::Abstract_Fiber& fiber,
-                            ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+do_on_service_event(const shptr<::poseidon::WS_Server_Session>& session,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
     POSEIDON_LOG_FATAL(("service [$1]: $2 $3"), session->remote_address(), event, data);
   }
 
 ::poseidon::Easy_Timer s_service_timer(do_synchronize_service);
-::poseidon::Easy_HWS_Server s_service_acceptor(do_accept_server_connection);
+::poseidon::Easy_HWS_Server s_service_acceptor(do_on_service_event);
 
 }  // namespace
 
@@ -51,9 +48,9 @@ poseidon_module_main(void)
     // Start the service.
     conf_val = config.query(&"k32.application_name");
     POSEIDON_LOG_DEBUG(("* `application_name` = $1"), conf_val);
-    s_service.set_application_name(conf_val.as_string());
-    s_service.set_private_type(&"logic");
+    service.set_application_name(conf_val.as_string());
+    service.set_private_type(&"logic");
     auto lc = s_service_acceptor.start_any(0);
-    s_service.set_private_port(lc->local_address().port());
+    service.set_private_port(lc->local_address().port());
     s_service_timer.start(1s, 30s);
   }
