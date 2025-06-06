@@ -80,20 +80,20 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
     snapshot_map remotes;
 
     // Get all operational non-loopback network addresses.
-    ::ifaddrs* ifap;
-    if(::getifaddrs(&ifap) != 0)
+    ::ifaddrs* ifa;
+    if(::getifaddrs(&ifa) != 0)
       POSEIDON_THROW(("Failed to list network interfaces: ${errno:full}]"));
 
-    const ::rocket::unique_ptr<::ifaddrs, void (::ifaddrs*)> ifguard(ifap, ::freeifaddrs);
+    const ::rocket::unique_ptr<::ifaddrs, void (::ifaddrs*)> ifguard(ifa, ::freeifaddrs);
     ::poseidon::IPv6_Address ipaddr;
-    for(;  ifap;  ifap = ifap->ifa_next)
-      if(ifap->ifa_addr && (ifap->ifa_flags & IFF_RUNNING) && !(ifap->ifa_flags & IFF_LOOPBACK))
-        switch(ifap->ifa_addr->sa_family)
+    for(;  ifa;  ifa = ifa->ifa_next)
+      if(ifa->ifa_addr && (ifa->ifa_flags & IFF_RUNNING) && !(ifa->ifa_flags & IFF_LOOPBACK))
+        switch(ifa->ifa_addr->sa_family)
           {
           case AF_INET:
             ::memcpy(ipaddr.mut_data(), ::poseidon::ipv4_loopback.data(), 12);
             ::memcpy(ipaddr.mut_data() + 12,
-                &(reinterpret_cast<const ::sockaddr_in*>(ifap->ifa_addr)->sin_addr), 4);
+                &(reinterpret_cast<const ::sockaddr_in*>(ifa->ifa_addr)->sin_addr), 4);
             ipaddr.set_port(this->m_priv_port);
             fmt << ipaddr;
             addr_array.emplace_back(fmt.extract_string());
@@ -101,7 +101,7 @@ synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl)
 
           case AF_INET6:
             ::memcpy(ipaddr.mut_data(),
-                &(reinterpret_cast<const ::sockaddr_in6*>(ifap->ifa_addr)->sin6_addr), 16);
+                &(reinterpret_cast<const ::sockaddr_in6*>(ifa->ifa_addr)->sin6_addr), 16);
             ipaddr.set_port(this->m_priv_port);
             fmt << ipaddr;
             addr_array.emplace_back(fmt.extract_string());
