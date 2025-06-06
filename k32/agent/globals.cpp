@@ -95,5 +95,5 @@ poseidon_module_main(void)
     service.set_private_type(&"agent");
     auto lc = s_service_acceptor.start_any(0);
     service.set_private_port(lc->local_address().port());
-    s_service_timer.start(0s, 10s);
+    s_service_timer.start(1s, 10s);
   }
