@@ -6,7 +6,7 @@
 namespace k32 {
 
 Message::
-Message()
+Message() noexcept
   {
   }
 

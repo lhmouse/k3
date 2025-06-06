@@ -10,7 +10,7 @@ namespace k32 {
 class Message
   {
   public:
-    Message();
+    Message() noexcept;
     Message(const Message&) noexcept = default;
     Message(Message&&) noexcept = default;
     Message& operator=(const Message&) & noexcept = default;

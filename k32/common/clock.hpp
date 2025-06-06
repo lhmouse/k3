@@ -34,7 +34,7 @@ class Clock
     mutable system_time_fields m_cached_fields = { };
 
   public:
-    Clock();
+    Clock() noexcept;
     Clock(const Clock&) = delete;
     Clock& operator=(const Clock&) & = delete;
     ~Clock();

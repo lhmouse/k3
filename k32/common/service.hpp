@@ -28,7 +28,7 @@ class Service
     snapshot_map m_remotes;
 
   public:
-    Service();
+    Service() noexcept;
     Service(const Service&) = delete;
     Service& operator=(const Service&) & = delete;
     ~Service();
