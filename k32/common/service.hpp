@@ -93,7 +93,7 @@ class Service
       { return m_remotes;  }
 
     const ::taxon::V_object&
-    remote_service(::poseidon::UUID srv_uuid) const noexcept
+    remote_service(const ::poseidon::UUID& srv_uuid) const noexcept
       {
         auto psrv = this->m_remotes.ptr(srv_uuid);
         if(!psrv)
