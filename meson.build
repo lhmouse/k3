@@ -64,7 +64,7 @@ add_project_dependencies(
 #===========================================================
 k32_common = shared_library('k32_common',
     cpp_pch: 'k32/xprecompiled.hpp',
-    sources: [ 'k32/common/service.cpp', 'k32/common/clock.cpp' ],
+    sources: [ 'k32/common/service.cpp', 'k32/common/clock.cpp', 'k32/common/message.cpp' ],
     install: true)
 
 shared_module('k32_agent',
