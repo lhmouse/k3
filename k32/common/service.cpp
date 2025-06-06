@@ -25,7 +25,7 @@ Service::
 
 void
 Service::
-set_application_name(cow_stringR name)
+set_application_name(const cow_string& name)
   {
     static constexpr char name_chars[] =
        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()-._~!@#$%";
@@ -40,7 +40,7 @@ set_application_name(cow_stringR name)
 
 void
 Service::
-set_private_type(cow_stringR type)
+set_private_type(const cow_string& type)
   {
     this->m_priv_type = type;
   }
@@ -54,14 +54,14 @@ set_private_port(uint16_t port)
 
 void
 Service::
-set_property(phsh_stringR name, const ::taxon::Value& value)
+set_property(const phcow_string& name, const ::taxon::Value& value)
   {
     this->m_props.insert_or_assign(name, value);
   }
 
 bool
 Service::
-unset_property(phsh_stringR name)
+unset_property(const phcow_string& name)
   {
     return this->m_props.erase(name);
   }

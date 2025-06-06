@@ -12,7 +12,7 @@ namespace k32::agent {
 namespace {
 
 void
-do_synchronize_service(shptrR<::poseidon::Abstract_Timer> /*timer*/,
+do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                        ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     POSEIDON_LOG_TRACE(("Synchronizing services"));
@@ -20,7 +20,7 @@ do_synchronize_service(shptrR<::poseidon::Abstract_Timer> /*timer*/,
   }
 
 void
-do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
+do_accept_server_connection(const shptr<::poseidon::WS_Server_Session>& session,
                             ::poseidon::Abstract_Fiber& fiber,
                             ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
@@ -28,7 +28,7 @@ do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
   }
 
 void
-do_accept_client_tcp_connection(shptrR<::poseidon::WS_Server_Session> session,
+do_accept_client_tcp_connection(const shptr<::poseidon::WS_Server_Session>& session,
                                 ::poseidon::Abstract_Fiber& fiber,
                                 ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
@@ -36,7 +36,7 @@ do_accept_client_tcp_connection(shptrR<::poseidon::WS_Server_Session> session,
   }
 
 void
-do_accept_client_ssl_connection(shptrR<::poseidon::WSS_Server_Session> session,
+do_accept_client_ssl_connection(const shptr<::poseidon::WSS_Server_Session>& session,
                                 ::poseidon::Abstract_Fiber& fiber,
                                 ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {

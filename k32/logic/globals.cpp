@@ -14,7 +14,7 @@ Service s_service;
 Clock s_clock;
 
 void
-do_synchronize_service(shptrR<::poseidon::Abstract_Timer> /*timer*/,
+do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                        ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     POSEIDON_LOG_TRACE(("Synchronizing services"));
@@ -22,7 +22,7 @@ do_synchronize_service(shptrR<::poseidon::Abstract_Timer> /*timer*/,
   }
 
 void
-do_accept_server_connection(shptrR<::poseidon::WS_Server_Session> session,
+do_accept_server_connection(const shptr<::poseidon::WS_Server_Session>& session,
                             ::poseidon::Abstract_Fiber& fiber,
                             ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {

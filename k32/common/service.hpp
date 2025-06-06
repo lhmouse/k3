@@ -40,19 +40,19 @@ class Service
     uuid() const noexcept
       { return this->m_uuid;  }
 
-    cow_stringR
+    const cow_string&
     application_name() const noexcept
       { return this->m_app_name;  }
 
     void
-    set_application_name(cow_stringR name);
+    set_application_name(const cow_string& name);
 
-    cow_stringR
+    const cow_string&
     private_type() const noexcept
       { return this->m_priv_type;  }
 
     void
-    set_private_type(cow_stringR type);
+    set_private_type(const cow_string& type);
 
     uint16_t
     private_port() const noexcept
@@ -68,7 +68,7 @@ class Service
       { return this->m_props;  }
 
     const ::taxon::Value&
-    property(phsh_stringR name) const noexcept
+    property(const phcow_string& name) const noexcept
       {
         auto pval = this->m_props.ptr(name);
         if(!pval)
@@ -77,14 +77,14 @@ class Service
       }
 
     bool
-    has_property(phsh_stringR name) const noexcept
+    has_property(const phcow_string& name) const noexcept
       { return this->m_props.count(name);  }
 
     void
-    set_property(phsh_stringR name, const ::taxon::Value& value);
+    set_property(const phcow_string& name, const ::taxon::Value& value);
 
     bool
-    unset_property(phsh_stringR name);
+    unset_property(const phcow_string& name);
 
     // A list of all services is maintained for service discovery. It is
     // synchronized with Redis periodically.
