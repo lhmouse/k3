@@ -13,7 +13,7 @@
 namespace k32 {
 
 Service::
-Service()
+Service() noexcept
   {
   }
 

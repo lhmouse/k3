@@ -7,7 +7,7 @@
 namespace k32 {
 
 Clock::
-Clock()
+Clock() noexcept
   {
   }
 
