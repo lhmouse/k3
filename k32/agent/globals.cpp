@@ -84,7 +84,7 @@ poseidon_module_main(void)
       int64_t client_port_ssl = conf_val.as_integer();
       POSEIDON_CHECK((client_port_ssl >= 1) && (client_port_ssl <= 49151));
       s_client_ssl_acceptor.start_any(static_cast<uint16_t>(client_port_ssl));
-      service.set_property(&"client_port_tcp", static_cast<double>(client_port_ssl));
+      service.set_property(&"client_port_ssl", static_cast<double>(client_port_ssl));
     }
 
     // Start the service.
