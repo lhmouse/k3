@@ -81,7 +81,7 @@ class Service
       { return this->m_props.count(name);  }
 
     void
-    set_property(phsh_stringR name, ::taxon::Value value);
+    set_property(phsh_stringR name, const ::taxon::Value& value);
 
     bool
     unset_property(phsh_stringR name);

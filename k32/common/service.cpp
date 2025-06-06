@@ -54,9 +54,9 @@ set_private_port(uint16_t port)
 
 void
 Service::
-set_property(phsh_stringR name, ::taxon::Value value)
+set_property(phsh_stringR name, const ::taxon::Value& value)
   {
-    this->m_props.insert_or_assign(name, move(value));
+    this->m_props.insert_or_assign(name, value);
   }
 
 bool
