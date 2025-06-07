@@ -4,18 +4,13 @@
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
 #include <poseidon/static/main_config.hpp>
-#include <poseidon/easy/easy_timer.hpp>
-#include <poseidon/easy/easy_ws_server.hpp>
-#include <poseidon/socket/tcp_acceptor.hpp>
-#include <poseidon/easy/easy_hws_server.hpp>
-#include <poseidon/easy/easy_hwss_server.hpp>
 namespace k32::agent {
 namespace {
-
+/*
 void
-do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+do_synchronize_service(const shptr<::poseidon::Abstract_Timer>& *timer*,
                        ::poseidon::Abstract_Fiber& fiber,
-                       steady_time /*now*/)
+                       steady_time *now*)
   {
     service.synchronize_services_with_redis(fiber, 60s);
   }
@@ -48,7 +43,7 @@ do_on_client_event_ssl(const shptr<::poseidon::WSS_Server_Session>& session,
 ::poseidon::Easy_WS_Server s_service_acceptor(do_on_service_event);
 ::poseidon::Easy_HWS_Server s_client_acceptor_tcp(do_on_client_event_tcp);
 ::poseidon::Easy_HWSS_Server s_client_acceptor_ssl(do_on_client_event_ssl);
-
+*/
 }  // namespace
 
 Service service;
@@ -62,7 +57,7 @@ poseidon_module_main(void)
   {
     using namespace k32;
     using namespace k32::agent;
-
+/*
     const auto config = ::poseidon::main_config.copy();
     ::asteria::Value conf_val;
 
@@ -96,4 +91,5 @@ poseidon_module_main(void)
     auto lc = s_service_acceptor.start_any(0);
     service.set_private_port(lc->local_address().port());
     s_service_timer.start(1s, 10s);
+*/
   }
