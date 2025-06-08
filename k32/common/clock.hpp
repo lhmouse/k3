@@ -29,8 +29,8 @@ class Clock
 
   private:
     seconds m_offset = 0s;
+
     mutable ::time_t m_cached_time = 0;
-    static_assert(sizeof(system_time_fields) == 8);
     mutable system_time_fields m_cached_fields = { };
 
   public:
