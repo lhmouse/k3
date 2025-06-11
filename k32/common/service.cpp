@@ -117,7 +117,6 @@ do_synchronize_services(const wkptr<Implementation>& weak_impl,
       value.mut_object().try_emplace(&"address_list", array);
     }
 
-
     cmd.clear();
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1$2", redis_key_prefix, impl->service_uuid));
@@ -131,8 +130,8 @@ do_synchronize_services(const wkptr<Implementation>& weak_impl,
     POSEIDON_LOG_DEBUG(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
     // Download all the other services.
-    auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(
-                    ::poseidon::redis_connector, redis_key_prefix + "*");
+    auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector,
+                                                               redis_key_prefix + "*");
     ::poseidon::task_executor.enqueue(task2);
     ::poseidon::fiber_scheduler.yield(fiber, task2);
 
@@ -271,29 +270,29 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
 
     POSEIDON_LOG_INFO(("Reloaded service: $1/$2"), application_name, service_type);
 
-    if(service_type != "")
+    if((this->m_impl->private_server.local_address().port() == 0) && (service_type != ""))
       this->m_impl->private_server.start_any(0,
-             ::poseidon::Easy_WS_Server::callback_type(
-                [weak_impl = wkptr<Implementation>(this->m_impl)]
-                   (const shptr<::poseidon::WS_Server_Session>& session,
-                    ::poseidon::Abstract_Fiber& fiber,
-                    ::poseidon::Easy_WS_Event event, linear_buffer&& data)
-                  {
-                    if(auto impl = weak_impl.lock())
-                      do_private_server_callback(impl, session, fiber, event, move(data));
-                  }));
+         ::poseidon::Easy_WS_Server::callback_type(
+            [weak_impl = wkptr<Implementation>(this->m_impl)]
+               (const shptr<::poseidon::WS_Server_Session>& session,
+                ::poseidon::Abstract_Fiber& fiber,
+                ::poseidon::Easy_WS_Event event, linear_buffer&& data)
+              {
+                if(auto impl = weak_impl.lock())
+                  do_private_server_callback(impl, session, fiber, event, move(data));
+              }));
 
     if(this->m_impl->sync_timer.running() == false)
       this->m_impl->sync_timer.start(1s, 10s,
-             ::poseidon::Easy_Timer::callback_type(
-                [weak_impl = wkptr<Implementation>(this->m_impl)]
-                   (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                    ::poseidon::Abstract_Fiber& fiber,
-                    ::std::chrono::steady_clock::time_point /*now*/)
-                  {
-                    if(auto impl = weak_impl.lock())
-                      do_synchronize_services(impl, fiber);
-                  }));
+         ::poseidon::Easy_Timer::callback_type(
+            [weak_impl = wkptr<Implementation>(this->m_impl)]
+               (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                ::poseidon::Abstract_Fiber& fiber,
+                ::std::chrono::steady_clock::time_point /*now*/)
+              {
+                if(auto impl = weak_impl.lock())
+                  do_synchronize_services(impl, fiber);
+              }));
   }
 
 }  // namespace k32
