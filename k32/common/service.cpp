@@ -36,39 +36,43 @@ struct Implementation
   };
 
 void
-do_private_server_callback(const wkptr<Implementation>& weak_impl,
+do_private_server_callback(const shptr<Implementation>& impl,
                            const shptr<::poseidon::WS_Server_Session>& session,
                            ::poseidon::Abstract_Fiber& fiber,
                            ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
-    const auto impl = weak_impl.lock();
-    if(!impl)
-      return;
+/*
+    easy_ws_open     = 31,  // connection established
+    easy_ws_text     = 32,  // text message received
+    easy_ws_binary   = 33,  // binary message received
+    easy_ws_pong     = 34,  // pong notification received
+    easy_ws_close    = 35,  // closure notification received
 
+*/
     POSEIDON_LOG_FATAL(("do_private_server_callback"));
   }
 
 void
-do_private_client_callback(const wkptr<Implementation>& weak_impl,
+do_private_client_callback(const shptr<Implementation>& impl,
                            const shptr<::poseidon::WS_Client_Session>& session,
                            ::poseidon::Abstract_Fiber& fiber,
                            ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
-    const auto impl = weak_impl.lock();
-    if(!impl)
-      return;
+/*
+    easy_ws_open     = 31,  // connection established
+    easy_ws_text     = 32,  // text message received
+    easy_ws_binary   = 33,  // binary message received
+    easy_ws_pong     = 34,  // pong notification received
+    easy_ws_close    = 35,  // closure notification received
 
+*/
     POSEIDON_LOG_FATAL(("do_private_client_callback"));
   }
 
 void
-do_synchronize_services(const wkptr<Implementation>& weak_impl,
+do_synchronize_services(const shptr<Implementation>& impl,
                         ::poseidon::Abstract_Fiber& fiber)
   {
-    const auto impl = weak_impl.lock();
-    if(!impl)
-      return;
-
     const auto redis_key_prefix = impl->application_name + "services/";
 
     ::taxon::Value value;
@@ -294,5 +298,41 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
                   do_synchronize_services(impl, fiber);
               }));
   }
+
+/*
+    // Sends a message to a service, and returns a future of its response. If no
+    // such service exists, a future that always fails is returned.
+    shptr<Response_Future>
+    request_single(const ::poseidon::UUID& service_uuid, const ::taxon::Value& data);
+
+    // Sends a message to a random matching service, and returns a future of its
+    // response. If no such service exists, a future that always fails is returned.
+    shptr<Response_Future>
+    request_random(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all matching services in parallel, and returns a vector
+    // of futures of their responses. If no such service exists, an empty vector
+    // is returned.
+    cow_bivector<::poseidon::UUID, shptr<Response_Future>>
+    request_all(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to a service without waiting for a response. If no such
+    // service exists, a zero UUID is returned.
+    ::poseidon::UUID
+    notify_single(const ::poseidon::UUID& service_uuid, const ::taxon::Value& data);
+
+    // Sends a message to a random matching service without waiting for a response,
+    // and returns its UUID. If no such service exists, a zero UUID is returned.
+    ::poseidon::UUID
+    notify_random(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all matching services in parallel, and returns a vector
+    // of their UUIDs. If no such service exists, an empty vector is returned.
+    cow_vector<::poseidon::UUID>
+    notify_all(const cow_string& service_type, const ::taxon::Value& data);
+
+    */
+
+
 
 }  // namespace k32
