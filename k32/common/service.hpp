@@ -65,7 +65,13 @@ class Service
     // of futures of their responses. If no such service exists, an empty vector
     // is returned.
     cow_bivector<::poseidon::UUID, shptr<Response_Future>>
-    request_all(const cow_string& service_type, const ::taxon::Value& data);
+    request_multiple(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all services in parallel, and returns a vector of
+    // futures of their responses. If no such service exists, an empty vector is
+    // returned.
+    cow_bivector<::poseidon::UUID, shptr<Response_Future>>
+    request_broadcast(const ::taxon::Value& data);
 
     // Sends a message to a service without waiting for a response. If no such
     // service exists, a zero UUID is returned.
@@ -80,7 +86,12 @@ class Service
     // Sends a message to all matching services in parallel, and returns a vector
     // of their UUIDs. If no such service exists, an empty vector is returned.
     cow_vector<::poseidon::UUID>
-    notify_all(const cow_string& service_type, const ::taxon::Value& data);
+    notify_multiple(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all services in parallel, and returns a vector of
+    // their UUIDs. If no such service exists, an empty vector is returned.
+    cow_vector<::poseidon::UUID>
+    notify_broadcast(const ::taxon::Value& data);
   };
 
 }  // namespace k32

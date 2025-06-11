@@ -17,6 +17,14 @@
 namespace k32 {
 namespace {
 
+struct Remote_Service_Information
+  {
+    ::poseidon::UUID service_uuid;
+    cow_string service_type;
+    cow_string hostname;
+    cow_vector<::poseidon::IPv6_Address> address_list;
+  };
+
 struct Implementation
   {
     ::poseidon::UUID service_uuid = ::poseidon::UUID::random();
@@ -32,7 +40,7 @@ struct Implementation
     cow_string application_password;
 
     // remote data from redis
-    cow_uuid_dictionary<::taxon::V_object> services;
+    cow_uuid_dictionary<Remote_Service_Information> remote_services;
   };
 
 void
@@ -73,16 +81,15 @@ void
 do_synchronize_services(const shptr<Implementation>& impl,
                         ::poseidon::Abstract_Fiber& fiber)
   {
-    const auto redis_key_prefix = impl->application_name + "services/";
+    const auto redis_prefix = impl->application_name + "services/";
 
     ::taxon::Value value;
     ::taxon::V_array array;
+    ::poseidon::IPv6_Address addr;
     cow_vector<cow_string> cmd;
-    cow_uuid_dictionary<::taxon::V_object> services;
-    ::poseidon::UUID uuid;
+    cow_uuid_dictionary<Remote_Service_Information> remote_services;
 
     // Set my service information.
-    value.mut_object().try_emplace(&"service_uuid", impl->service_uuid.print_to_string());
     value.mut_object().try_emplace(&"service_type", impl->service_type);
     value.mut_object().try_emplace(&"application_name", impl->application_name);
 
@@ -102,7 +109,6 @@ do_synchronize_services(const shptr<Implementation>& impl,
         else if(ifa->ifa_addr->sa_family == AF_INET) {
           // IPv4
           auto sa = reinterpret_cast<::sockaddr_in*>(ifa->ifa_addr);
-          ::poseidon::IPv6_Address addr;
           addr = ::poseidon::ipv4_unspecified;
           ::memcpy(addr.mut_data() + 12, &(sa->sin_addr), 4);
           addr.set_port(private_addr.port());
@@ -111,7 +117,6 @@ do_synchronize_services(const shptr<Implementation>& impl,
         else if(ifa->ifa_addr->sa_family == AF_INET6) {
           // IPv6
           auto sa = reinterpret_cast<::sockaddr_in6*>(ifa->ifa_addr);
-          ::poseidon::IPv6_Address addr;
           addr.set_addr(sa->sin6_addr);
           addr.set_port(private_addr.port());
           array.emplace_back(addr.print_to_string());
@@ -123,7 +128,7 @@ do_synchronize_services(const shptr<Implementation>& impl,
 
     cmd.clear();
     cmd.emplace_back(&"SET");
-    cmd.emplace_back(sformat("$1$2", redis_key_prefix, impl->service_uuid));
+    cmd.emplace_back(sformat("$1$2", redis_prefix, impl->service_uuid));
     cmd.emplace_back(value.print_to_string());
     cmd.emplace_back(&"EX");
     cmd.emplace_back(&"60");  // one minute
@@ -134,33 +139,49 @@ do_synchronize_services(const shptr<Implementation>& impl,
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
     // Download all the other services.
-    auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector,
-                                                               redis_key_prefix + "*");
+    auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(
+                    ::poseidon::redis_connector, redis_prefix + "*");
     ::poseidon::task_executor.enqueue(task2);
     ::poseidon::fiber_scheduler.yield(fiber, task2);
 
-    for(const auto& r : task2->result().pairs) {
-      if(r.first.size() != redis_key_prefix.size() + 36)
-        continue;
+    for(const auto& r : task2->result().pairs)
+      try {
+        if(r.first.size() != redis_prefix.size() + 36)
+          continue;
 
-      if(uuid.parse_partial(r.first.data() + redis_key_prefix.size()) != 36) {
-        POSEIDON_LOG_WARN(("Invalid service `$1`"), r.first);
-        continue;
+        Remote_Service_Information remote;
+        POSEIDON_CHECK(remote.service_uuid.parse_partial(
+                         r.first.data() + redis_prefix.size()) == 36);
+
+        ::taxon::Parser_Context pctx;
+        value.parse_with(pctx, r.second);
+        POSEIDON_CHECK(pctx.error == nullptr);
+
+        if(impl->application_name != value.as_object().at(&"application_name").as_string())
+          continue;
+
+        remote.service_type = value.as_object().at(&"service_type").as_string();
+
+        if(auto hostname = value.as_object().ptr(&"hostname"))
+          remote.hostname = hostname->as_string();
+
+        if(auto address_list = value.as_object().ptr(&"address_list"))
+          for(const auto& addr_val : address_list->as_array())
+            if(addr.parse(addr_val.as_string()))
+              remote.address_list.emplace_back(addr);
+
+        remote_services.try_emplace(remote.service_uuid, remote);
+        POSEIDON_LOG_TRACE(("Received service `$1`: $2"), r.first, r.second);
+      }
+      catch(exception& stdex) {
+        POSEIDON_LOG_WARN((
+            "Invalid service `$1`: $2",
+            "Service information from Redis could not be parsed: $3"),
+            r.first, r.second, stdex);
       }
 
-      ::taxon::Parser_Context pctx;
-      value.parse_with(pctx, r.second);
-      if(pctx.error || (value.type() != ::taxon::t_object)) {
-        POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, r.second);
-        continue;
-      }
-
-      services.try_emplace(uuid, value.as_object());
-      POSEIDON_LOG_TRACE(("Received service: `$1`: $2"), uuid, value);
-    }
-
-    impl->services = services;
-    POSEIDON_LOG_TRACE(("Synchronized $1 services"), impl->services.size());
+    impl->remote_services = remote_services;
+    POSEIDON_LOG_TRACE(("Synchronized $1 services"), impl->remote_services.size());
   }
 
 }  // namespace
@@ -314,7 +335,13 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
     // of futures of their responses. If no such service exists, an empty vector
     // is returned.
     cow_bivector<::poseidon::UUID, shptr<Response_Future>>
-    request_all(const cow_string& service_type, const ::taxon::Value& data);
+    request_multiple(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all services in parallel, and returns a vector of
+    // futures of their responses. If no such service exists, an empty vector is
+    // returned.
+    cow_bivector<::poseidon::UUID, shptr<Response_Future>>
+    request_broadcast(const ::taxon::Value& data);
 
     // Sends a message to a service without waiting for a response. If no such
     // service exists, a zero UUID is returned.
@@ -329,8 +356,12 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
     // Sends a message to all matching services in parallel, and returns a vector
     // of their UUIDs. If no such service exists, an empty vector is returned.
     cow_vector<::poseidon::UUID>
-    notify_all(const cow_string& service_type, const ::taxon::Value& data);
+    notify_multiple(const cow_string& service_type, const ::taxon::Value& data);
 
+    // Sends a message to all services in parallel, and returns a vector of
+    // their UUIDs. If no such service exists, an empty vector is returned.
+    cow_vector<::poseidon::UUID>
+    notify_broadcast(const ::taxon::Value& data);
     */
 
 
