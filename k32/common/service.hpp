@@ -5,108 +5,82 @@
 #define K32_COMMON_SERVICE_
 
 #include "../fwd.hpp"
-#include <poseidon/base/uuid.hpp>
+#include "response_future.hpp"
 namespace k32 {
 
 class Service
   {
   public:
-    // Redis snapshot map
-    using snapshot_map = cow_hashmap<::poseidon::UUID, ::taxon::V_object,
-                                     ::poseidon::UUID::hash,
-                                     ::rocket::equal>;
+    using handler_type = ::rocket::shared_function<
+            void (
+              const ::poseidon::UUID& service_uuid,
+              ::poseidon::Abstract_Fiber& fiber,
+              ::taxon::Value& response_data,  // output parameter
+              const ::poseidon::UUID& request_service_uuid,
+              ::taxon::Value&& request_data)>;
 
   private:
-    // local
-    ::poseidon::UUID m_uuid;
-    cow_string m_app_name;
-    cow_string m_priv_type;
-    uint16_t m_priv_port = 0;
-    ::taxon::V_object m_props;
-
-    // remote
-    snapshot_map m_remotes;
+    struct X_Implementation;
+    shptr<X_Implementation> m_impl;
 
   public:
-    Service() noexcept;
+    Service();
+
+  public:
     Service(const Service&) = delete;
     Service& operator=(const Service&) & = delete;
     ~Service();
 
-    // The application name shall be a string matching `[-._~A-Za-z0-9]+`. This
-    // limitation exists because it is used as a prefix for Redis keys. A new
-    // random UUID is generated for each request to alter the application name.
+    // Returns the UUID of the active service. If there is no active service, a
+    // zero UUID is returned.
     const ::poseidon::UUID&
-    uuid() const noexcept
-      { return this->m_uuid;  }
+    service_uuid() const noexcept;
 
-    const cow_string&
-    application_name() const noexcept
-      { return this->m_app_name;  }
-
-    void
-    set_application_name(const cow_string& name);
-
-    const cow_string&
-    private_type() const noexcept
-      { return this->m_priv_type;  }
-
-    void
-    set_private_type(const cow_string& type);
-
-    uint16_t
-    private_port() const noexcept
-      { return this->m_priv_port;  }
-
-    void
-    set_private_port(uint16_t port);
-
-    // Each service may have its own properties, which are published to Redis
-    // and shared amongst all services.
-    const ::taxon::V_object&
-    properties() const noexcept
-      { return this->m_props;  }
-
-    const ::taxon::Value&
-    property(const phcow_string& name) const noexcept
-      {
-        auto pval = this->m_props.ptr(name);
-        if(!pval)
-          pval = &::taxon::null;
-        return *pval;
-      }
-
+    // Registers a handler for requests from other servers. If a new handler has
+    // been added, `true` is returned. If an existent handler has been overwritten,
+    // `false` is returned.
     bool
-    has_property(const phcow_string& name) const noexcept
-      { return this->m_props.count(name);  }
+    set_handler(const phcow_string& key, const handler_type& handler);
 
-    void
-    set_property(const phcow_string& name, const ::taxon::Value& value);
-
+    // Removes a handler for requests from other servers.
     bool
-    unset_property(const phcow_string& name);
+    remove_handler(const phcow_string& key) noexcept;
 
-    // A list of all services is maintained for service discovery. It is
-    // synchronized with Redis periodically.
-    const snapshot_map&
-    remote_services() const noexcept
-      { return m_remotes;  }
-
-    const ::taxon::V_object&
-    remote_service(const ::poseidon::UUID& srv_uuid) const noexcept
-      {
-        auto psrv = this->m_remotes.ptr(srv_uuid);
-        if(!psrv)
-          psrv = &::taxon::empty_object;
-        return *psrv;
-      }
-
-    // This function uploads the current service to Redis, then downloads all
-    // services and stores them into `m_remotes`. If `set_application_name()`
-    // has not been called, an exception is thrown.
-    // The operation is atomic. If an exception is thrown, there is no effect.
+    // Reloads configuration. If `application_name` or `application_password`
+    // is changed, a new service (with a new UUID) is initiated.
     void
-    synchronize_services_with_redis(::poseidon::Abstract_Fiber& fiber, seconds ttl);
+    reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type);
+
+    // Sends a message to a service, and returns a future of its response. If no
+    // such service exists, a future that always fails is returned.
+    shptr<Response_Future>
+    request_single(const ::poseidon::UUID& service_uuid, const ::taxon::Value& data);
+
+    // Sends a message to a random matching service, and returns a future of its
+    // response. If no such service exists, a future that always fails is returned.
+    shptr<Response_Future>
+    request_random(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all matching services in parallel, and returns a vector
+    // of futures of their responses. If no such service exists, an empty vector
+    // is returned.
+    cow_bivector<::poseidon::UUID, shptr<Response_Future>>
+    request_all(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to a service without waiting for a response. If no such
+    // service exists, a zero UUID is returned.
+    ::poseidon::UUID
+    notify_single(const ::poseidon::UUID& service_uuid, const ::taxon::Value& data);
+
+    // Sends a message to a random matching service without waiting for a response,
+    // and returns its UUID. If no such service exists, a zero UUID is returned.
+    ::poseidon::UUID
+    notify_random(const cow_string& service_type, const ::taxon::Value& data);
+
+    // Sends a message to all matching services in parallel, and returns a vector
+    // of their UUIDs. If no such service exists, an empty vector is returned.
+    cow_vector<::poseidon::UUID>
+    notify_all(const cow_string& service_type, const ::taxon::Value& data);
   };
 
 }  // namespace k32

@@ -2,16 +2,17 @@
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
-#include "message.hpp"
+#include "response_future.hpp"
 namespace k32 {
 
-Message::
-Message() noexcept
+Response_Future::
+Response_Future(const ::poseidon::UUID& service_uuid)
   {
+    this->m_service_uuid = service_uuid;
   }
 
-Message::
-~Message()
+Response_Future::
+~Response_Future()
   {
   }
 

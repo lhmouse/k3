@@ -4,7 +4,9 @@
 #ifndef K32_FWD_
 #define K32_FWD_
 
+#include <asteria/value.hpp>
 #include <asteria/utils.hpp>
+#include <poseidon/base/uuid.hpp>
 #include <poseidon/utils.hpp>
 #include <taxon.hpp>
 #include <array>
@@ -102,7 +104,7 @@ using ::rocket::tinyfmt_ln;
 using ::rocket::unique_posix_fd;
 using ::rocket::unique_posix_file;
 using ::rocket::unique_posix_dir;
-
+using ::rocket::shared_function;
 using ::rocket::begin;
 using ::rocket::end;
 using ::rocket::swap;
@@ -128,14 +130,22 @@ using ::rocket::any_of;
 using ::rocket::none_of;
 using ::rocket::nullopt;
 
+using ::asteria::format;
+using ::asteria::sformat;
+
 using ::poseidon::chars_view;
-using ::poseidon::cow_bivector;
 using ::poseidon::opt;
 using ::poseidon::uniptr;
 using ::poseidon::new_uni;
 using ::poseidon::shptr;
 using ::poseidon::wkptr;
 using ::poseidon::new_sh;
+
+POSEIDON_USING cow_bivector = cow_vector<pair<Ts...>>;
+POSEIDON_USING cow_dictionary = cow_hashmap<phcow_string, Ts..., phcow_string::hash>;
+POSEIDON_USING cow_uint32_dictionary = cow_hashmap<uint32_t, Ts..., ::std::hash<uint32_t>>;
+POSEIDON_USING cow_uint64_dictionary = cow_hashmap<uint64_t, Ts..., ::std::hash<uint64_t>>;
+POSEIDON_USING cow_uuid_dictionary = cow_hashmap<::poseidon::UUID, Ts..., ::poseidon::UUID::hash>;
 
 }  // namespace k32
 #endif

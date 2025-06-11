@@ -34,6 +34,8 @@
 #include <rocket/mutex.hpp>
 #include <rocket/recursive_mutex.hpp>
 #include <rocket/condition_variable.hpp>
+#include <rocket/shared_function.hpp>
+#include <rocket/static_char_buffer.hpp>
 
 #include <iterator>
 #include <memory>
@@ -74,7 +76,9 @@
 #include <nmmintrin.h>
 #include <immintrin.h>
 
+#include <asteria/value.hpp>
 #include <asteria/utils.hpp>
+#include <poseidon/base/uuid.hpp>
 #include <poseidon/utils.hpp>
 #include <taxon.hpp>
 
