@@ -127,7 +127,7 @@ do_synchronize_services(const wkptr<Implementation>& weak_impl,
     auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
     ::poseidon::task_executor.enqueue(task1);
     ::poseidon::fiber_scheduler.yield(fiber, task1);
-    POSEIDON_LOG_DEBUG(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
+    POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
     // Download all the other services.
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector,
@@ -152,11 +152,11 @@ do_synchronize_services(const wkptr<Implementation>& weak_impl,
       }
 
       services.try_emplace(uuid, value.as_object());
-      POSEIDON_LOG_DEBUG(("Received service: `$1`: $2"), uuid, value);
+      POSEIDON_LOG_TRACE(("Received service: `$1`: $2"), uuid, value);
     }
 
     impl->services = services;
-    POSEIDON_LOG_DEBUG(("Synchronized $1 services"), impl->services.size());
+    POSEIDON_LOG_TRACE(("Synchronized $1 services"), impl->services.size());
   }
 
 }  // namespace
