@@ -255,28 +255,16 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
-    for(char ch : application_name)
-      switch(ch)
-        {
-        case 'A' ... 'Z':
-        case 'a' ... 'z':
-        case '0' ... '9':
-        case '_':
-        case '.':
-        case '-':
-        case '~':
-        case '!':
-        case '(':
-        case ')':
-        case ' ':  // space
-          continue;
+    for(char ch : application_name) {
+      static constexpr char valid_chars[] =
+         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _+-,.()~!@#$%";
 
-        default:
-          POSEIDON_THROW((
-              "Invalid `k32.application_name`: character `$1` not allowed",
-              "[in configuration file '$2']"),
-              ch, conf_file.path());
-        }
+      if(::rocket::xmemchr(valid_chars, ch, sizeof(valid_chars) - 1) == nullptr)
+        POSEIDON_THROW((
+            "Invalid `k32.application_name`: character `$1` not allowed",
+            "[in configuration file '$2']"),
+            ch, conf_file.path());
+    }
 
     // `application_password`
     conf_value = conf_file.query(&"k32.application_password");
