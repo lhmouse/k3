@@ -38,9 +38,9 @@ test_timer_callback(const shptr<::poseidon::Abstract_Timer>& timer,
 
     for(const auto& r : req->responses())
       if(r.error == "")
-        POSEIDON_LOG_FATAL(("  $1 => DATA: $2"), r.request_uuid, r.response_data);
+        POSEIDON_LOG_FATAL(("  $1 => DATA: $2"), r.service_uuid, r.response_data);
       else
-        POSEIDON_LOG_FATAL(("  $1 => ERROR: $2"), r.request_uuid, r.error);
+        POSEIDON_LOG_FATAL(("  $1 => ERROR: $2"), r.service_uuid, r.error);
   }
 
 static void

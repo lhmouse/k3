@@ -324,14 +324,18 @@ do_remove_disconnected_service(const shptr<Implementation>& impl,
 
     for(const auto& r : conn_it->second.weak_futures)
       if(auto req = r.first.lock()) {
-        auto& rsv = req->mf_responses();
-        for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
-          if(p->response_received == false) {
-            p->error = &"Connection lost";
-            p->response_received = true;
-          }
+          bool all_received = true;
+          auto& rsv = req->mf_responses();
+          for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
+            if(p->service_uuid != service_uuid)
+              all_received &= p->response_received;
+            else {
+              p->error = &"Connection lost";
+              p->response_received = true;
+            }
 
-        req->mf_abstract_future_initialize_once();
+          if(all_received)
+            req->mf_abstract_future_initialize_once();
       }
 
     impl->remote_connections_by_uuid.erase(conn_it);
