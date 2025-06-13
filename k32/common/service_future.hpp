@@ -127,7 +127,7 @@ extern const ::poseidon::UUID broadcast_uuid;
 
 ROCKET_ALWAYS_INLINE
 Service_Future::Target_Descriptor
-broadcast(const cow_string& service_type)
+broadcast()
   {
     Service_Future::Target_Descriptor target;
     target.service_uuid = broadcast_uuid;
