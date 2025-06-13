@@ -29,7 +29,7 @@ test_timer_callback(const shptr<::poseidon::Abstract_Timer>& timer,
     ::taxon::V_object root;
     root.try_emplace(&"foo", &"hello");
     root.try_emplace(&"bar", 42.0);
-    auto req = new_sh<Service_Future>(broadcast_uuid, &"code1", root);
+    auto req = new_sh<Service_Future>(multicast(&"agent"), &"code1", root);
     service.enqueue(req);
 
     POSEIDON_LOG_FATAL(("test_timer_callback 111"));

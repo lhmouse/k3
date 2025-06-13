@@ -15,6 +15,13 @@ class Service_Future
     public ::poseidon::Abstract_Future
   {
   public:
+    struct Target_Descriptor
+      {
+        ::poseidon::UUID service_uuid;
+        cow_string service_type;
+        uintptr_t reserved_must_be_zero = 0;
+      };
+
     struct Response
       {
         ::poseidon::UUID service_uuid;
@@ -34,8 +41,7 @@ class Service_Future
     cow_vector<Response> m_responses;
 
   public:
-    Service_Future(const ::poseidon::UUID& target_service_uuid,
-                   const cow_string& target_service_type,
+    Service_Future(const Target_Descriptor& target_descriptor,
                    const cow_string& request_code, const ::taxon::Value& request_data);
 
     Service_Future(const ::poseidon::UUID& target_service_uuid,
@@ -87,9 +93,46 @@ class Service_Future
       }
   };
 
+// `multicast_uuid(service_type)` causes the message to be sent to all
+// instance of `service_type`.
 extern const ::poseidon::UUID multicast_uuid;
+
+ROCKET_ALWAYS_INLINE
+Service_Future::Target_Descriptor
+multicast(const cow_string& service_type)
+  {
+    Service_Future::Target_Descriptor target;
+    target.service_uuid = multicast_uuid;
+    target.service_type = service_type;
+    return target;
+  }
+
+// `randomcast(service_type)` causes the message to be sent to a random
+// instance of `service_type`.
 extern const ::poseidon::UUID randomcast_uuid;
+
+ROCKET_ALWAYS_INLINE
+Service_Future::Target_Descriptor
+randomcast(const cow_string& service_type)
+  {
+    Service_Future::Target_Descriptor target;
+    target.service_uuid = randomcast_uuid;
+    target.service_type = service_type;
+    return target;
+  }
+
+// `broadcast()` causes the message to be sent to all instances. This should
+// be used with caution.
 extern const ::poseidon::UUID broadcast_uuid;
+
+ROCKET_ALWAYS_INLINE
+Service_Future::Target_Descriptor
+broadcast(const cow_string& service_type)
+  {
+    Service_Future::Target_Descriptor target;
+    target.service_uuid = broadcast_uuid;
+    return target;
+  }
 
 }  // namespace k32
 #endif
