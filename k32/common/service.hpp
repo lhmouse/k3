@@ -35,9 +35,14 @@ class Service
     const ::poseidon::UUID&
     service_uuid() const noexcept;
 
-    // Registers a handler for requests from other servers. If a new handler has
-    // been added, `true` is returned. If an existent handler has been overwritten,
-    // `false` is returned.
+    // Adds a new handler for requests from other servers. If a new handler
+    // already exists, an exception is thrown.
+    void
+    add_handler(const phcow_string& code, const handler_type& handler);
+
+    // Adds a new handler, or replaces an existing one, for requests from other
+    // servers. If a new handler has been added, `true` is returned. If an
+    // existent handler has been overwritten, `false` is returned.
     bool
     set_handler(const phcow_string& code, const handler_type& handler);
 

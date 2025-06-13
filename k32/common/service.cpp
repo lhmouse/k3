@@ -576,6 +576,18 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
+void
+Service::
+add_handler(const phcow_string& code, const handler_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->handlers.try_emplace(code, handler);
+    if(!r.second)
+      POSEIDON_THROW(("A handler for `$1` already exists"), code);
+  }
+
 bool
 Service::
 set_handler(const phcow_string& code, const handler_type& handler)
@@ -583,7 +595,8 @@ set_handler(const phcow_string& code, const handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    return this->m_impl->handlers.insert_or_assign(code, handler).second;
+    auto r = this->m_impl->handlers.insert_or_assign(code, handler);
+    return r.second;
   }
 
 bool

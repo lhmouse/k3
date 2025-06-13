@@ -66,7 +66,8 @@ poseidon_module_main(void)
 
 
 /*TEST*/
-service.set_handler(&"code1", test_handler_code1);
+service.add_handler(&"code1", test_handler_code1);
+service.add_handler(&"code1", test_handler_code1);
 test_timer.start(5s, 30s, test_timer_callback);
 /*TEST*/
   }
