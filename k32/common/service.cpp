@@ -327,7 +327,7 @@ do_remove_disconnected_service(const shptr<Implementation>& impl,
         auto& rsv = req->mf_responses();
         for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
           if(p->response_received == false) {
-            p->error = &"Connection lost: $1";
+            p->error = &"Connection lost";
             p->response_received = true;
           }
 
