@@ -55,6 +55,7 @@ if get_option('enable-debug-checks')
   add_project_arguments('-D_GLIBCXX_DEBUG', '-D_LIBCPP_DEBUG', language: 'cpp')
 endif
 
+dep_openssl = dependency('openssl')
 dep_poseidon = dependency('poseidon')
 dep_asteria = dependency('asteria')
 dep_taxon = dependency('taxon')
@@ -65,16 +66,16 @@ dep_taxon = dependency('taxon')
 k32_common = shared_library('k32_common',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/common/response_future.cpp', 'k32/common/clock.cpp',
-      'k32/common/service.cpp' ],
-    dependencies: [ dep_poseidon, dep_asteria, dep_taxon ],
+      'k32/common/service.cpp', 'k32/common/service_future.cpp',
+      'k32/common/clock.cpp' ],
+    dependencies: [ dep_openssl, dep_poseidon, dep_asteria, dep_taxon ],
     install: true)
 
 shared_module('k32_agent',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
       'k32/agent/globals.cpp', 'k32/agent/account_supervisor.cpp' ],
-    dependencies: [ dep_poseidon, dep_asteria, dep_taxon ],
+    dependencies: [ dep_poseidon, dep_taxon ],
     link_with: k32_common,
     install: true)
 
@@ -82,6 +83,6 @@ shared_module('k32_logic',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
       'k32/logic/globals.cpp' ],
-    dependencies: [ dep_poseidon, dep_asteria, dep_taxon ],
+    dependencies: [ dep_poseidon, dep_taxon ],
     link_with: k32_common,
     install: true)
