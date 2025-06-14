@@ -315,14 +315,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_remove_disconnected_service(const shptr<Implementation>& impl,
-                               const ::poseidon::UUID& service_uuid)
+do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid)
   {
-    auto conn_it = impl->remote_connections_by_uuid.find(service_uuid);
-    if(conn_it == impl->remote_connections_by_uuid.end())
-      return;
+    POSEIDON_LOG_DEBUG(("Removing service connection: service_uuid `$1`"), service_uuid);
+    auto conn = move(impl->remote_connections_by_uuid[service_uuid]);
+    impl->remote_connections_by_uuid.erase(service_uuid);
 
-    for(const auto& r : conn_it->second.weak_futures)
+    for(const auto& r : conn.weak_futures)
       if(auto req = r.first.lock()) {
           bool all_received = true;
           auto& rsv = req->mf_responses();
@@ -337,13 +336,10 @@ do_remove_disconnected_service(const shptr<Implementation>& impl,
           if(all_received)
             req->mf_abstract_future_initialize_once();
       }
-
-    impl->remote_connections_by_uuid.erase(conn_it);
   }
 
 void
-do_client_ws_callback(const shptr<Implementation>& impl,
-                      const ::poseidon::UUID& remote_service_uuid,
+do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid,
                       const shptr<::poseidon::WS_Client_Session>& session,
                       ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
@@ -381,15 +377,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
             error = sub->as_string();
 
           // Find the request future.
-          auto conn_it = impl->remote_connections_by_uuid.mut_find(remote_service_uuid);
-          if(conn_it == impl->remote_connections_by_uuid.end()) {
-            POSEIDON_LOG_ERROR(("Service gone"));
-            session->close();
-            return;
-          }
-
+          auto& conn = impl->remote_connections_by_uuid[service_uuid];
           shptr<Service_Future> req;
-          for(const auto& r : conn_it->second.weak_futures)
+          for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
               req = r.first.lock();
               break;
@@ -417,7 +407,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
         break;
 
       case ::poseidon::easy_ws_close:
-        do_remove_disconnected_service(impl, remote_service_uuid);
+        // Remove connection info.
+        do_remove_remote_connection(impl, service_uuid);
+
         POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
         break;
     }
@@ -546,7 +538,7 @@ do_subscribe(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fibe
     }
 
     while(impl->expired_service_uuids.size() != 0) {
-      do_remove_disconnected_service(impl, impl->expired_service_uuids.back());
+      do_remove_remote_connection(impl, impl->expired_service_uuids.back());
       impl->expired_service_uuids.pop_back();
     }
   }
