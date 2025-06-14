@@ -212,6 +212,68 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
       }
   };
 
+struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
+  {
+    wkptr<Implementation> m_weak_impl;
+    wkptr<Service_Future> m_weak_req;
+    ::poseidon::UUID m_request_uuid;
+    cow_string m_opcode;
+    ::taxon::Value m_request_data;
+
+    Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
+                        const ::poseidon::UUID& request_uuid, const cow_string& opcode,
+                        const ::taxon::Value& request_data)
+      :
+        m_weak_impl(impl), m_weak_req(req), m_request_uuid(request_uuid),
+        m_opcode(opcode), m_request_data(request_data)
+      {
+      }
+
+    virtual
+    void
+    do_on_abstract_fiber_execute() override
+      {
+        const auto impl = this->m_weak_impl.lock();
+        if(!impl)
+          return;
+
+        ::taxon::Value response_data;
+        ::rocket::tinyfmt_str error_fmt;
+
+        try {
+          auto handler = impl->handlers.ptr(this->m_opcode);
+          if(handler)
+            (* handler) (*this, response_data, move(this->m_request_data));
+          else
+            format(error_fmt, "No handler defined for `$1`", this->m_opcode);
+        }
+        catch(exception& stdex) {
+          POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
+          format(error_fmt, "$1", stdex);
+        }
+
+        const auto req = this->m_weak_req.lock();
+        if(!req)
+          return;
+
+        // Complete the response. If all responses have been completed,
+        // also complete the request future.
+        bool all_received = true;
+        auto& rsv = req->mf_responses();
+        for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
+          if(p->request_uuid != this->m_request_uuid)
+            all_received &= p->response_received;
+          else {
+            p->response_data = response_data;
+            p->error = error_fmt.get_string();
+            p->response_received = true;
+          }
+
+        if(all_received)
+          req->mf_abstract_future_complete();
+      }
+  };
+
 void
 do_server_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Server_Session>& session,
@@ -792,11 +854,20 @@ enqueue(const shptr<Service_Future>& req)
       else
         conn.weak_futures.mut(index) = ::std::make_pair(req, resp.request_uuid);
 
-      // Send the request asynchronously.
-      auto task2 = new_sh<Send_Request_Task>(session,
-             req, resp.request_uuid, req->m_opcode, req->m_request_data);
-      ::poseidon::task_executor.enqueue(task2);
-      task2->m_self_lock = task2;
+      if(resp.service_uuid == this->m_impl->service_uuid) {
+        // This is myself, so there's no need to send it over network.
+        auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req,
+                         resp.request_uuid, req->m_opcode, req->m_request_data);
+        ::poseidon::fiber_scheduler.launch(fiber3);
+      }
+      else {
+        // Send the request asynchronously.
+        auto task2 = new_sh<Send_Request_Task>(session,
+               req, resp.request_uuid, req->m_opcode, req->m_request_data);
+        ::poseidon::task_executor.enqueue(task2);
+        task2->m_self_lock = task2;
+      }
+
       something_sent = true;
     }
 
