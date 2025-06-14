@@ -536,6 +536,8 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     ::poseidon::fiber_scheduler.yield(fiber, task1);
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
+    POSEIDON_CHECK(task1->status() == "OK");
+
     if(impl->remote_services_by_uuid.count(impl->service_uuid) == false)
       do_subscribe_service(impl, fiber);
   }
