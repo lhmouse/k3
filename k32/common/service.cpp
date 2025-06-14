@@ -81,18 +81,17 @@ struct Send_Request_Task final : ::poseidon::Abstract_Task
   {
     shptr<Send_Request_Task> m_self_lock;
     wkptr<::poseidon::WS_Client_Session> m_weak_session;
-    cow_string m_opcode;
-    ::taxon::Value m_request_data;
     wkptr<Service_Future> m_weak_req;
     ::poseidon::UUID m_request_uuid;
+    cow_string m_opcode;
+    ::taxon::Value m_request_data;
 
     Send_Request_Task(const shptr<::poseidon::WS_Client_Session>& session,
-                      const cow_string& opcode, const ::taxon::Value& request_data,
-                      const shptr<Service_Future>& req, const ::poseidon::UUID& request_uuid)
+                      const shptr<Service_Future>& req, const ::poseidon::UUID& request_uuid,
+                      const cow_string& opcode, const ::taxon::Value& request_data)
       :
-        m_weak_session(session),
-        m_opcode(opcode), m_request_data(request_data), m_weak_req(req),
-        m_request_uuid(request_uuid)
+        m_weak_session(session), m_weak_req(req), m_request_uuid(request_uuid),
+        m_opcode(opcode), m_request_data(request_data)
       {
       }
 
@@ -157,7 +156,7 @@ struct Send_Response_Task final : ::poseidon::Abstract_Task
       }
   };
 
-struct Serve_Request_Fiber final : ::poseidon::Abstract_Fiber
+struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
   {
     wkptr<Implementation> m_weak_impl;
     wkptr<::poseidon::WS_Server_Session> m_weak_session;
@@ -165,10 +164,10 @@ struct Serve_Request_Fiber final : ::poseidon::Abstract_Fiber
     cow_string m_opcode;
     ::taxon::Value m_request_data;
 
-    Serve_Request_Fiber(const shptr<Implementation>& impl,
-                        const shptr<::poseidon::WS_Server_Session>& session,
-                        const ::poseidon::UUID& request_uuid,
-                        const cow_string& opcode, const ::taxon::Value& request_data)
+    Remote_Request_Fiber(const shptr<Implementation>& impl,
+                         const shptr<::poseidon::WS_Server_Session>& session,
+                         const ::poseidon::UUID& request_uuid,
+                         const cow_string& opcode, const ::taxon::Value& request_data)
       :
         m_weak_impl(impl), m_weak_session(session),
         m_request_uuid(request_uuid), m_opcode(opcode),
@@ -291,8 +290,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           // Handle the request in another fiber, so it's stateless.
           POSEIDON_CHECK(opcode != "");
-          auto fiber3 = new_sh<Serve_Request_Fiber>(impl, session,
-                                request_uuid, opcode, request_data);
+          auto fiber3 = new_sh<Remote_Request_Fiber>(impl,
+                           session, request_uuid, opcode, request_data);
           ::poseidon::fiber_scheduler.launch(fiber3);
         }
         break;
@@ -795,8 +794,8 @@ enqueue(const shptr<Service_Future>& req)
         conn.weak_futures.mut(index) = ::std::make_pair(req, resp.request_uuid);
 
       // Send the request asynchronously.
-      auto task2 = new_sh<Send_Request_Task>(session, req->m_opcode,
-                            req->m_request_data, req, resp.request_uuid);
+      auto task2 = new_sh<Send_Request_Task>(session,
+             req, resp.request_uuid, req->m_opcode, req->m_request_data);
       ::poseidon::task_executor.enqueue(task2);
       task2->m_self_lock = task2;
       something_sent = true;
