@@ -6,8 +6,8 @@
 #include <poseidon/static/main_config.hpp>
 namespace k32::logic {
 
-Service service;
 Clock clock;
+Service service;
 
 }  // namespace k32::logic
 

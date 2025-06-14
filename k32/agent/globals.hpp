@@ -5,14 +5,14 @@
 #define K32_AGENT_GLOBALS_
 
 #include "../fwd.hpp"
-#include "../common/service.hpp"
 #include "../common/clock.hpp"
-#include "account_supervisor.hpp"
+#include "../common/service.hpp"
+#include "user_service.hpp"
 namespace k32::agent {
 
-extern Service service;
 extern Clock clock;
-extern Account_Supervisor account_supervisor;
+extern Service service;
+extern User_Service user_service;
 
 }  // namespace k32::agent
 #endif

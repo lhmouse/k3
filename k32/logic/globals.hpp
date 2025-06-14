@@ -5,12 +5,12 @@
 #define K32_LOGIC_GLOBALS_
 
 #include "../fwd.hpp"
-#include "../common/service.hpp"
 #include "../common/clock.hpp"
+#include "../common/service.hpp"
 namespace k32::logic {
 
-extern Service service;
 extern Clock clock;
+extern Service service;
 
 }  // namespace k32::logic
 #endif
