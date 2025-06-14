@@ -678,7 +678,7 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
               }));
 
     this->m_impl->subscribe_timer.start(
-         6s, 30s,
+         6s, 29s,
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
