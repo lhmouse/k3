@@ -241,14 +241,10 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           parser.reload(query);
 
           while(parser.next_element())
-            if(parser.current_name() == "t") {
-              const auto& t = parser.current_value();
-              ::rocket::ascii_numget numg;
-              POSEIDON_CHECK(numg.parse_D(t.data(), t.size()) == t.size());
-              numg.cast_I(req_timestamp, 1, INT64_MAX);
-            }
+            if(parser.current_name() == "t")
+              req_timestamp = parser.current_value().as_integer();
             else if(parser.current_name() == "pw")
-              req_auth_password = parser.current_value();
+              req_auth_password = parser.current_value().as_string();
 
           int64_t now = ::time(nullptr);
           POSEIDON_CHECK((req_timestamp >= now - 60) && (req_timestamp <= now + 60));
