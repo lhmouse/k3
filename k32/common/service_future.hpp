@@ -55,7 +55,7 @@ class Service_Future
   public:
 #ifdef K32_DARK_MAGIC_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
     cow_vector<Response>& mf_responses() noexcept { return this->m_responses;  }
-    void mf_abstract_future_initialize_once() { this->do_abstract_future_initialize_once();  }
+    void mf_abstract_future_complete() { this->do_abstract_future_initialize_once();  }
 #endif
     Service_Future(const Service_Future&) = delete;
     Service_Future& operator=(const Service_Future&) = delete;

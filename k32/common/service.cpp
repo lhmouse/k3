@@ -326,7 +326,7 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
             }
 
           if(all_received)
-            req->mf_abstract_future_initialize_once();
+            req->mf_abstract_future_complete();
       }
   }
 
@@ -394,7 +394,7 @@ do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID&
             }
 
           if(all_received)
-            req->mf_abstract_future_initialize_once();
+            req->mf_abstract_future_complete();
         }
         break;
 
@@ -805,7 +805,7 @@ enqueue(const shptr<Service_Future>& req)
     }
 
     if(!something_sent)
-      req->mf_abstract_future_initialize_once();
+      req->mf_abstract_future_complete();
   }
 
 }  // namespace k32
