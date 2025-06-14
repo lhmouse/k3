@@ -166,12 +166,11 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
 
     Remote_Request_Fiber(const shptr<Implementation>& impl,
                          const shptr<::poseidon::WS_Server_Session>& session,
-                         const ::poseidon::UUID& request_uuid,
-                         const cow_string& opcode, const ::taxon::Value& request_data)
+                         const ::poseidon::UUID& request_uuid, const cow_string& opcode,
+                         const ::taxon::Value& request_data)
       :
-        m_weak_impl(impl), m_weak_session(session),
-        m_request_uuid(request_uuid), m_opcode(opcode),
-        m_request_data(request_data)
+        m_weak_impl(impl), m_weak_session(session), m_request_uuid(request_uuid),
+        m_opcode(opcode), m_request_data(request_data)
       {
       }
 
@@ -207,7 +206,7 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
 
         // Send a response asynchronously.
         auto task4 = new_sh<Send_Response_Task>(session,
-                       this->m_request_uuid, error_fmt.get_string(), response_data);
+               this->m_request_uuid, error_fmt.get_string(), response_data);
         ::poseidon::task_executor.enqueue(task4);
         task4->m_self_lock = task4;
       }
@@ -311,18 +310,18 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
 
     for(const auto& r : conn.weak_futures)
       if(auto req = r.first.lock()) {
-          bool all_received = true;
-          auto& rsv = req->mf_responses();
-          for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
-            if(p->service_uuid != service_uuid)
-              all_received &= p->response_received;
-            else {
-              p->error = &"Connection lost";
-              p->response_received = true;
-            }
+        bool all_received = true;
+        auto& rsv = req->mf_responses();
+        for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
+          if(p->service_uuid != service_uuid)
+            all_received &= p->response_received;
+          else {
+            p->error = &"Connection lost";
+            p->response_received = true;
+          }
 
-          if(all_received)
-            req->mf_abstract_future_complete();
+        if(all_received)
+          req->mf_abstract_future_complete();
       }
   }
 
