@@ -458,6 +458,7 @@ do_subscribe(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fibe
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1$2", redis_prefix, impl->service_uuid));
     cmd.emplace_back(value.print_to_string());
+    cmd.emplace_back(&"NX");
     cmd.emplace_back(&"EX");
     cmd.emplace_back(&"60");  // one minute
 
