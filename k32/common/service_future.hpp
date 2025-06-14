@@ -36,16 +36,16 @@ class Service_Future
 
     ::poseidon::UUID m_target_service_uuid;
     cow_string m_target_service_type;
-    cow_string m_request_code;
+    cow_string m_opcode;
     ::taxon::Value m_request_data;
     cow_vector<Response> m_responses;
 
   public:
     Service_Future(const Target_Descriptor& target_descriptor,
-                   const cow_string& request_code, const ::taxon::Value& request_data);
+                   const cow_string& opcode, const ::taxon::Value& request_data);
 
     Service_Future(const ::poseidon::UUID& target_service_uuid,
-                   const cow_string& request_code, const ::taxon::Value& request_data);
+                   const cow_string& opcode, const ::taxon::Value& request_data);
 
   private:
     virtual
@@ -74,8 +74,8 @@ class Service_Future
 
     // Gets the request code. This field is set by the constructor.
     const cow_string&
-    request_code() const noexcept
-      { return this->m_request_code;  }
+    opcode() const noexcept
+      { return this->m_opcode;  }
 
     // Gets the request data. This field is set by the constructor.
     const ::taxon::Value&

@@ -15,7 +15,6 @@ class Service
             void (
               ::poseidon::Abstract_Fiber& fiber,
               ::taxon::Value& response_data,  // output parameter
-              cow_string&& request_code,
               ::taxon::Value&& request_data)>;
 
   private:

@@ -45,9 +45,7 @@ test_timer_callback(const shptr<::poseidon::Abstract_Timer>& timer,
 
 static void
 test_handler_code1(::poseidon::Abstract_Fiber& fiber,
-                   ::taxon::Value& response_data,
-                   cow_string&& request_code,
-                   ::taxon::Value&& request_data)
+                   ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     POSEIDON_LOG_FATAL(("test_handler_code1 77777777777"));
     response_data.mut_array().emplace_back(&"meo meow");

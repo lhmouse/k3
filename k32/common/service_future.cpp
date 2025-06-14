@@ -11,20 +11,20 @@ constexpr ::poseidon::UUID broadcast_uuid = POSEIDON_UUID(789665cc,6fd8,4fb6,e79
 
 Service_Future::
 Service_Future(const Target_Descriptor& target_descriptor,
-               const cow_string& request_code, const ::taxon::Value& request_data)
+               const cow_string& opcode, const ::taxon::Value& request_data)
   {
     this->m_target_service_uuid = target_descriptor.service_uuid;
     this->m_target_service_type = target_descriptor.service_type;
-    this->m_request_code = request_code;
+    this->m_opcode = opcode;
     this->m_request_data = request_data;
   }
 
 Service_Future::
 Service_Future(const ::poseidon::UUID& target_service_uuid,
-               const cow_string& request_code, const ::taxon::Value& request_data)
+               const cow_string& opcode, const ::taxon::Value& request_data)
   {
     this->m_target_service_uuid = target_service_uuid;
-    this->m_request_code = request_code;
+    this->m_opcode = opcode;
     this->m_request_data = request_data;
   }
 
