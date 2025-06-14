@@ -44,7 +44,8 @@ struct Implementation
 
     ::poseidon::Easy_WS_Server private_server;
     ::poseidon::Easy_WS_Client private_client;
-    ::poseidon::Easy_Timer sync_timer;
+    ::poseidon::Easy_Timer publish_timer;
+    ::poseidon::Easy_Timer subscribe_timer;
 
     // local data
     cow_string service_type;
@@ -407,71 +408,13 @@ do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID&
   }
 
 void
-do_subscribe(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
+do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
   {
-    const auto redis_prefix = impl->application_name + "services/";
-
-    ::taxon::Value value;
-    ::taxon::V_array array;
-    ::poseidon::IPv6_Address addr;
-    cow_vector<cow_string> cmd;
-
-    // Set my service information.
-    value.mut_object().try_emplace(&"service_type", impl->service_type);
-    value.mut_object().try_emplace(&"application_name", impl->application_name);
-
-    auto private_addr = impl->private_server.local_address();
-    if(private_addr.port() != 0) {
-      // Get all running network interfaces.
-      ::ifaddrs* ifa;
-      if(::getifaddrs(&ifa) != 0) {
-        POSEIDON_LOG_ERROR(("Network configuration error: ${errno:full}]"));
-        return;
-      }
-
-      const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
-
-      for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
-        if(!(ifa->ifa_flags & IFF_RUNNING) || !ifa->ifa_addr)
-          continue;
-        else if(ifa->ifa_addr->sa_family == AF_INET) {
-          // IPv4
-          auto sa = reinterpret_cast<::sockaddr_in*>(ifa->ifa_addr);
-          addr = ::poseidon::ipv4_unspecified;
-          ::memcpy(addr.mut_data() + 12, &(sa->sin_addr), 4);
-          addr.set_port(private_addr.port());
-          array.emplace_back(addr.print_to_string());
-        }
-        else if(ifa->ifa_addr->sa_family == AF_INET6) {
-          // IPv6
-          auto sa = reinterpret_cast<::sockaddr_in6*>(ifa->ifa_addr);
-          addr.set_addr(sa->sin6_addr);
-          addr.set_port(private_addr.port());
-          array.emplace_back(addr.print_to_string());
-        }
-
-      value.mut_object().try_emplace(&"hostname", ::poseidon::hostname);
-      value.mut_object().try_emplace(&"addresses", array);
-    }
-
-    cmd.clear();
-    cmd.emplace_back(&"SET");
-    cmd.emplace_back(sformat("$1$2", redis_prefix, impl->service_uuid));
-    cmd.emplace_back(value.print_to_string());
-    cmd.emplace_back(&"NX");
-    cmd.emplace_back(&"EX");
-    cmd.emplace_back(&"60");  // one minute
-
-    auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
-    ::poseidon::task_executor.enqueue(task1);
-    ::poseidon::fiber_scheduler.yield(fiber, task1);
-    POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
-
-    // Download all services.
-    auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(
-                           ::poseidon::redis_connector, redis_prefix + "*");
+    auto pattern = sformat("$1/services/*", impl->application_name);
+    auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
     ::poseidon::task_executor.enqueue(task2);
     ::poseidon::fiber_scheduler.yield(fiber, task2);
+    POSEIDON_LOG_TRACE(("Fetched $1 services"), task2->result().size());
 
     cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
     cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
@@ -479,28 +422,30 @@ do_subscribe(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fibe
     for(const auto& r : task2->result())
       try {
         Remote_Service_Information remote;
-        if((r.first.size() != redis_prefix.size() + 36)
-            || (remote.service_uuid.parse_partial(
-                r.first.data() + redis_prefix.size()) != 36))
-          continue;
+        POSEIDON_CHECK(r.first.size() == pattern.size() + 35);  // note `*` in pattern
+        POSEIDON_CHECK(remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) == 36);
 
+        ::taxon::Value root;
         ::taxon::Parser_Context pctx;
-        value.parse_with(pctx, r.second);
-        if(pctx.error
-            || !value.is_object()
-            || (value.as_object().at(&"application_name").as_string()
-                != impl->application_name))
+        root.parse_with(pctx, r.second);
+        POSEIDON_CHECK(!pctx.error);
+        POSEIDON_CHECK(root.is_object());
+
+        if(root.as_object().at(&"application_name").as_string() != impl->application_name)
           continue;
 
-        remote.service_type = value.as_object().at(&"service_type").as_string();
+        ::taxon::V_object service_data = root.as_object();
+        remote.service_type = service_data.at(&"service_type").as_string();
 
-        if(auto hostname = value.as_object().ptr(&"hostname"))
+        if(auto hostname = service_data.ptr(&"hostname"))
           remote.hostname = hostname->as_string();
 
-        if(auto addresses = value.as_object().ptr(&"addresses"))
-          for(const auto& addr_val : addresses->as_array())
-            if(addr.parse(addr_val.as_string()))
+        if(auto addresses = service_data.ptr(&"addresses"))
+          for(const auto& t : addresses->as_array()) {
+            ::poseidon::IPv6_Address addr;
+            if(addr.parse(t.as_string()))
               remote.addresses.emplace_back(addr);
+          }
 
         remote_services_by_uuid.try_emplace(remote.service_uuid, remote);
         remote_services_by_type[remote.service_type].emplace_back(remote);
@@ -512,6 +457,7 @@ do_subscribe(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fibe
             r.first, r.second, stdex);
       }
 
+    // Update services as an atomic operation.
     impl->remote_services_by_uuid = remote_services_by_uuid;
     impl->remote_services_by_type = remote_services_by_type;
 
@@ -533,6 +479,69 @@ do_subscribe(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fibe
       do_remove_remote_connection(impl, impl->expired_service_uuids.back());
       impl->expired_service_uuids.pop_back();
     }
+  }
+
+void
+do_publish_service_with_ttl(const shptr<Implementation>& impl,
+                            ::poseidon::Abstract_Fiber& fiber, seconds ttl)
+  {
+    ::taxon::V_object service_data;
+    service_data.try_emplace(&"application_name", impl->application_name);
+    service_data.try_emplace(&"service_type", impl->service_type);
+
+    auto private_addr = impl->private_server.local_address();
+    if(private_addr.port() != 0) {
+      // Get all running network interfaces.
+      ::ifaddrs* ifa;
+      if(::getifaddrs(&ifa) != 0) {
+        POSEIDON_LOG_ERROR(("Network configuration error: ${errno:full}]"));
+        return;
+      }
+
+      const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
+
+      ::taxon::V_array addresses;
+      for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
+        if(!(ifa->ifa_flags & IFF_RUNNING) || !ifa->ifa_addr)
+          continue;
+        else if(ifa->ifa_addr->sa_family == AF_INET) {
+          // IPv4
+          auto sa = reinterpret_cast<::sockaddr_in*>(ifa->ifa_addr);
+          ::poseidon::IPv6_Address addr;
+          ::memcpy(addr.mut_data(), ::poseidon::ipv4_unspecified.data(), 16);
+          ::memcpy(addr.mut_data() + 12, &(sa->sin_addr), 4);
+          addr.set_port(private_addr.port());
+          addresses.emplace_back(addr.print_to_string());
+        }
+        else if(ifa->ifa_addr->sa_family == AF_INET6) {
+          // IPv6
+          auto sa = reinterpret_cast<::sockaddr_in6*>(ifa->ifa_addr);
+          ::poseidon::IPv6_Address addr;
+          addr.set_addr(sa->sin6_addr);
+          addr.set_port(private_addr.port());
+          addresses.emplace_back(addr.print_to_string());
+        }
+
+      service_data.try_emplace(&"hostname", ::poseidon::hostname);
+      service_data.try_emplace(&"addresses", addresses);
+    }
+
+    cow_vector<cow_string> cmd;
+    cmd.reserve(6);
+    cmd.emplace_back(&"SET");
+    cmd.emplace_back(sformat("$1/services/$2", impl->application_name, impl->service_uuid));
+    cmd.emplace_back(::taxon::Value(service_data).print_to_string());
+    cmd.emplace_back(&"NX");
+    cmd.emplace_back(&"EX");
+    cmd.emplace_back(sformat("$1", ttl.count()));
+
+    auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
+    ::poseidon::task_executor.enqueue(task1);
+    ::poseidon::fiber_scheduler.yield(fiber, task1);
+    POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
+
+    if(impl->remote_services_by_uuid.count(impl->service_uuid) == false)
+      do_subscribe_service(impl, fiber);
   }
 
 }  // namespace
@@ -658,8 +667,8 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
                   do_server_ws_callback(impl, session, event, move(data));
               }));
 
-    this->m_impl->sync_timer.start(
-         1s, 10s,  // delay, period
+    this->m_impl->publish_timer.start(
+         1s, 5s,
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
@@ -667,7 +676,19 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
                 ::std::chrono::steady_clock::time_point /*now*/)
               {
                 if(const auto impl = weak_impl.lock())
-                  do_subscribe(impl, fiber);
+                  do_publish_service_with_ttl(impl, fiber, 10s);
+              }));
+
+    this->m_impl->subscribe_timer.start(
+         6s, 30s,
+         ::poseidon::Easy_Timer::callback_type(
+            [weak_impl = wkptr<Implementation>(this->m_impl)]
+               (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                ::poseidon::Abstract_Fiber& fiber,
+                ::std::chrono::steady_clock::time_point /*now*/)
+              {
+                if(const auto impl = weak_impl.lock())
+                  do_subscribe_service(impl, fiber);
               }));
   }
 
@@ -711,7 +732,7 @@ enqueue(const shptr<Service_Future>& req)
 
     if(req->m_responses.size() == 0)
       POSEIDON_LOG_ERROR((
-          "No service configured: service_uuid `$1`, service_type `$2`"),
+          "No service configured: service_uuid = `$1`, service_type = `$2`"),
           req->m_target_service_uuid, req->m_target_service_type);
 
     bool something_sent = false;
