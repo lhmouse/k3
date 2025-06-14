@@ -51,6 +51,7 @@ struct Implementation
     cow_string service_type;
     cow_string application_name;
     cow_string application_password;
+    ::taxon::V_object cached_service_data;
 
     // remote data from redis
     cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
@@ -105,13 +106,13 @@ struct Send_Request_Task final : ::poseidon::Abstract_Task
           return;
 
         ::taxon::Value root;
-        root.mut_object().try_emplace(&"code", this->m_opcode);
+        root.mut_object()[&"code"] = this->m_opcode;
 
         if(!this->m_request_data.is_null())
-          root.mut_object().try_emplace(&"data", this->m_request_data);
+          root.mut_object()[&"data"] = this->m_request_data;
 
         if(!this->m_weak_req.expired())
-          root.mut_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
+          root.mut_object()[&"uuid"] = this->m_request_uuid.print_to_string();
 
         session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
       }
@@ -144,13 +145,13 @@ struct Send_Response_Task final : ::poseidon::Abstract_Task
           return;
 
         ::taxon::Value root;
-        root.mut_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
+        root.mut_object()[&"uuid"] = this->m_request_uuid.print_to_string();
 
         if(this->m_error != "")
-          root.mut_object().try_emplace(&"error", this->m_error);
+          root.mut_object()[&"error"] = this->m_error;
 
         if(!this->m_response_data.is_null())
-          root.mut_object().try_emplace(&"data", this->m_response_data);
+          root.mut_object()[&"data"] = this->m_response_data;
 
         session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
       }
@@ -443,7 +444,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
               remote.addresses.emplace_back(addr);
           }
 
-        remote_services_by_uuid.try_emplace(remote.service_uuid, remote);
+        remote_services_by_uuid[remote.service_uuid] = remote;
         remote_services_by_type[remote.service_type].emplace_back(remote);
       }
       catch(exception& stdex) {
@@ -481,9 +482,9 @@ void
 do_publish_service_with_ttl(const shptr<Implementation>& impl,
                             ::poseidon::Abstract_Fiber& fiber, seconds ttl)
   {
-    ::taxon::V_object service_data;
-    service_data.try_emplace(&"application_name", impl->application_name);
-    service_data.try_emplace(&"service_type", impl->service_type);
+    ::taxon::V_object& service_data = impl->cached_service_data;
+    service_data[&"application_name"] = impl->application_name;
+    service_data[&"service_type"] = impl->service_type;
 
     auto private_addr = impl->private_server.local_address();
     if(private_addr.port() != 0) {
@@ -496,7 +497,10 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
 
       const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
 
-      ::taxon::V_array addresses;
+      service_data[&"hostname"] = ::poseidon::hostname;
+      ::taxon::V_array& addresses = service_data[&"addresses"].mut_array();
+      addresses.clear();
+
       for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
         if(!(ifa->ifa_flags & IFF_RUNNING) || !ifa->ifa_addr)
           continue;
@@ -517,9 +521,6 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
           addr.set_port(private_addr.port());
           addresses.emplace_back(addr.print_to_string());
         }
-
-      service_data.try_emplace(&"hostname", ::poseidon::hostname);
-      service_data.try_emplace(&"addresses", addresses);
     }
 
     cow_vector<cow_string> cmd;
