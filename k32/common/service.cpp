@@ -407,14 +407,14 @@ do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID&
 void
 do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
   {
+    cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
+
     auto pattern = sformat("$1/services/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
     ::poseidon::task_executor.enqueue(task2);
     ::poseidon::fiber_scheduler.yield(fiber, task2);
     POSEIDON_LOG_TRACE(("Fetched $1 services"), task2->result().size());
-
-    cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
 
     for(const auto& r : task2->result())
       try {
