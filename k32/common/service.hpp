@@ -11,6 +11,14 @@ namespace k32 {
 class Service
   {
   public:
+    struct Remote_Service_Information
+      {
+        ::poseidon::UUID service_uuid;
+        cow_string service_type;
+        cow_string hostname;
+        cow_vector<::poseidon::IPv6_Address> addresses;
+      };
+
     using handler_type = ::rocket::shared_function<
             void (
               ::poseidon::Abstract_Fiber& fiber,
@@ -33,6 +41,10 @@ class Service
     // zero UUID is returned.
     const ::poseidon::UUID&
     service_uuid() const noexcept;
+
+    // Gets properties of a remote service.
+    const Remote_Service_Information*
+    find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept;
 
     // Adds a new handler for requests from other servers. If a new handler
     // already exists, an exception is thrown.
