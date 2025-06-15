@@ -59,17 +59,17 @@ struct Implementation
     cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
 
     // connections
-    cow_uuid_dictionary<Remote_Connection_Information> remote_connections_by_uuid;
+    cow_uuid_dictionary<Remote_Connection_Information> remote_connections;
     cow_vector<::poseidon::UUID> expired_service_uuids;
   };
 
 void
-do_salt_password(char* pw, int64_t timestamp, const cow_string& password)
+do_salt_password(char* pw, int64_t t, const cow_string& password)
   {
     ::MD5_CTX ctx;
     ::MD5_Init(&ctx);
 
-    uint64_t ts_bytes = ROCKET_HTOBE64(static_cast<uint64_t>(timestamp));
+    uint64_t ts_bytes = ROCKET_HTOBE64(static_cast<uint64_t>(t));
     ::MD5_Update(&ctx, &ts_bytes, 8);
     ::MD5_Update(&ctx, password.data(), password.size());
 
@@ -206,8 +206,8 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
           return;
 
         // Send a response asynchronously.
-        auto task4 = new_sh<Send_Response_Task>(session,
-               this->m_request_uuid, error_fmt.get_string(), response_data);
+        auto task4 = new_sh<Send_Response_Task>(session, this->m_request_uuid,
+                                                error_fmt.get_string(), response_data);
         ::poseidon::task_executor.enqueue(task4);
         task4->m_self_lock = task4;
       }
@@ -352,8 +352,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           // Handle the request in another fiber, so it's stateless.
           POSEIDON_CHECK(opcode != "");
-          auto fiber3 = new_sh<Remote_Request_Fiber>(impl,
-                           session, request_uuid, opcode, request_data);
+          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid,
+                                                     move(opcode), move(request_data));
           ::poseidon::fiber_scheduler.launch(fiber3);
         }
         break;
@@ -368,8 +368,8 @@ void
 do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid)
   {
     POSEIDON_LOG_DEBUG(("Removing service connection: service_uuid `$1`"), service_uuid);
-    auto conn = move(impl->remote_connections_by_uuid[service_uuid]);
-    impl->remote_connections_by_uuid.erase(service_uuid);
+    auto conn = move(impl->remote_connections[service_uuid]);
+    impl->remote_connections.erase(service_uuid);
 
     for(const auto& r : conn.weak_futures)
       if(auto req = r.first.lock()) {
@@ -427,7 +427,7 @@ do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID&
             error = sub->as_string();
 
           // Find the request future.
-          auto& conn = impl->remote_connections_by_uuid[service_uuid];
+          auto& conn = impl->remote_connections[service_uuid];
           shptr<Service_Future> req;
           for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
@@ -524,7 +524,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
     // Purge connections that have been lost, as well as services that have
     // been removed from Redis.
-    for(const auto& r : impl->remote_connections_by_uuid) {
+    for(const auto& r : impl->remote_connections) {
       auto session = r.second.weak_session.lock();
       if(session && impl->remote_services_by_uuid.count(r.first))
         continue;
@@ -803,7 +803,7 @@ enqueue(const shptr<Service_Future>& req)
       resp.request_uuid = ::poseidon::UUID::random();
 
       const auto& srv = this->m_impl->remote_services_by_uuid.at(resp.service_uuid);
-      auto& conn = this->m_impl->remote_connections_by_uuid[srv.service_uuid];
+      auto& conn = this->m_impl->remote_connections[srv.service_uuid];
       auto session = conn.weak_session.lock();
       if(!session) {
         // Find an address to connect to. If the address is loopback, it shall
@@ -860,14 +860,14 @@ enqueue(const shptr<Service_Future>& req)
 
       if(resp.service_uuid == this->m_impl->service_uuid) {
         // This is myself, so there's no need to send it over network.
-        auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req,
-                         resp.request_uuid, req->m_opcode, req->m_request_data);
+        auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req, resp.request_uuid,
+                                                  req->m_opcode, req->m_request_data);
         ::poseidon::fiber_scheduler.launch(fiber3);
       }
       else {
         // Send the request asynchronously.
-        auto task2 = new_sh<Send_Request_Task>(session,
-               req, resp.request_uuid, req->m_opcode, req->m_request_data);
+        auto task2 = new_sh<Send_Request_Task>(session, req, resp.request_uuid, req->m_opcode,
+                                               req->m_request_data);
         ::poseidon::task_executor.enqueue(task2);
         task2->m_self_lock = task2;
       }
