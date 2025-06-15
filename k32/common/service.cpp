@@ -185,7 +185,8 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
-            (* handler) (*this, response_data, move(this->m_request_data));
+            (* handler) (::poseidon::UUID(session->session_user_data()), *this,
+                         response_data, move(this->m_request_data));
           else
             format(error_fmt, "No handler defined for `$1`", this->m_opcode);
         }
@@ -236,7 +237,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
-            (* handler) (*this, response_data, move(this->m_request_data));
+            (* handler) (impl->service_uuid, *this, response_data, move(this->m_request_data));
           else
             format(error_fmt, "No handler defined for `$1`", this->m_opcode);
         }
@@ -277,8 +278,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
       case ::poseidon::easy_ws_open:
         {
           // Authenticate.
-          int64_t req_timestamp = 0;
-          cow_string req_auth_password;
+          cow_string req_srv;
+          int64_t req_t = 0;
+          cow_string req_pw;
 
           cow_string query;
           query.assign(data.begin(), data.end());
@@ -295,21 +297,28 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           parser.reload(query);
 
           while(parser.next_element())
-            if(parser.current_name() == "t")
-              req_timestamp = parser.current_value().as_integer();
+            if(parser.current_name() == "srv")
+              req_srv = parser.current_value().as_string();
+            else if(parser.current_name() == "t")
+              req_t = parser.current_value().as_integer();
             else if(parser.current_name() == "pw")
-              req_auth_password = parser.current_value().as_string();
+              req_pw = parser.current_value().as_string();
+
+          ::poseidon::UUID request_service_uuid;
+          POSEIDON_CHECK(request_service_uuid.parse(req_srv) == req_srv.size());
 
           int64_t now = ::time(nullptr);
-          POSEIDON_CHECK((req_timestamp >= now - 60) && (req_timestamp <= now + 60));
+          POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
 
-          char auth_password[33];
-          do_salt_password(auth_password, req_timestamp, impl->application_password);
-          if(req_auth_password != auth_password) {
+          char auth_pw[33];
+          do_salt_password(auth_pw, req_t, impl->application_password);
+          if(req_pw != auth_pw) {
             POSEIDON_LOG_WARN(("Unauthenticated connection from `$1`"), session->remote_address());
             session->close();
             return;
           }
+
+          session->set_session_user_data(request_service_uuid.print_to_string());
         }
 
         POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
@@ -381,7 +390,7 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
   }
 
 void
-do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid,
+do_client_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Client_Session>& session,
                       ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
@@ -419,7 +428,7 @@ do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID&
             error = sub->as_string();
 
           // Find the request future.
-          auto& conn = impl->remote_connections[service_uuid];
+          auto& conn = impl->remote_connections[::poseidon::UUID(session->session_user_data())];
           shptr<Service_Future> req;
           for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
@@ -450,7 +459,7 @@ do_client_ws_callback(const shptr<Implementation>& impl, const ::poseidon::UUID&
 
       case ::poseidon::easy_ws_close:
         // Remove connection info.
-        do_remove_remote_connection(impl, service_uuid);
+        do_remove_remote_connection(impl, ::poseidon::UUID(session->session_user_data()));
 
         POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
         break;
@@ -826,23 +835,23 @@ enqueue(const shptr<Service_Future>& req)
           continue;
         }
 
-        int64_t timestamp = ::time(nullptr);
-        char auth_password[33];
-        do_salt_password(auth_password, timestamp, this->m_impl->application_password);
+        int64_t now = ::time(nullptr);
+        char auth_pw[33];
+        do_salt_password(auth_pw, now, this->m_impl->application_password);
 
         session = this->m_impl->private_client.connect(
-             sformat("$1/?t=$2&pw=$3", *use_addr, timestamp, auth_password),  // URI
+             sformat("$1/?srv=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
              ::poseidon::Easy_WS_Client::callback_type(
-                [weak_impl = wkptr<Implementation>(this->m_impl),
-                 service_uuid_2 = resp.service_uuid]
-                   (const shptr<::poseidon::WS_Client_Session>& session_2,
+                [weak_impl = wkptr<Implementation>(this->m_impl)]
+                   (const shptr<::poseidon::WS_Client_Session>& session2,
                     ::poseidon::Abstract_Fiber& /*fiber*/,
                     ::poseidon::Easy_WS_Event event, linear_buffer&& data)
                   {
                     if(const auto impl = weak_impl.lock())
-                      do_client_ws_callback(impl, service_uuid_2, session_2, event, move(data));
+                      do_client_ws_callback(impl, session2, event, move(data));
                   }));
 
+        session->set_session_user_data(srv.service_uuid.print_to_string());
         conn.weak_session = session;
         POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
       }
