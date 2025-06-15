@@ -40,6 +40,7 @@ struct Remote_Connection_Information
 struct Implementation
   {
     ::poseidon::UUID service_uuid = ::poseidon::UUID::random();
+    system_time service_start_time = system_clock::now();
     cow_dictionary<Service::handler_type> handlers;
 
     ::poseidon::Easy_WS_Server private_server;
@@ -504,6 +505,9 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
               remote.addresses.emplace_back(addr);
           }
 
+        if(impl->remote_services_by_uuid.count(remote.service_uuid) == false)
+          POSEIDON_LOG_INFO(("New service `$1`: $2"), remote.service_uuid, remote.service_type);
+
         remote_services_by_uuid[remote.service_uuid] = remote;
         remote_services_by_type[remote.service_type].emplace_back(remote);
       }
@@ -598,7 +602,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
 
     POSEIDON_CHECK(task1->status() == "OK");
 
-    if(impl->remote_services_by_uuid.count(impl->service_uuid) == false)
+    if(impl->service_start_time - system_clock::now() < 15s)
       do_subscribe_service(impl, fiber);
   }
 
@@ -726,7 +730,7 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
               }));
 
     this->m_impl->publish_timer.start(
-         1000ms, 7001ms,
+         1000ms, 3001ms,
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
