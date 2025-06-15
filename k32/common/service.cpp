@@ -726,7 +726,7 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
               }));
 
     this->m_impl->publish_timer.start(
-         1000ms, 5001ms,
+         1000ms, 7001ms,
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
