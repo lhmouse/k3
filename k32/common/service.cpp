@@ -506,7 +506,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
           }
 
         if(impl->remote_services_by_uuid.count(remote.service_uuid) == false)
-          POSEIDON_LOG_INFO(("New service `$1`: $2"), remote.service_uuid, remote.service_type);
+          POSEIDON_LOG_INFO(("Discovered service `$1`: $2"), remote.service_uuid, root);
 
         remote_services_by_uuid[remote.service_uuid] = remote;
         remote_services_by_type[remote.service_type].emplace_back(remote);
@@ -602,7 +602,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
 
     POSEIDON_CHECK(task1->status() == "OK");
 
-    if(impl->service_start_time - system_clock::now() < 15s)
+    if(impl->service_start_time - system_clock::now() <= 30s)
       do_subscribe_service(impl, fiber);
   }
 
