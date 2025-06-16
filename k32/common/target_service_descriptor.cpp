@@ -11,8 +11,8 @@ Target_Service_Descriptor::
   {
   }
 
-extern constexpr ::poseidon::UUID
-multicast_uuid = POSEIDON_UUID(903f1bf8,13a6,4190,f44d,b82b1b54ca61);
+extern constexpr ::poseidon::UUID multicast_uuid
+  = POSEIDON_UUID(903f1bf8,13a6,4190,f44d,b82b1b54ca61);
 
 Target_Service_Descriptor
 multicast(const cow_string& service_type)
@@ -23,8 +23,8 @@ multicast(const cow_string& service_type)
     return target;
   }
 
-extern constexpr ::poseidon::UUID
-randomcast_uuid = POSEIDON_UUID(141451c5,1775,4107,f9f1,f0594e621ed4);
+extern constexpr ::poseidon::UUID randomcast_uuid
+  = POSEIDON_UUID(141451c5,1775,4107,f9f1,f0594e621ed4);
 
 Target_Service_Descriptor
 randomcast(const cow_string& service_type)
@@ -35,8 +35,8 @@ randomcast(const cow_string& service_type)
     return target;
   }
 
-extern constexpr ::poseidon::UUID
-broadcast_uuid = POSEIDON_UUID(789665cc,6fd8,4fb6,e79e,18173472cd9f);
+extern constexpr ::poseidon::UUID broadcast_uuid
+  = POSEIDON_UUID(789665cc,6fd8,4fb6,e79e,18173472cd9f);
 
 Target_Service_Descriptor
 broadcast() noexcept
