@@ -58,7 +58,7 @@ class Service
     // Reloads configuration. If `application_name` or `application_password`
     // is changed, a new service (with a new UUID) is initiated.
     void
-    reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type);
+    reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file);
 
     // Enqueues a service request. After this function returns, the caller shall
     // wait on the future. If this function fails, an exception is thrown, and
