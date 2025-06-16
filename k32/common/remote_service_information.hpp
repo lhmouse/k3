@@ -5,6 +5,7 @@
 #define K32_COMMON_REMOTE_SERVICE_INFORMATION_
 
 #include "../fwd.hpp"
+#include <poseidon/socket/ipv6_address.hpp>
 namespace k32 {
 
 struct Remote_Service_Information
