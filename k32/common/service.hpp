@@ -31,15 +31,6 @@ class Service
     Service& operator=(const Service&) & = delete;
     ~Service();
 
-    // Returns the UUID of the active service. If there is no active service, a
-    // zero UUID is returned.
-    const ::poseidon::UUID&
-    service_uuid() const noexcept;
-
-    // Gets properties of a remote service.
-    const Remote_Service_Information*
-    find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept;
-
     // Adds a new handler for requests from other servers. If a new handler
     // already exists, an exception is thrown.
     void
@@ -54,6 +45,15 @@ class Service
     // Removes a handler for requests from other servers.
     bool
     remove_handler(const phcow_string& code) noexcept;
+
+    // Returns the UUID of the active service. If there is no active service, a
+    // zero UUID is returned.
+    const ::poseidon::UUID&
+    service_uuid() const noexcept;
+
+    // Gets properties of a remote service.
+    const Remote_Service_Information*
+    find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept;
 
     // Reloads configuration. If `application_name` or `application_password`
     // is changed, a new service (with a new UUID) is initiated.

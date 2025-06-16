@@ -623,26 +623,6 @@ Service::
   {
   }
 
-const ::poseidon::UUID&
-Service::
-service_uuid() const noexcept
-  {
-    if(!this->m_impl)
-      return ::poseidon::UUID::min();
-
-    return this->m_impl->service_uuid;
-  }
-
-const Remote_Service_Information*
-Service::
-find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept
-  {
-    if(!this->m_impl)
-      return nullptr;
-
-    return this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
-  }
-
 void
 Service::
 add_handler(const phcow_string& code, const handler_type& handler)
@@ -674,6 +654,26 @@ remove_handler(const phcow_string& code) noexcept
       return false;
 
     return this->m_impl->handlers.erase(code);
+  }
+
+const ::poseidon::UUID&
+Service::
+service_uuid() const noexcept
+  {
+    if(!this->m_impl)
+      return ::poseidon::UUID::min();
+
+    return this->m_impl->service_uuid;
+  }
+
+const Remote_Service_Information*
+Service::
+find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept
+  {
+    if(!this->m_impl)
+      return nullptr;
+
+    return this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
   }
 
 void
