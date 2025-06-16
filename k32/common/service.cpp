@@ -101,7 +101,7 @@ struct Send_Request_Task final : ::poseidon::Abstract_Task
           return;
 
         ::taxon::Value root;
-        root.mut_object()[&"code"] = this->m_opcode;
+        root.mut_object()[&"opcode"] = this->m_opcode;
 
         if(!this->m_request_data.is_null())
           root.mut_object()[&"data"] = this->m_request_data;
@@ -344,7 +344,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value request_data;
           ::poseidon::UUID request_uuid;
 
-          if(auto sub = root.as_object().ptr(&"code"))
+          if(auto sub = root.as_object().ptr(&"opcode"))
             if(sub->is_string())
               opcode = sub->as_string();
 
@@ -625,35 +625,35 @@ Service::
 
 void
 Service::
-add_handler(const phcow_string& code, const handler_type& handler)
+add_handler(const phcow_string& opcode, const handler_type& handler)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->handlers.try_emplace(code, handler);
+    auto r = this->m_impl->handlers.try_emplace(opcode, handler);
     if(!r.second)
-      POSEIDON_THROW(("A handler for `$1` already exists"), code);
+      POSEIDON_THROW(("A handler for `$1` already exists"), opcode);
   }
 
 bool
 Service::
-set_handler(const phcow_string& code, const handler_type& handler)
+set_handler(const phcow_string& opcode, const handler_type& handler)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->handlers.insert_or_assign(code, handler);
+    auto r = this->m_impl->handlers.insert_or_assign(opcode, handler);
     return r.second;
   }
 
 bool
 Service::
-remove_handler(const phcow_string& code) noexcept
+remove_handler(const phcow_string& opcode) noexcept
   {
     if(!this->m_impl)
       return false;
 
-    return this->m_impl->handlers.erase(code);
+    return this->m_impl->handlers.erase(opcode);
   }
 
 const ::poseidon::UUID&

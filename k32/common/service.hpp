@@ -34,17 +34,17 @@ class Service
     // Adds a new handler for requests from other servers. If a new handler
     // already exists, an exception is thrown.
     void
-    add_handler(const phcow_string& code, const handler_type& handler);
+    add_handler(const phcow_string& opcode, const handler_type& handler);
 
     // Adds a new handler, or replaces an existing one, for requests from other
     // servers. If a new handler has been added, `true` is returned. If an
     // existent handler has been overwritten, `false` is returned.
     bool
-    set_handler(const phcow_string& code, const handler_type& handler);
+    set_handler(const phcow_string& opcode, const handler_type& handler);
 
     // Removes a handler for requests from other servers.
     bool
-    remove_handler(const phcow_string& code) noexcept;
+    remove_handler(const phcow_string& opcode) noexcept;
 
     // Returns the UUID of the active service. If there is no active service, a
     // zero UUID is returned.

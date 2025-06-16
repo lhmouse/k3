@@ -55,7 +55,7 @@ class Service_Future
     target_service_type() const noexcept
       { return this->m_target_service_type;  }
 
-    // Gets the request code. This field is set by the constructor.
+    // Gets the request opcode. This field is set by the constructor.
     const cow_string&
     opcode() const noexcept
       { return this->m_opcode;  }
