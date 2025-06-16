@@ -31,6 +31,8 @@ struct Remote_Service_Connection_Information
 
 struct Implementation
   {
+    cow_dictionary<Service::handler_type> handlers;
+
     ::poseidon::UUID service_uuid = ::poseidon::UUID::random();
     system_time service_start_time = system_clock::now();
 
@@ -39,8 +41,6 @@ struct Implementation
     cow_string application_name;
     cow_string application_password;
     ::taxon::V_object cached_service_data;
-
-    cow_dictionary<Service::handler_type> handlers;
 
     ::poseidon::Easy_WS_Server private_server;
     ::poseidon::Easy_WS_Client private_client;
