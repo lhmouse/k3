@@ -11,7 +11,6 @@ namespace k32 {
 class Clock
   {
   public:
-    // wall clock fields in ISO format
     struct system_time_fields
       {
         uint32_t year         : 12;  //    0 - 4095
@@ -29,7 +28,6 @@ class Clock
 
   private:
     seconds m_offset = 0s;
-
     mutable ::time_t m_cached_time = 0;
     mutable system_time_fields m_cached_fields = { };
 
