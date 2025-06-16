@@ -76,7 +76,8 @@ k32_common = shared_library('k32_common',
 shared_module('k32_agent',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/agent/globals.cpp', 'k32/agent/user_service.cpp' ],
+      'k32/agent/globals.cpp', 'k32/agent/user_information.cpp',
+      'k32/agent/user_service.cpp' ],
     dependencies: [ dep_poseidon, dep_taxon ],
     link_with: k32_common,
     install: true)
