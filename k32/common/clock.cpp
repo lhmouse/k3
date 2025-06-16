@@ -28,7 +28,7 @@ set_virtual_offset(seconds secs) noexcept
 Clock::
 get_time_t() const noexcept
   {
-    ::timespec ts;
+    struct timespec ts;
     ::clock_gettime(CLOCK_REALTIME, &ts);
     return ts.tv_sec + this->m_offset.count();
   }
@@ -37,7 +37,7 @@ system_time
 Clock::
 get_system_time() const noexcept
   {
-    ::timespec ts;
+    struct timespec ts;
     ::clock_gettime(CLOCK_REALTIME, &ts);
     auto t0 = system_clock::from_time_t(ts.tv_sec) + nanoseconds(ts.tv_nsec);
     return t0 + this->m_offset;
@@ -48,7 +48,7 @@ Clock::
 get_date_time() const noexcept
   {
     ::poseidon::DateTime dt;
-    ::timespec ts;
+    struct timespec ts;
     ::clock_gettime(CLOCK_REALTIME, &ts);
     auto t0 = system_clock::from_time_t(ts.tv_sec) + nanoseconds(ts.tv_nsec);
     dt.set_system_time(t0 + this->m_offset);
@@ -59,7 +59,7 @@ Clock::system_time_fields
 Clock::
 get_system_time_fields() const noexcept
   {
-    ::timespec ts;
+    struct timespec ts;
     ::clock_gettime(CLOCK_REALTIME, &ts);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
