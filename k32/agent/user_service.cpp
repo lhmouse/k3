@@ -252,12 +252,11 @@ reload(const ::poseidon::Config_File& conf_file)
                 }));
 
     this->m_impl->user_ping_timer.start(
-         1000ms, 17001ms,
+         1000ms, 7001ms,
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& /*fiber*/,
-                ::std::chrono::steady_clock::time_point /*now*/)
+                ::poseidon::Abstract_Fiber& /*fiber*/, steady_clock::time_point /*now*/)
               {
                 if(const auto impl = weak_impl.lock())
                   do_server_ping_timer_callback(impl);
