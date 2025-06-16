@@ -40,10 +40,10 @@ struct Implementation
     cow_string service_type;
     cow_string application_name;
     cow_string application_password;
-    ::taxon::V_object cached_service_data;
 
     ::poseidon::Easy_WS_Server private_server;
     ::poseidon::Easy_WS_Client private_client;
+    ::taxon::V_object cached_service_data;
     ::poseidon::Easy_Timer publish_timer;
     ::poseidon::Easy_Timer subscribe_timer;
 
