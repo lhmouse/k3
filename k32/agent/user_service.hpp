@@ -33,17 +33,17 @@ class User_Service
     // Adds a new handler for requests from users. If a new handler already
     // exists, an exception is thrown.
     void
-    add_handler(const phcow_string& code, const handler_type& handler);
+    add_handler(const phcow_string& opcode, const handler_type& handler);
 
     // Adds a new handler, or replaces an existing one, for requests from users.
     // If a new handler has been added, `true` is returned. If an existent
     // handler has been overwritten, `false` is returned.
     bool
-    set_handler(const phcow_string& code, const handler_type& handler);
+    set_handler(const phcow_string& opcode, const handler_type& handler);
 
     // Removes a handler for requests from users.
     bool
-    remove_handler(const phcow_string& code) noexcept;
+    remove_handler(const phcow_string& opcode) noexcept;
 
     // Gets properties of a user.
     const User_Information*
@@ -52,6 +52,11 @@ class User_Service
     // Reloads configuration.
     void
     reload(const ::poseidon::Config_File& conf_file);
+
+    // Sends a notification message to a client.
+    bool
+    push_message(const phcow_string& username, const cow_string& opcode,
+                 const ::taxon::Value& data);
   };
 
 }  // namespace k32::agent
