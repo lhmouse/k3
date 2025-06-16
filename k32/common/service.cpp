@@ -56,16 +56,18 @@ struct Implementation
   };
 
 void
-do_salt_password(char* pw, int64_t t, const cow_string& password)
+do_salt_password(char* pw, const ::poseidon::UUID& service_uuid, int64_t timestamp,
+                 const cow_string& application_password)
   {
     ::MD5_CTX ctx;
     ::MD5_Init(&ctx);
 
-    uint64_t ts_bytes = ROCKET_HTOBE64(static_cast<uint64_t>(t));
-    ::MD5_Update(&ctx, &ts_bytes, 8);
-    ::MD5_Update(&ctx, password.data(), password.size());
+    ::MD5_Update(&ctx, service_uuid.data(), service_uuid.size());
+    uint64_t be_timestamp = ROCKET_HTOBE64(static_cast<uint64_t>(timestamp));
+    ::MD5_Update(&ctx, &be_timestamp, 8);
+    ::MD5_Update(&ctx, application_password.data(), application_password.size());
 
-    unsigned char checksum[16];
+    uint8_t checksum[16];
     ::MD5_Final(checksum, &ctx);
     ::poseidon::hex_encode_16_partial(pw, checksum);
   }
@@ -157,6 +159,9 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
     cow_string m_opcode;
     ::taxon::Value m_request_data;
 
+    ::taxon::Value m_response_data;
+    ::rocket::tinyfmt_str m_error_fmt;
+
     Remote_Request_Fiber(const shptr<Implementation>& impl,
                          const shptr<::poseidon::WS_Server_Session>& session,
                          const ::poseidon::UUID& request_uuid, const cow_string& opcode,
@@ -179,20 +184,18 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!session)
           return;
 
-        ::taxon::Value response_data;
-        ::rocket::tinyfmt_str error_fmt;
 
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
             (* handler) (::poseidon::UUID(session->session_user_data()), *this,
-                         response_data, move(this->m_request_data));
+                         this->m_response_data, move(this->m_request_data));
           else
-            format(error_fmt, "No handler defined for `$1`", this->m_opcode);
+            format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
         }
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-          format(error_fmt, "$1", stdex);
+          format(this->m_error_fmt, "$1", stdex);
         }
 
         if(this->m_request_uuid.is_nil())
@@ -200,7 +203,8 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
 
         // Send a response asynchronously.
         auto task4 = new_sh<Send_Response_Task>(session, this->m_request_uuid,
-                                                error_fmt.get_string(), response_data);
+                                                this->m_error_fmt.get_string(),
+                                                this->m_response_data);
         ::poseidon::task_executor.enqueue(task4);
         task4->m_self_lock = task4;
       }
@@ -213,6 +217,9 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
     ::poseidon::UUID m_request_uuid;
     cow_string m_opcode;
     ::taxon::Value m_request_data;
+
+    ::taxon::Value m_response_data;
+    ::rocket::tinyfmt_str m_error_fmt;
 
     Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
                         const ::poseidon::UUID& request_uuid, const cow_string& opcode,
@@ -231,19 +238,17 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!impl)
           return;
 
-        ::taxon::Value response_data;
-        ::rocket::tinyfmt_str error_fmt;
-
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
-            (* handler) (impl->service_uuid, *this, response_data, move(this->m_request_data));
+            (* handler) (impl->service_uuid, *this, this->m_response_data,
+                         move(this->m_request_data));
           else
-            format(error_fmt, "No handler defined for `$1`", this->m_opcode);
+            format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
         }
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-          format(error_fmt, "$1", stdex);
+          format(this->m_error_fmt, "$1", stdex);
         }
 
         const auto req = this->m_weak_req.lock();
@@ -258,8 +263,8 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
           if(p->request_uuid != this->m_request_uuid)
             all_received &= p->response_received;
           else {
-            p->response_data = response_data;
-            p->error = error_fmt.get_string();
+            p->response_data = this->m_response_data;
+            p->error = this->m_error_fmt.get_string();
             p->response_received = true;
           }
 
@@ -311,7 +316,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
 
           char auth_pw[33];
-          do_salt_password(auth_pw, req_t, impl->application_password);
+          do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
           if(req_pw != auth_pw) {
             POSEIDON_LOG_WARN(("Unauthenticated connection from `$1`"), session->remote_address());
             session->close();
@@ -319,9 +324,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
 
           session->set_session_user_data(request_service_uuid.print_to_string());
+          POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
         }
-
-        POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
         break;
 
       case ::poseidon::easy_ws_text:
@@ -458,9 +462,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
         break;
 
       case ::poseidon::easy_ws_close:
-        // Remove connection info.
         do_remove_remote_connection(impl, ::poseidon::UUID(session->session_user_data()));
-
         POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
         break;
     }
@@ -837,7 +839,7 @@ enqueue(const shptr<Service_Future>& req)
 
         int64_t now = ::time(nullptr);
         char auth_pw[33];
-        do_salt_password(auth_pw, now, this->m_impl->application_password);
+        do_salt_password(auth_pw, srv.service_uuid, now, this->m_impl->application_password);
 
         session = this->m_impl->private_client.connect(
              sformat("$1/?srv=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
@@ -852,8 +854,9 @@ enqueue(const shptr<Service_Future>& req)
                   }));
 
         session->set_session_user_data(srv.service_uuid.print_to_string());
-        conn.weak_session = session;
         POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
+
+        conn.weak_session = session;
       }
 
       // Add this future to the waiting list.
