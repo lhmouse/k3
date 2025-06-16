@@ -10,27 +10,26 @@
 #include <taxon.hpp>
 namespace k32 {
 
+struct Target_Service_Descriptor
+  {
+    ::poseidon::UUID service_uuid;
+    cow_string service_type;
+    uintptr_t reserved_must_be_zero = 0;
+  };
+
+struct Service_Response
+  {
+    ::poseidon::UUID service_uuid;
+    ::poseidon::UUID request_uuid;
+    ::taxon::Value response_data;
+    cow_string error;
+    bool response_received = false;
+  };
+
 class Service_Future
   :
     public ::poseidon::Abstract_Future
   {
-  public:
-    struct Target_Descriptor
-      {
-        ::poseidon::UUID service_uuid;
-        cow_string service_type;
-        uintptr_t reserved_must_be_zero = 0;
-      };
-
-    struct Response
-      {
-        ::poseidon::UUID service_uuid;
-        ::poseidon::UUID request_uuid;
-        ::taxon::Value response_data;
-        cow_string error;
-        bool response_received = false;
-      };
-
   private:
     friend class Service;
 
@@ -38,10 +37,10 @@ class Service_Future
     cow_string m_target_service_type;
     cow_string m_opcode;
     ::taxon::Value m_request_data;
-    cow_vector<Response> m_responses;
+    cow_vector<Service_Response> m_responses;
 
   public:
-    Service_Future(const Target_Descriptor& target_descriptor,
+    Service_Future(const Target_Service_Descriptor& target_descriptor,
                    const cow_string& opcode, const ::taxon::Value& request_data);
 
     Service_Future(const ::poseidon::UUID& target_service_uuid,
@@ -54,7 +53,7 @@ class Service_Future
 
   public:
 #ifdef K32_DARK_MAGIC_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
-    cow_vector<Response>& mf_responses() noexcept { return this->m_responses;  }
+    cow_vector<Service_Response>& mf_responses() noexcept { return this->m_responses;  }
     void mf_abstract_future_complete() { this->do_abstract_future_initialize_once();  }
 #endif
     Service_Future(const Service_Future&) = delete;
@@ -85,7 +84,7 @@ class Service_Future
     // Gets a vector of all target services with their responses, after all
     // operations have completed successfully. If `successful()` yields `false`,
     // an exception is thrown, and there is no effect.
-    const cow_vector<Response>&
+    const cow_vector<Service_Response>&
     responses() const
       {
         this->check_success();
@@ -98,10 +97,10 @@ class Service_Future
 extern const ::poseidon::UUID multicast_uuid;
 
 ROCKET_ALWAYS_INLINE
-Service_Future::Target_Descriptor
+Target_Service_Descriptor
 multicast(const cow_string& service_type)
   {
-    Service_Future::Target_Descriptor target;
+    Target_Service_Descriptor target;
     target.service_uuid = multicast_uuid;
     target.service_type = service_type;
     return target;
@@ -112,10 +111,10 @@ multicast(const cow_string& service_type)
 extern const ::poseidon::UUID randomcast_uuid;
 
 ROCKET_ALWAYS_INLINE
-Service_Future::Target_Descriptor
+Target_Service_Descriptor
 randomcast(const cow_string& service_type)
   {
-    Service_Future::Target_Descriptor target;
+    Target_Service_Descriptor target;
     target.service_uuid = randomcast_uuid;
     target.service_type = service_type;
     return target;
@@ -126,10 +125,10 @@ randomcast(const cow_string& service_type)
 extern const ::poseidon::UUID broadcast_uuid;
 
 ROCKET_ALWAYS_INLINE
-Service_Future::Target_Descriptor
+Target_Service_Descriptor
 broadcast()
   {
-    Service_Future::Target_Descriptor target;
+    Target_Service_Descriptor target;
     target.service_uuid = broadcast_uuid;
     return target;
   }

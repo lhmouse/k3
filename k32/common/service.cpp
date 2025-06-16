@@ -47,8 +47,8 @@ struct Implementation
     ::taxon::V_object cached_service_data;
 
     // remote data from redis
-    cow_uuid_dictionary<Service::Remote_Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Service::Remote_Service_Information>> remote_services_by_type;
+    cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
 
     // connections
     cow_uuid_dictionary<Remote_Service_Connection_Information> remote_connections;
@@ -469,8 +469,8 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 void
 do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
   {
-    cow_uuid_dictionary<Service::Remote_Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Service::Remote_Service_Information>> remote_services_by_type;
+    cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
 
     auto pattern = sformat("$1/services/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
@@ -480,7 +480,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
     for(const auto& r : task2->result())
       try {
-        Service::Remote_Service_Information remote;
+        Remote_Service_Information remote;
         POSEIDON_CHECK(r.first.size() == pattern.size() + 35);  // note `*` in pattern
         POSEIDON_CHECK(remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) == 36);
 
@@ -632,7 +632,7 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
-const Service::Remote_Service_Information*
+const Remote_Service_Information*
 Service::
 find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {

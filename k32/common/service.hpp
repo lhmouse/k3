@@ -5,20 +5,13 @@
 #define K32_COMMON_SERVICE_
 
 #include "../fwd.hpp"
+#include "remote_service_information.hpp"
 #include "service_future.hpp"
 namespace k32 {
 
 class Service
   {
   public:
-    struct Remote_Service_Information
-      {
-        ::poseidon::UUID service_uuid;
-        cow_string service_type;
-        cow_string hostname;
-        cow_vector<::poseidon::IPv6_Address> addresses;
-      };
-
     using handler_type = ::rocket::shared_function<
             void (
               const ::poseidon::UUID& request_service_uuid,

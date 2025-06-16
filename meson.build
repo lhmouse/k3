@@ -66,8 +66,8 @@ dep_taxon = dependency('taxon')
 k32_common = shared_library('k32_common',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/common/service.cpp', 'k32/common/service_future.cpp',
-      'k32/common/clock.cpp' ],
+      'k32/common/service.cpp', 'k32/common/remote_service_information.cpp',
+      'k32/common/service_future.cpp', 'k32/common/clock.cpp' ],
     soversion: meson.project_version().split('.')[0],
     dependencies: [ dep_openssl, dep_poseidon, dep_asteria, dep_taxon ],
     install: true)
