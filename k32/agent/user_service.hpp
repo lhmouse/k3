@@ -11,7 +11,15 @@ namespace k32::agent {
 class User_Service
   {
   public:
-    using handler_type = ::rocket::shared_function<
+    using http_handler_type = ::rocket::shared_function<
+            void (
+              const phcow_string& username,
+              ::poseidon::Abstract_Fiber& fiber,
+              cow_string& response_content_type,  // output parameter; default `text/plain`
+              cow_string& response_data,  // output parameter
+              cow_string&& request_query)>;
+
+    using ws_handler_type = ::rocket::shared_function<
             void (
               const phcow_string& username,
               ::poseidon::Abstract_Fiber& fiber,
@@ -30,20 +38,35 @@ class User_Service
     User_Service& operator=(const User_Service&) & = delete;
     ~User_Service();
 
-    // Adds a new handler for requests from users. If a new handler already
-    // exists, an exception is thrown.
+    // Adds a new HTTP handler for requests from users. If a new handler
+    // already exists, an exception is thrown.
     void
-    add_handler(const phcow_string& opcode, const handler_type& handler);
+    add_http_handler(const phcow_string& opcode, const http_handler_type& handler);
 
-    // Adds a new handler, or replaces an existing one, for requests from users.
-    // If a new handler has been added, `true` is returned. If an existent
+    // Adds a new HTTP handler, or replaces an existing one, for requests from
+    // users. If a new handler has been added, `true` is returned. If an existent
     // handler has been overwritten, `false` is returned.
     bool
-    set_handler(const phcow_string& opcode, const handler_type& handler);
+    set_http_handler(const phcow_string& opcode, const http_handler_type& handler);
 
-    // Removes a handler for requests from users.
+    // Removes an HTTP handler for requests from users.
     bool
-    remove_handler(const phcow_string& opcode) noexcept;
+    remove_http_handler(const phcow_string& opcode) noexcept;
+
+    // Adds a new WebSocket handler for requests from users. If a new handler
+    // already exists, an exception is thrown.
+    void
+    add_ws_handler(const phcow_string& opcode, const ws_handler_type& handler);
+
+    // Adds a new WebSocket handler, or replaces an existing one, for requests
+    // from users. If a new handler has been added, `true` is returned. If an
+    // existent handler has been overwritten, `false` is returned.
+    bool
+    set_ws_handler(const phcow_string& opcode, const ws_handler_type& handler);
+
+    // Removes a WebSocket handler for requests from users.
+    bool
+    remove_ws_handler(const phcow_string& opcode) noexcept;
 
     // Gets properties of a user.
     const User_Information*

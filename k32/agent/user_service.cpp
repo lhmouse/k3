@@ -25,7 +25,8 @@ struct User_Connection_Information
 
 struct Implementation
   {
-    cow_dictionary<User_Service::handler_type> handlers;
+    cow_dictionary<User_Service::http_handler_type> http_handlers;
+    cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     // local data
     cow_string mysql_account_service_uri;
@@ -107,35 +108,68 @@ User_Service::
 
 void
 User_Service::
-add_handler(const phcow_string& opcode, const handler_type& handler)
+add_http_handler(const phcow_string& opcode, const http_handler_type& handler)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->handlers.try_emplace(opcode, handler);
+    auto r = this->m_impl->http_handlers.try_emplace(opcode, handler);
     if(!r.second)
-      POSEIDON_THROW(("A handler for `$1` already exists"), opcode);
+      POSEIDON_THROW(("An HTTP handler for `$1` already exists"), opcode);
   }
 
 bool
 User_Service::
-set_handler(const phcow_string& opcode, const handler_type& handler)
+set_http_handler(const phcow_string& opcode, const http_handler_type& handler)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->handlers.insert_or_assign(opcode, handler);
+    auto r = this->m_impl->http_handlers.insert_or_assign(opcode, handler);
     return r.second;
   }
 
 bool
 User_Service::
-remove_handler(const phcow_string& opcode) noexcept
+remove_http_handler(const phcow_string& opcode) noexcept
   {
     if(!this->m_impl)
       return false;
 
-    return this->m_impl->handlers.erase(opcode);
+    return this->m_impl->http_handlers.erase(opcode);
+  }
+
+void
+User_Service::
+add_ws_handler(const phcow_string& opcode, const ws_handler_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->ws_handlers.try_emplace(opcode, handler);
+    if(!r.second)
+      POSEIDON_THROW(("A WebSocket handler for `$1` already exists"), opcode);
+  }
+
+bool
+User_Service::
+set_ws_handler(const phcow_string& opcode, const ws_handler_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->ws_handlers.insert_or_assign(opcode, handler);
+    return r.second;
+  }
+
+bool
+User_Service::
+remove_ws_handler(const phcow_string& opcode) noexcept
+  {
+    if(!this->m_impl)
+      return false;
+
+    return this->m_impl->ws_handlers.erase(opcode);
   }
 
 const User_Information*
