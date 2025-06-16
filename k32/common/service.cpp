@@ -2,7 +2,7 @@
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
-#define K32_DARK_MAGIC_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
+#define K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
 #include "service.hpp"
 #include <poseidon/base/config_file.hpp>
 #include <poseidon/easy/easy_ws_server.hpp>

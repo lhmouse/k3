@@ -5,26 +5,11 @@
 #define K32_COMMON_SERVICE_FUTURE_
 
 #include "../fwd.hpp"
+#include "target_service_descriptor.hpp"
+#include "service_response.hpp"
 #include <poseidon/fiber/abstract_future.hpp>
-#include <poseidon/base/uuid.hpp>
 #include <taxon.hpp>
 namespace k32 {
-
-struct Target_Service_Descriptor
-  {
-    ::poseidon::UUID service_uuid;
-    cow_string service_type;
-    uintptr_t reserved_must_be_zero = 0;
-  };
-
-struct Service_Response
-  {
-    ::poseidon::UUID service_uuid;
-    ::poseidon::UUID request_uuid;
-    ::taxon::Value response_data;
-    cow_string error;
-    bool response_received = false;
-  };
 
 class Service_Future
   :
@@ -52,7 +37,7 @@ class Service_Future
     do_on_abstract_future_initialize() override;
 
   public:
-#ifdef K32_DARK_MAGIC_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
+#ifdef K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
     cow_vector<Service_Response>& mf_responses() noexcept { return this->m_responses;  }
     void mf_abstract_future_complete() { this->do_abstract_future_initialize_once();  }
 #endif
@@ -91,47 +76,6 @@ class Service_Future
         return this->m_responses;
       }
   };
-
-// `multicast_uuid(service_type)` causes the message to be sent to all
-// instance of `service_type`.
-extern const ::poseidon::UUID multicast_uuid;
-
-ROCKET_ALWAYS_INLINE
-Target_Service_Descriptor
-multicast(const cow_string& service_type)
-  {
-    Target_Service_Descriptor target;
-    target.service_uuid = multicast_uuid;
-    target.service_type = service_type;
-    return target;
-  }
-
-// `randomcast(service_type)` causes the message to be sent to a random
-// instance of `service_type`.
-extern const ::poseidon::UUID randomcast_uuid;
-
-ROCKET_ALWAYS_INLINE
-Target_Service_Descriptor
-randomcast(const cow_string& service_type)
-  {
-    Target_Service_Descriptor target;
-    target.service_uuid = randomcast_uuid;
-    target.service_type = service_type;
-    return target;
-  }
-
-// `broadcast()` causes the message to be sent to all instances. This should
-// be used with caution.
-extern const ::poseidon::UUID broadcast_uuid;
-
-ROCKET_ALWAYS_INLINE
-Target_Service_Descriptor
-broadcast()
-  {
-    Target_Service_Descriptor target;
-    target.service_uuid = broadcast_uuid;
-    return target;
-  }
 
 }  // namespace k32
 #endif

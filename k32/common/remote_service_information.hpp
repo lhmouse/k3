@@ -14,7 +14,7 @@ struct Remote_Service_Information
     cow_string hostname;
     cow_vector<::poseidon::IPv6_Address> addresses;
 
-#ifdef K32_DARK_MAGIC_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
+#ifdef K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
     Remote_Service_Information() noexcept = default;
 #endif
     Remote_Service_Information(const Remote_Service_Information&) = default;

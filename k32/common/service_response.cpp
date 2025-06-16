@@ -3,11 +3,11 @@
 
 #include "../xprecompiled.hpp"
 #define K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
-#include "remote_service_information.hpp"
+#include "service_response.hpp"
 namespace k32 {
 
-Remote_Service_Information::
-~Remote_Service_Information()
+Service_Response::
+~Service_Response()
   {
   }
 

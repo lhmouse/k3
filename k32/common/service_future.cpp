@@ -2,12 +2,9 @@
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
+#define K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
 #include "service_future.hpp"
 namespace k32 {
-
-constexpr ::poseidon::UUID multicast_uuid = POSEIDON_UUID(903f1bf8,13a6,4190,f44d,b82b1b54ca61);
-constexpr ::poseidon::UUID randomcast_uuid = POSEIDON_UUID(141451c5,1775,4107,f9f1,f0594e621ed4);
-constexpr ::poseidon::UUID broadcast_uuid = POSEIDON_UUID(789665cc,6fd8,4fb6,e79e,18173472cd9f);
 
 Service_Future::
 Service_Future(const Target_Service_Descriptor& target_descriptor,
