@@ -189,8 +189,8 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
-            (* handler) (::poseidon::UUID(session->session_user_data().as_string()),
-                         *this, this->m_response_data, move(this->m_request_data));
+            (* handler) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
+                         this->m_response_data, move(this->m_request_data));
           else
             format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
         }
@@ -242,7 +242,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
-            (* handler) (impl->service_uuid, *this, this->m_response_data,
+            (* handler) (*this, impl->service_uuid, this->m_response_data,
                          move(this->m_request_data));
           else
             format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);

@@ -14,8 +14,8 @@ class Service
   public:
     using handler_type = ::rocket::shared_function<
             void (
-              const ::poseidon::UUID& request_service_uuid,
               ::poseidon::Abstract_Fiber& fiber,
+              const ::poseidon::UUID& request_service_uuid,
               ::taxon::Value& response_data,  // output parameter
               ::taxon::Value&& request_data)>;
 
