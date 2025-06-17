@@ -332,6 +332,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
       case ::poseidon::easy_ws_text:
       case ::poseidon::easy_ws_binary:
         {
+          if(session->session_user_data().is_null())
+            return;
+
           // Parse the request object.
           ::taxon::Value root;
           ::taxon::Parser_Context pctx;
@@ -361,6 +364,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
         }
 
       case ::poseidon::easy_ws_close:
+        if(session->session_user_data().is_null())
+          return;
+
         POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
         break;
       }
@@ -404,6 +410,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
       case ::poseidon::easy_ws_text:
       case ::poseidon::easy_ws_binary:
         {
+          if(session->session_user_data().is_null())
+            return;
+
           // Parse the response object.
           ::taxon::Value root;
           ::taxon::Parser_Context pctx;
@@ -458,13 +467,13 @@ do_client_ws_callback(const shptr<Implementation>& impl,
         }
 
       case ::poseidon::easy_ws_close:
-        {
-          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
-          do_remove_remote_connection(impl, service_uuid);
+        if(session->session_user_data().is_null())
+          return;
 
-          POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
-          break;
-        }
+        do_remove_remote_connection(impl, ::poseidon::UUID(session->session_user_data().as_string()));
+
+        POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
+        break;
     }
   }
 

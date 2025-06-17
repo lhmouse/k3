@@ -80,13 +80,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-// TODO
+/*TODO*/
 
           session->mut_session_user_data() = username.rdstr();
           POSEIDON_LOG_INFO(("`$1` signed in from `$2`"), username, session->remote_address());
           break;
         }
       case ::poseidon::easy_hws_text:
+      case ::poseidon::easy_hws_binary:
         {
           if(session->session_user_data().is_null())
             return;
@@ -147,7 +148,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           phcow_string username = session->session_user_data().as_string();
 
-// TODO
+/*TODO*/
 
           POSEIDON_LOG_INFO(("`$1` signed out from `$2`"), username, session->remote_address());
           break;
@@ -242,6 +243,39 @@ remove_http_handler(const phcow_string& path) noexcept
       return false;
 
     return this->m_impl->http_handlers.erase(path);
+  }
+
+void
+User_Service::
+add_ws_authenticator(const phcow_string& path, const ws_authenticator_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->ws_authenticators.try_emplace(path, handler);
+    if(!r.second)
+      POSEIDON_THROW(("A WebSocket authenticator for `$1` already exists"), path);
+  }
+
+bool
+User_Service::
+set_ws_authenticator(const phcow_string& path, const ws_authenticator_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->ws_authenticators.try_emplace(path, handler);
+    return r.second;
+  }
+
+bool
+User_Service::
+remove_ws_authenticator(const phcow_string& path) noexcept
+  {
+    if(!this->m_impl)
+      return false;
+
+    return this->m_impl->ws_authenticators.erase(path);
   }
 
 void

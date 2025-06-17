@@ -58,6 +58,21 @@ class User_Service
     bool
     remove_http_handler(const phcow_string& path) noexcept;
 
+    // Adds a new WebSocket authentication handler for users. If a new handler
+    // already exists, an exception is thrown.
+    void
+    add_ws_authenticator(const phcow_string& path, const ws_authenticator_type& handler);
+
+    // Adds a new WebSocket authentication handler, or replaces an existing one,
+    // for users. If a new handler has been added, `true` is returned. If an
+    // existent handler has been overwritten, `false` is returned.
+    bool
+    set_ws_authenticator(const phcow_string& path, const ws_authenticator_type& handler);
+
+    // Removes a WebSocket authentication handler for requests from users.
+    bool
+    remove_ws_authenticator(const phcow_string& path) noexcept;
+
     // Adds a new WebSocket handler for requests from users. If a new handler
     // already exists, an exception is thrown.
     void
