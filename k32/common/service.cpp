@@ -211,68 +211,6 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
       }
   };
 
-struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
-  {
-    wkptr<Implementation> m_weak_impl;
-    wkptr<Service_Future> m_weak_req;
-    ::poseidon::UUID m_request_uuid;
-    cow_string m_opcode;
-    ::taxon::Value m_request_data;
-
-    ::taxon::Value m_response_data;
-    ::rocket::tinyfmt_str m_error_fmt;
-
-    Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
-                        const ::poseidon::UUID& request_uuid, const cow_string& opcode,
-                        const ::taxon::Value& request_data)
-      :
-        m_weak_impl(impl), m_weak_req(req), m_request_uuid(request_uuid),
-        m_opcode(opcode), m_request_data(request_data)
-      {
-      }
-
-    virtual
-    void
-    do_on_abstract_fiber_execute() override
-      {
-        const auto impl = this->m_weak_impl.lock();
-        if(!impl)
-          return;
-
-        auto handler = impl->handlers.ptr(this->m_opcode);
-        if(!handler)
-          format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
-        else
-          try {
-            (*handler) (*this, impl->service_uuid, this->m_response_data,
-                        move(this->m_request_data));
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-            format(this->m_error_fmt, "$1", stdex);
-          }
-
-        const auto req = this->m_weak_req.lock();
-        if(!req)
-          return;
-
-        // Complete the response. If all responses have been completed,
-        // also complete the request future.
-        bool all_received = true;
-        for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
-          if(p->request_uuid != this->m_request_uuid)
-            all_received &= p->response_received;
-          else {
-            p->response_data = this->m_response_data;
-            p->error = this->m_error_fmt.get_string();
-            p->response_received = true;
-          }
-
-        if(all_received)
-          req->mf_abstract_future_complete();
-      }
-  };
-
 void
 do_server_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Server_Session>& session,
@@ -375,7 +313,7 @@ void
 do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid)
   {
     POSEIDON_LOG_DEBUG(("Removing service connection: service_uuid `$1`"), service_uuid);
-    auto conn = move(impl->remote_connections[service_uuid]);
+    auto conn = move(impl->remote_connections.open(service_uuid));
     impl->remote_connections.erase(service_uuid);
 
     for(const auto& r : conn.weak_futures)
@@ -433,7 +371,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 
           // Find the request future.
           ::poseidon::UUID service_uuid(session->session_user_data().as_string());
-          auto& conn = impl->remote_connections[service_uuid];
+          auto& conn = impl->remote_connections.open(service_uuid);
           shptr<Service_Future> req;
           for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
@@ -473,6 +411,68 @@ do_client_ws_callback(const shptr<Implementation>& impl,
         break;
     }
   }
+
+struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
+  {
+    wkptr<Implementation> m_weak_impl;
+    wkptr<Service_Future> m_weak_req;
+    ::poseidon::UUID m_request_uuid;
+    cow_string m_opcode;
+    ::taxon::Value m_request_data;
+
+    ::taxon::Value m_response_data;
+    ::rocket::tinyfmt_str m_error_fmt;
+
+    Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
+                        const ::poseidon::UUID& request_uuid, const cow_string& opcode,
+                        const ::taxon::Value& request_data)
+      :
+        m_weak_impl(impl), m_weak_req(req), m_request_uuid(request_uuid),
+        m_opcode(opcode), m_request_data(request_data)
+      {
+      }
+
+    virtual
+    void
+    do_on_abstract_fiber_execute() override
+      {
+        const auto impl = this->m_weak_impl.lock();
+        if(!impl)
+          return;
+
+        auto handler = impl->handlers.ptr(this->m_opcode);
+        if(!handler)
+          format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
+        else
+          try {
+            (*handler) (*this, impl->service_uuid, this->m_response_data,
+                        move(this->m_request_data));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
+            format(this->m_error_fmt, "$1", stdex);
+          }
+
+        const auto req = this->m_weak_req.lock();
+        if(!req)
+          return;
+
+        // Complete the response. If all responses have been completed,
+        // also complete the request future.
+        bool all_received = true;
+        for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
+          if(p->request_uuid != this->m_request_uuid)
+            all_received &= p->response_received;
+          else {
+            p->response_data = this->m_response_data;
+            p->error = this->m_error_fmt.get_string();
+            p->response_received = true;
+          }
+
+        if(all_received)
+          req->mf_abstract_future_complete();
+      }
+  };
 
 void
 do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
@@ -517,8 +517,8 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         if(impl->remote_services_by_uuid.count(remote.service_uuid) == false)
           POSEIDON_LOG_INFO(("Discovered service `$1`: $2"), remote.service_uuid, root);
 
-        remote_services_by_uuid[remote.service_uuid] = remote;
-        remote_services_by_type[remote.service_type].emplace_back(remote);
+        remote_services_by_uuid.try_emplace(remote.service_uuid, remote);
+        remote_services_by_type.open(remote.service_type).emplace_back(remote);
       }
       catch(exception& stdex) {
         POSEIDON_LOG_WARN((
@@ -556,8 +556,8 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
                             ::poseidon::Abstract_Fiber& fiber, seconds ttl)
   {
     ::taxon::V_object& service_data = impl->cached_service_data;
-    service_data[&"application_name"] = impl->application_name;
-    service_data[&"service_type"] = impl->service_type;
+    service_data.insert_or_assign(&"application_name", impl->application_name);
+    service_data.insert_or_assign(&"service_type", impl->service_type);
 
     auto private_addr = impl->private_server.local_address();
     if(private_addr.port() != 0) {
@@ -570,8 +570,8 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
 
       const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
 
-      service_data[&"hostname"] = ::poseidon::hostname;
-      ::taxon::V_array& addresses = service_data[&"addresses"].open_array();
+      service_data.insert_or_assign(&"hostname", ::poseidon::hostname);
+      ::taxon::V_array& addresses = service_data.open(&"addresses").open_array();
       addresses.clear();
 
       for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
@@ -823,7 +823,7 @@ enqueue(const shptr<Service_Future>& req)
       resp.request_uuid = ::poseidon::UUID::random();
 
       const auto& srv = this->m_impl->remote_services_by_uuid.at(resp.service_uuid);
-      auto& conn = this->m_impl->remote_connections[srv.service_uuid];
+      auto& conn = this->m_impl->remote_connections.open(srv.service_uuid);
       auto session = conn.weak_session.lock();
       if(!session) {
         // Find an address to connect to. If the address is loopback, it shall
