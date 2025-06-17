@@ -149,6 +149,7 @@ struct Send_Response_Task final : ::poseidon::Abstract_Task
           root.mut_object()[&"data"] = this->m_response_data;
 
         session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
+        POSEIDON_LOG_TRACE(("Sent request: request_uuid `$1`"), this->m_request_uuid);
       }
   };
 
@@ -315,12 +316,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           session->set_session_user_data(request_service_uuid.print_to_string());
           POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
+          break;
         }
         catch(exception& stdex) {
           POSEIDON_LOG_WARN(("Authentication failure from `$1`"), session->remote_address());
           session->ws_shut_down(::poseidon::websocket_status_forbidden);
+          return;
         }
-        break;
 
       case ::poseidon::easy_ws_text:
       case ::poseidon::easy_ws_binary:
@@ -353,8 +355,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid,
                                                      move(opcode), move(request_data));
           ::poseidon::fiber_scheduler.launch(fiber3);
+          break;
         }
-        break;
 
       case ::poseidon::easy_ws_close:
         POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
@@ -450,8 +452,10 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 
           if(all_received)
             req->mf_abstract_future_complete();
+
+          POSEIDON_LOG_TRACE(("Received response: request_uuid `$1`"), request_uuid);
+          break;
         }
-        break;
 
       case ::poseidon::easy_ws_close:
         do_remove_remote_connection(impl, ::poseidon::UUID(session->session_user_data()));
@@ -848,7 +852,6 @@ enqueue(const shptr<Service_Future>& req)
 
         session->set_session_user_data(srv.service_uuid.print_to_string());
         POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
-
         conn.weak_session = session;
       }
 
