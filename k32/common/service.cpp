@@ -318,7 +318,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           break;
         }
         catch(exception& stdex) {
-          POSEIDON_LOG_WARN(("Authentication failure from `$1`"), session->remote_address());
+          POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
           session->ws_shut_down(::poseidon::websocket_status_forbidden);
           return;
         }
