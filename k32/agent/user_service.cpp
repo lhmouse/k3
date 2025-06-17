@@ -137,6 +137,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           if(!response_data.is_null())
             root.mut_object()[&"data"] = response_data;
 
+          if(error_fmt.length() != 0)
+            root.mut_object()[&"error"] = error_fmt.get_string();
+
           session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
           break;
         }
