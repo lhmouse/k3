@@ -186,18 +186,18 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!session)
           return;
 
-        try {
-          auto handler = impl->handlers.ptr(this->m_opcode);
-          if(!handler)
-            format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
-          else
-            (* handler) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
-                         this->m_response_data, move(this->m_request_data));
-        }
-        catch(exception& stdex) {
-          POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-          format(this->m_error_fmt, "$1", stdex);
-        }
+        auto handler = impl->handlers.ptr(this->m_opcode);
+        if(!handler)
+          format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
+        else
+          try {
+            (*handler) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
+                        this->m_response_data, move(this->m_request_data));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
+            format(this->m_error_fmt, "$1", stdex);
+          }
 
         if(this->m_request_uuid.is_nil())
           return;
@@ -239,18 +239,18 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!impl)
           return;
 
-        try {
-          auto handler = impl->handlers.ptr(this->m_opcode);
-          if(!handler)
-            format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
-          else
-            (* handler) (*this, impl->service_uuid, this->m_response_data,
-                         move(this->m_request_data));
-        }
-        catch(exception& stdex) {
-          POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-          format(this->m_error_fmt, "$1", stdex);
-        }
+        auto handler = impl->handlers.ptr(this->m_opcode);
+        if(!handler)
+          format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
+        else
+          try {
+            (*handler) (*this, impl->service_uuid, this->m_response_data,
+                        move(this->m_request_data));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
+            format(this->m_error_fmt, "$1", stdex);
+          }
 
         const auto req = this->m_weak_req.lock();
         if(!req)
@@ -282,45 +282,51 @@ do_server_ws_callback(const shptr<Implementation>& impl,
     switch(static_cast<uint32_t>(event))
       {
       case ::poseidon::easy_ws_open:
-        try {
+        {
           // Authenticate.
           ::poseidon::Network_Reference uri;
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
-          POSEIDON_CHECK(uri.path == "/");
 
-          ::poseidon::HTTP_Query_Parser parser;
-          parser.reload(cow_string(uri.query.p, uri.query.n));
-
-          cow_string req_srv;
-          int64_t req_t = 0;
-          cow_string req_pw;
-
-          while(parser.next_element())
-            if(parser.current_name() == "srv")
-              req_srv = parser.current_value().as_string();
-            else if(parser.current_name() == "t")
-              req_t = parser.current_value().as_integer();
-            else if(parser.current_name() == "pw")
-              req_pw = parser.current_value().as_string();
+          if(uri.path != "/") {
+            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            return;
+          }
 
           ::poseidon::UUID request_service_uuid;
-          POSEIDON_CHECK(request_service_uuid.parse(req_srv) == req_srv.size());
 
-          int64_t now = ::time(nullptr);
-          POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
+          try {
+            ::poseidon::HTTP_Query_Parser parser;
+            parser.reload(cow_string(uri.query.p, uri.query.n));
 
-          char auth_pw[33];
-          do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
-          POSEIDON_CHECK(req_pw == auth_pw);
+            cow_string req_srv;
+            int64_t req_t = 0;
+            cow_string req_pw;
+
+            while(parser.next_element())
+              if(parser.current_name() == "srv")
+                req_srv = parser.current_value().as_string();
+              else if(parser.current_name() == "t")
+                req_t = parser.current_value().as_integer();
+              else if(parser.current_name() == "pw")
+                req_pw = parser.current_value().as_string();
+
+            POSEIDON_CHECK(request_service_uuid.parse(req_srv) == req_srv.size());
+            int64_t now = ::time(nullptr);
+            POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
+
+            char auth_pw[33];
+            do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
+            POSEIDON_CHECK(req_pw == auth_pw);
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
+            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            return;
+          }
 
           session->mut_session_user_data() = request_service_uuid.print_to_string();
           POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
           break;
-        }
-        catch(exception& stdex) {
-          POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-          session->ws_shut_down(::poseidon::websocket_status_forbidden);
-          return;
         }
 
       case ::poseidon::easy_ws_text:
