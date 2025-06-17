@@ -101,17 +101,53 @@ struct Send_Request_Task final : ::poseidon::Abstract_Task
           return;
 
         ::taxon::Value root;
-        root.open_object()[&"opcode"] = this->m_opcode;
-
+        root.open_object().try_emplace(&"opcode", this->m_opcode);
         if(!this->m_request_data.is_null())
-          root.open_object()[&"data"] = this->m_request_data;
-
+          root.open_object().try_emplace(&"data", this->m_request_data);
         if(!this->m_weak_req.expired())
-          root.open_object()[&"uuid"] = this->m_request_uuid.print_to_string();
-
+          root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
         session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
       }
   };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 struct Send_Response_Task final : ::poseidon::Abstract_Task
   {
@@ -310,6 +346,28 @@ do_server_ws_callback(const shptr<Implementation>& impl,
   }
 
 void
+do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::UUID& request_uuid,
+                       const ::taxon::Value& response_data, const cow_string& error)
+  {
+    auto req = weak_req.lock();
+    if(!req)
+      return;
+
+    bool all_received = true;
+    for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
+      if(p->request_uuid != request_uuid)
+        all_received &= p->response_received;
+      else {
+        p->response_data = response_data;
+        p->error = error;
+        p->response_received = true;
+      }
+
+    if(all_received)
+      req->mf_abstract_future_complete();
+  }
+
+void
 do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid)
   {
     POSEIDON_LOG_DEBUG(("Removing service connection: service_uuid `$1`"), service_uuid);
@@ -420,9 +478,6 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
     cow_string m_opcode;
     ::taxon::Value m_request_data;
 
-    ::taxon::Value m_response_data;
-    ::rocket::tinyfmt_str m_error_fmt;
-
     Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
                         const ::poseidon::UUID& request_uuid, const cow_string& opcode,
                         const ::taxon::Value& request_data)
@@ -440,37 +495,28 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!impl)
           return;
 
+        // Find a handler.
         auto handler = impl->handlers.ptr(this->m_opcode);
-        if(!handler)
-          format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
-        else
-          try {
-            (*handler) (*this, impl->service_uuid, this->m_response_data,
-                        move(this->m_request_data));
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-            format(this->m_error_fmt, "$1", stdex);
-          }
-
-        const auto req = this->m_weak_req.lock();
-        if(!req)
+        if(!handler) {
+          do_set_single_response(this->m_weak_req, this->m_request_uuid, ::taxon::null,
+                                 sformat("No handler for `$1`", this->m_opcode));
           return;
+        }
 
-        // Complete the response. If all responses have been completed,
-        // also complete the request future.
-        bool all_received = true;
-        for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
-          if(p->request_uuid != this->m_request_uuid)
-            all_received &= p->response_received;
-          else {
-            p->response_data = this->m_response_data;
-            p->error = this->m_error_fmt.get_string();
-            p->response_received = true;
-          }
+        // Call the user-defined handler to get response data.
+        ::taxon::Value response_data;
+        try {
+          (*handler) (*this, impl->service_uuid, response_data, move(this->m_request_data));
+        }
+        catch(exception& stdex) {
+          POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
+          do_set_single_response(this->m_weak_req, this->m_request_uuid, ::taxon::null,
+                                 sformat("$1", stdex));
+          return;
+        }
 
-        if(all_received)
-          req->mf_abstract_future_complete();
+        // If the caller will be waiting, set the response.
+        do_set_single_response(this->m_weak_req, this->m_request_uuid, response_data, &"");
       }
   };
 
