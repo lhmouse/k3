@@ -79,6 +79,8 @@
 #include <asteria/value.hpp>
 #include <asteria/utils.hpp>
 #include <poseidon/base/uuid.hpp>
+#include <poseidon/fiber/abstract_fiber.hpp>
+#include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/utils.hpp>
 #include <taxon.hpp>
 
