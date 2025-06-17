@@ -13,16 +13,21 @@ class User_Service
   public:
     using http_handler_type = ::rocket::shared_function<
             void (
-              const phcow_string& username,
               ::poseidon::Abstract_Fiber& fiber,
               cow_string& response_content_type,  // output parameter
               cow_string& response_data,  // output parameter
-              cow_string&& request_query)>;
+              cow_string&& request_raw_query)>;
+
+    using ws_authenticator_type = ::rocket::shared_function<
+            void (
+              ::poseidon::Abstract_Fiber& fiber,
+              phcow_string& username,  // output parameter
+              cow_string&& request_raw_query)>;
 
     using ws_handler_type = ::rocket::shared_function<
             void (
-              const phcow_string& username,
               ::poseidon::Abstract_Fiber& fiber,
+              const phcow_string& username,
               ::taxon::Value& response_data,  // output parameter
               ::taxon::Value&& request_data)>;
 
