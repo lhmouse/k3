@@ -259,8 +259,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         // Complete the response. If all responses have been completed,
         // also complete the request future.
         bool all_received = true;
-        auto& rsv = req->mf_responses();
-        for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
+        for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
           if(p->request_uuid != this->m_request_uuid)
             all_received &= p->response_received;
           else {
@@ -382,8 +381,7 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
     for(const auto& r : conn.weak_futures)
       if(auto req = r.first.lock()) {
         bool all_received = true;
-        auto& rsv = req->mf_responses();
-        for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
+        for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
           if(p->service_uuid != service_uuid)
             all_received &= p->response_received;
           else {
@@ -449,8 +447,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           // Complete the response. If all responses have been completed,
           // also complete the request future.
           bool all_received = true;
-          auto& rsv = req->mf_responses();
-          for(auto p = rsv.mut_begin();  p != rsv.end();  ++p)
+          for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
             if(p->request_uuid != request_uuid)
               all_received &= p->response_received;
             else {
