@@ -282,25 +282,18 @@ do_server_ws_callback(const shptr<Implementation>& impl,
     switch(static_cast<uint32_t>(event))
       {
       case ::poseidon::easy_ws_open:
-        {
+        try {
           // Authenticate.
+          ::poseidon::Network_Reference uri;
+          POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
+          POSEIDON_CHECK(uri.path == "/");
+
+          ::poseidon::HTTP_Query_Parser parser;
+          parser.reload(cow_string(uri.query.p, uri.query.n));
+
           cow_string req_srv;
           int64_t req_t = 0;
           cow_string req_pw;
-
-          cow_string query;
-          query.assign(data.begin(), data.end());
-
-          size_t pos = query.find('?');
-          if(pos != cow_string::npos)
-            query.erase(0, pos + 1);
-
-          pos = query.find('#');
-          if(pos != cow_string::npos)
-            query.erase(pos);
-
-          ::poseidon::HTTP_Query_Parser parser;
-          parser.reload(query);
 
           while(parser.next_element())
             if(parser.current_name() == "srv")
@@ -318,14 +311,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           char auth_pw[33];
           do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
-          if(req_pw != auth_pw) {
-            POSEIDON_LOG_WARN(("Unauthenticated connection from `$1`"), session->remote_address());
-            session->close();
-            return;
-          }
+          POSEIDON_CHECK(req_pw == auth_pw);
 
           session->set_session_user_data(request_service_uuid.print_to_string());
           POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
+        }
+        catch(exception& stdex) {
+          POSEIDON_LOG_WARN(("Authentication failure from `$1`"), session->remote_address());
+          session->ws_shut_down(::poseidon::websocket_status_forbidden);
         }
         break;
 
@@ -532,7 +525,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         continue;
 
       if(session)
-        session->close();
+        session->shut_down();
 
       POSEIDON_LOG_INFO(("Purging expired service `$1`"), r.first);
       impl->expired_service_uuids.emplace_back(r.first);
