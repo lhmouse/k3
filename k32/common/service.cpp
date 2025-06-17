@@ -73,300 +73,6 @@ do_salt_password(char* pw, const ::poseidon::UUID& service_uuid, int64_t timesta
     ::poseidon::hex_encode_16_partial(pw, checksum);
   }
 
-struct Send_Request_Task final : ::poseidon::Abstract_Task
-  {
-    shptr<Send_Request_Task> m_self_lock;
-    wkptr<::poseidon::WS_Client_Session> m_weak_session;
-    wkptr<Service_Future> m_weak_req;
-    ::poseidon::UUID m_request_uuid;
-    cow_string m_opcode;
-    ::taxon::Value m_request_data;
-
-    Send_Request_Task(const shptr<::poseidon::WS_Client_Session>& session,
-                      const shptr<Service_Future>& req, const ::poseidon::UUID& request_uuid,
-                      const cow_string& opcode, const ::taxon::Value& request_data)
-      :
-        m_weak_session(session), m_weak_req(req), m_request_uuid(request_uuid),
-        m_opcode(opcode), m_request_data(request_data)
-      {
-      }
-
-    virtual
-    void
-    do_on_abstract_task_execute() override
-      {
-        this->m_self_lock.reset();
-        const auto session = this->m_weak_session.lock();
-        if(!session)
-          return;
-
-        ::taxon::Value root;
-        root.open_object().try_emplace(&"opcode", this->m_opcode);
-        if(!this->m_request_data.is_null())
-          root.open_object().try_emplace(&"data", this->m_request_data);
-        if(!this->m_weak_req.expired())
-          root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
-        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
-      }
-  };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-struct Send_Response_Task final : ::poseidon::Abstract_Task
-  {
-    shptr<Send_Response_Task> m_self_lock;
-    wkptr<::poseidon::WS_Server_Session> m_weak_session;
-    ::poseidon::UUID m_request_uuid;
-    cow_string m_error;
-    ::taxon::Value m_response_data;
-
-    Send_Response_Task(const shptr<::poseidon::WS_Server_Session>& session,
-                       const ::poseidon::UUID& request_uuid, const cow_string& error,
-                       const ::taxon::Value& response_data)
-      :
-        m_weak_session(session),
-        m_request_uuid(request_uuid), m_error(error), m_response_data(response_data)
-      {
-      }
-
-    virtual
-    void
-    do_on_abstract_task_execute() override
-      {
-        this->m_self_lock.reset();
-        const auto session = this->m_weak_session.lock();
-        if(!session)
-          return;
-
-        ::taxon::Value root;
-        root.open_object()[&"uuid"] = this->m_request_uuid.print_to_string();
-
-        if(this->m_error != "")
-          root.open_object()[&"error"] = this->m_error;
-
-        if(!this->m_response_data.is_null())
-          root.open_object()[&"data"] = this->m_response_data;
-
-        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
-        POSEIDON_LOG_TRACE(("Sent request: request_uuid `$1`"), this->m_request_uuid);
-      }
-  };
-
-struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
-  {
-    wkptr<Implementation> m_weak_impl;
-    wkptr<::poseidon::WS_Server_Session> m_weak_session;
-    ::poseidon::UUID m_request_uuid;
-    cow_string m_opcode;
-    ::taxon::Value m_request_data;
-
-    ::taxon::Value m_response_data;
-    ::rocket::tinyfmt_str m_error_fmt;
-
-    Remote_Request_Fiber(const shptr<Implementation>& impl,
-                         const shptr<::poseidon::WS_Server_Session>& session,
-                         const ::poseidon::UUID& request_uuid, const cow_string& opcode,
-                         const ::taxon::Value& request_data)
-      :
-        m_weak_impl(impl), m_weak_session(session), m_request_uuid(request_uuid),
-        m_opcode(opcode), m_request_data(request_data)
-      {
-      }
-
-    virtual
-    void
-    do_on_abstract_fiber_execute() override
-      {
-        const auto impl = this->m_weak_impl.lock();
-        if(!impl)
-          return;
-
-        const auto session = this->m_weak_session.lock();
-        if(!session)
-          return;
-
-        auto handler = impl->handlers.ptr(this->m_opcode);
-        if(!handler)
-          format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
-        else
-          try {
-            (*handler) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
-                        this->m_response_data, move(this->m_request_data));
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception: $2"), this->m_opcode, stdex);
-            format(this->m_error_fmt, "$1", stdex);
-          }
-
-        if(this->m_request_uuid.is_nil())
-          return;
-
-        // Send a response asynchronously.
-        auto task4 = new_sh<Send_Response_Task>(session, this->m_request_uuid,
-                                                this->m_error_fmt.get_string(),
-                                                this->m_response_data);
-        ::poseidon::task_executor.enqueue(task4);
-        task4->m_self_lock = task4;
-      }
-  };
-
-void
-do_server_ws_callback(const shptr<Implementation>& impl,
-                      const shptr<::poseidon::WS_Server_Session>& session,
-                      ::poseidon::Easy_WS_Event event, linear_buffer&& data)
-  {
-    switch(static_cast<uint32_t>(event))
-      {
-      case ::poseidon::easy_ws_open:
-        {
-          // Authenticate.
-          ::poseidon::Network_Reference uri;
-          POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
-
-          if(uri.path != "/") {
-            session->ws_shut_down(::poseidon::websocket_status_forbidden);
-            return;
-          }
-
-          ::poseidon::UUID request_service_uuid;
-
-          try {
-            ::poseidon::HTTP_Query_Parser parser;
-            parser.reload(cow_string(uri.query.p, uri.query.n));
-
-            cow_string req_srv;
-            int64_t req_t = 0;
-            cow_string req_pw;
-
-            while(parser.next_element())
-              if(parser.current_name() == "srv")
-                req_srv = parser.current_value().as_string();
-              else if(parser.current_name() == "t")
-                req_t = parser.current_value().as_integer();
-              else if(parser.current_name() == "pw")
-                req_pw = parser.current_value().as_string();
-
-            POSEIDON_CHECK(request_service_uuid.parse(req_srv) == req_srv.size());
-            int64_t now = ::time(nullptr);
-            POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
-
-            char auth_pw[33];
-            do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
-            POSEIDON_CHECK(req_pw == auth_pw);
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::websocket_status_forbidden);
-            return;
-          }
-
-          session->mut_session_user_data() = request_service_uuid.print_to_string();
-          POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
-          break;
-        }
-
-      case ::poseidon::easy_ws_text:
-      case ::poseidon::easy_ws_binary:
-        {
-          if(session->session_user_data().is_null())
-            return;
-
-          // Parse the request object.
-          ::taxon::Value root;
-          ::taxon::Parser_Context pctx;
-          ::rocket::tinybuf_ln buf(move(data));
-          root.parse_with(pctx, buf);
-          POSEIDON_CHECK(!pctx.error);
-          POSEIDON_CHECK(root.is_object());
-
-          cow_string opcode;
-          ::taxon::Value request_data;
-          ::poseidon::UUID request_uuid;
-
-          for(const auto& r : root.as_object())
-            if(r.first == &"opcode")
-              opcode = r.second.as_string();
-            else if(r.first == &"data")
-              request_data = r.second;
-            else if(r.first == &"uuid")
-              request_uuid = ::poseidon::UUID(r.second.as_string());
-
-          // Handle the request in another fiber, so it's stateless.
-          POSEIDON_CHECK(opcode != "");
-          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid,
-                                                     move(opcode), move(request_data));
-          ::poseidon::fiber_scheduler.launch(fiber3);
-          break;
-        }
-
-      case ::poseidon::easy_ws_close:
-        if(session->session_user_data().is_null())
-          return;
-
-        POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
-        break;
-      }
-  }
-
-void
-do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::UUID& request_uuid,
-                       const ::taxon::Value& response_data, const cow_string& error)
-  {
-    auto req = weak_req.lock();
-    if(!req)
-      return;
-
-    bool all_received = true;
-    for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
-      if(p->request_uuid != request_uuid)
-        all_received &= p->response_received;
-      else {
-        p->response_data = response_data;
-        p->error = error;
-        p->response_received = true;
-      }
-
-    if(all_received)
-      req->mf_abstract_future_complete();
-  }
-
 void
 do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid)
   {
@@ -391,83 +97,25 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
   }
 
 void
-do_client_ws_callback(const shptr<Implementation>& impl,
-                      const shptr<::poseidon::WS_Client_Session>& session,
-                      ::poseidon::Easy_WS_Event event, linear_buffer&& data)
+do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::UUID& request_uuid,
+                       const ::taxon::Value& response_data, const cow_string& error)
   {
-    switch(static_cast<uint32_t>(event))
-      {
-      case ::poseidon::easy_ws_open:
-        POSEIDON_LOG_INFO(("Connected to `$1`: $2"), session->remote_address(), data);
-        break;
+    auto req = weak_req.lock();
+    if(!req)
+      return;
 
-      case ::poseidon::easy_ws_text:
-      case ::poseidon::easy_ws_binary:
-        {
-          if(session->session_user_data().is_null())
-            return;
+    bool all_received = true;
+    for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
+      if(p->request_uuid != request_uuid)
+        all_received &= p->response_received;
+      else {
+        p->response_data = response_data;
+        p->error = error;
+        p->response_received = true;
+      }
 
-          // Parse the response object.
-          ::taxon::Value root;
-          ::taxon::Parser_Context pctx;
-          ::rocket::tinybuf_ln buf(move(data));
-          root.parse_with(pctx, buf);
-          POSEIDON_CHECK(!pctx.error);
-          POSEIDON_CHECK(root.is_object());
-
-          ::poseidon::UUID request_uuid;
-          ::taxon::Value response_data;
-          cow_string error;
-
-          for(const auto& r : root.as_object())
-            if(r.first == &"uuid")
-              request_uuid = ::poseidon::UUID(r.second.as_string());
-            else if(r.first == &"data")
-              response_data = r.second;
-            else if(r.first == &"error")
-              error = r.second.as_string();
-
-          // Find the request future.
-          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
-          auto& conn = impl->remote_connections.open(service_uuid);
-          shptr<Service_Future> req;
-          for(const auto& r : conn.weak_futures)
-            if(r.second == request_uuid) {
-              req = r.first.lock();
-              break;
-            }
-
-          if(!req)
-            return;
-
-          // Complete the response. If all responses have been completed,
-          // also complete the request future.
-          bool all_received = true;
-          for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
-            if(p->request_uuid != request_uuid)
-              all_received &= p->response_received;
-            else {
-              p->response_data = response_data;
-              p->error = error;
-              p->response_received = true;
-            }
-
-          if(all_received)
-            req->mf_abstract_future_complete();
-
-          POSEIDON_LOG_TRACE(("Received response: request_uuid `$1`"), request_uuid);
-          break;
-        }
-
-      case ::poseidon::easy_ws_close:
-        if(session->session_user_data().is_null())
-          return;
-
-        do_remove_remote_connection(impl, ::poseidon::UUID(session->session_user_data().as_string()));
-
-        POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
-        break;
-    }
+    if(all_received)
+      req->mf_abstract_future_complete();
   }
 
 struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
@@ -517,6 +165,308 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
 
         // If the caller will be waiting, set the response.
         do_set_single_response(this->m_weak_req, this->m_request_uuid, response_data, &"");
+      }
+  };
+
+void
+do_client_ws_callback(const shptr<Implementation>& impl,
+                      const shptr<::poseidon::WS_Client_Session>& session,
+                      ::poseidon::Easy_WS_Event event, linear_buffer&& data)
+  {
+    switch(static_cast<uint32_t>(event))
+      {
+      case ::poseidon::easy_ws_open:
+        POSEIDON_LOG_INFO(("Connected to `$1`: $2"), session->remote_address(), data);
+        break;
+
+      case ::poseidon::easy_ws_text:
+      case ::poseidon::easy_ws_binary:
+        {
+          if(session->session_user_data().is_null())
+            return;
+
+          ::taxon::Value root;
+          ::taxon::Parser_Context pctx;
+          ::rocket::tinybuf_ln buf(move(data));
+          root.parse_with(pctx, buf);
+          POSEIDON_CHECK(!pctx.error);
+          POSEIDON_CHECK(root.is_object());
+
+          ::poseidon::UUID request_uuid;
+          ::taxon::Value response_data;
+          cow_string error;
+
+          for(const auto& r : root.as_object())
+            if(r.first == &"uuid")
+              request_uuid = ::poseidon::UUID(r.second.as_string());
+            else if(r.first == &"data")
+              response_data = r.second;
+            else if(r.first == &"error")
+              error = r.second.as_string();
+
+          // Set the request future.
+          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
+          auto& conn = impl->remote_connections.open(service_uuid);
+          for(const auto& r : conn.weak_futures)
+            if(r.second == request_uuid) {
+              do_set_single_response(r.first, request_uuid, response_data, error);
+              break;
+            }
+
+          POSEIDON_LOG_TRACE(("Received response: request_uuid `$1`"), request_uuid);
+          break;
+        }
+
+      case ::poseidon::easy_ws_close:
+        {
+          if(session->session_user_data().is_null())
+            return;
+
+          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
+          do_remove_remote_connection(impl, service_uuid);
+
+          POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
+          break;
+        }
+    }
+  }
+
+struct Remote_Response_Task final : ::poseidon::Abstract_Task
+  {
+    shptr<Remote_Response_Task> m_self_lock;
+    wkptr<::poseidon::WS_Server_Session> m_weak_session;
+    ::poseidon::UUID m_request_uuid;
+    ::taxon::Value m_response_data;
+    cow_string m_error;
+
+    Remote_Response_Task(const shptr<::poseidon::WS_Server_Session>& session,
+                         const ::poseidon::UUID& request_uuid,
+                         const ::taxon::Value& response_data, const cow_string& error)
+      :
+        m_weak_session(session),
+        m_request_uuid(request_uuid), m_response_data(response_data), m_error(error)
+      {
+      }
+
+    virtual
+    void
+    do_on_abstract_task_execute() override
+      {
+        this->m_self_lock.reset();
+        const auto session = this->m_weak_session.lock();
+        if(!session)
+          return;
+
+        POSEIDON_LOG_TRACE(("Sending response: request_uuid `$1`"), this->m_request_uuid);
+
+        ::taxon::Value root;
+        root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
+        if(!this->m_response_data.is_null())
+          root.open_object().try_emplace(&"data", this->m_response_data);
+        if(this->m_error != "")
+          root.open_object().try_emplace(&"error", this->m_error);
+        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
+      }
+  };
+
+void
+do_send_remote_response(const shptr<::poseidon::WS_Server_Session>& session,
+                        const ::poseidon::UUID& request_uuid,
+                        const ::taxon::Value& response_data, const cow_string& error)
+  {
+    if(request_uuid.is_nil())
+      return;
+
+    auto task4 = new_sh<Remote_Response_Task>(session, request_uuid, response_data, error);
+    ::poseidon::task_executor.enqueue(task4);
+    task4->m_self_lock = task4;
+  }
+
+struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
+  {
+    wkptr<Implementation> m_weak_impl;
+    wkptr<::poseidon::WS_Server_Session> m_weak_session;
+    ::poseidon::UUID m_request_uuid;
+    cow_string m_opcode;
+    ::taxon::Value m_request_data;
+
+    Remote_Request_Fiber(const shptr<Implementation>& impl,
+                         const shptr<::poseidon::WS_Server_Session>& session,
+                         const ::poseidon::UUID& request_uuid,
+                         const cow_string& opcode, const ::taxon::Value& request_data)
+      :
+        m_weak_impl(impl), m_weak_session(session), m_request_uuid(request_uuid),
+        m_opcode(opcode), m_request_data(request_data)
+      {
+      }
+
+    virtual
+    void
+    do_on_abstract_fiber_execute() override
+      {
+        const auto impl = this->m_weak_impl.lock();
+        if(!impl)
+          return;
+
+        const auto session = this->m_weak_session.lock();
+        if(!session)
+          return;
+
+        // Find a handler.
+        auto handler = impl->handlers.ptr(this->m_opcode);
+        if(!handler) {
+          do_send_remote_response(session, this->m_request_uuid, ::taxon::null,
+                                  sformat("No handler for `$1`", this->m_opcode));
+          return;
+        }
+
+        // Call the user-defined handler to get response data.
+        ::taxon::Value response_data;
+        try {
+          (*handler) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
+                      response_data, move(this->m_request_data));
+        }
+        catch(exception& stdex) {
+          POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
+          do_send_remote_response(session, this->m_request_uuid, ::taxon::null,
+                                 sformat("$1", stdex));
+          return;
+        }
+
+        // If the caller will be waiting, set the response.
+        do_send_remote_response(session, this->m_request_uuid, response_data, &"");
+      }
+  };
+
+void
+do_server_ws_callback(const shptr<Implementation>& impl,
+                      const shptr<::poseidon::WS_Server_Session>& session,
+                      ::poseidon::Easy_WS_Event event, linear_buffer&& data)
+  {
+    switch(static_cast<uint32_t>(event))
+      {
+      case ::poseidon::easy_ws_open:
+        {
+          ::poseidon::Network_Reference uri;
+          POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
+
+          if(uri.path != "/") {
+            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            return;
+          }
+
+          // Check authentication.
+          ::poseidon::UUID request_service_uuid;
+          try {
+            ::poseidon::HTTP_Query_Parser parser;
+            parser.reload(cow_string(uri.query));
+
+            cow_string req_srv, req_pw;
+            int64_t req_t = 0;
+
+            while(parser.next_element())
+              if(parser.current_name() == "srv")
+                req_srv = parser.current_value().as_string();
+              else if(parser.current_name() == "t")
+                req_t = parser.current_value().as_integer();
+              else if(parser.current_name() == "pw")
+                req_pw = parser.current_value().as_string();
+
+            int64_t now = ::time(nullptr);
+            POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
+
+            char auth_pw[33];
+            do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
+            POSEIDON_CHECK(req_pw == auth_pw);
+
+            request_service_uuid = ::poseidon::UUID(req_srv);
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
+            session->ws_shut_down(::poseidon::websocket_status_unauthorized);
+            return;
+          }
+
+          session->mut_session_user_data() = request_service_uuid.print_to_string();
+          POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
+          break;
+        }
+
+      case ::poseidon::easy_ws_text:
+      case ::poseidon::easy_ws_binary:
+        {
+          if(session->session_user_data().is_null())
+            return;
+
+          ::taxon::Value root;
+          ::taxon::Parser_Context pctx;
+          ::rocket::tinybuf_ln buf(move(data));
+          root.parse_with(pctx, buf);
+          POSEIDON_CHECK(!pctx.error);
+          POSEIDON_CHECK(root.is_object());
+
+          cow_string opcode;
+          ::taxon::Value request_data;
+          ::poseidon::UUID request_uuid;
+
+          for(const auto& r : root.as_object())
+            if(r.first == &"opcode")
+              opcode = r.second.as_string();
+            else if(r.first == &"data")
+              request_data = r.second;
+            else if(r.first == &"uuid")
+              request_uuid = ::poseidon::UUID(r.second.as_string());
+
+          // Handle the request in another fiber, so it's stateless.
+          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid,
+                                                     move(opcode), move(request_data));
+          ::poseidon::fiber_scheduler.launch(fiber3);
+          break;
+        }
+
+      case ::poseidon::easy_ws_close:
+        if(session->session_user_data().is_null())
+          return;
+
+        POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
+        break;
+      }
+  }
+
+struct Remote_Request_Task final : ::poseidon::Abstract_Task
+  {
+    shptr<Remote_Request_Task> m_self_lock;
+    wkptr<::poseidon::WS_Client_Session> m_weak_session;
+    wkptr<Service_Future> m_weak_req;
+    ::poseidon::UUID m_request_uuid;
+    cow_string m_opcode;
+    ::taxon::Value m_request_data;
+
+    Remote_Request_Task(const shptr<::poseidon::WS_Client_Session>& session,
+                        const shptr<Service_Future>& req, const ::poseidon::UUID& request_uuid,
+                        const cow_string& opcode, const ::taxon::Value& request_data)
+      :
+        m_weak_session(session), m_weak_req(req), m_request_uuid(request_uuid),
+        m_opcode(opcode), m_request_data(request_data)
+      {
+      }
+
+    virtual
+    void
+    do_on_abstract_task_execute() override
+      {
+        this->m_self_lock.reset();
+        const auto session = this->m_weak_session.lock();
+        if(!session)
+          return;
+
+        ::taxon::Value root;
+        root.open_object().try_emplace(&"opcode", this->m_opcode);
+        if(!this->m_request_data.is_null())
+          root.open_object().try_emplace(&"data", this->m_request_data);
+        if(!this->m_weak_req.expired())
+          root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
+        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
       }
   };
 
@@ -932,8 +882,8 @@ enqueue(const shptr<Service_Future>& req)
       }
       else {
         // Send the request asynchronously.
-        auto task2 = new_sh<Send_Request_Task>(session, req, resp.request_uuid, req->m_opcode,
-                                               req->m_request_data);
+        auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
+                                                 req->m_opcode, req->m_request_data);
         ::poseidon::task_executor.enqueue(task2);
         task2->m_self_lock = task2;
       }
