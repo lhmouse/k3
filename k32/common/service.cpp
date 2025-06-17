@@ -527,7 +527,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         continue;
 
       if(session)
-        session->shut_down();
+        session->ws_shut_down(::poseidon::websocket_status_normal_closure);
 
       POSEIDON_LOG_INFO(("Purging expired service `$1`"), r.first);
       impl->expired_service_uuids.emplace_back(r.first);
