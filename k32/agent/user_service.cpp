@@ -8,8 +8,6 @@
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/fiber/abstract_fiber.hpp>
-#include <poseidon/base/abstract_task.hpp>
-#include <poseidon/static/task_executor.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/http/http_query_parser.hpp>
 namespace k32::agent {
@@ -41,39 +39,6 @@ struct Implementation
     // connections from clients
     cow_dictionary<User_Information> users;
     cow_dictionary<User_Connection_Information> user_connections;
-  };
-
-struct Push_Message_Task final : ::poseidon::Abstract_Task
-  {
-    shptr<Push_Message_Task> m_self_lock;
-    wkptr<::poseidon::WS_Server_Session> m_weak_session;
-    cow_string m_opcode;
-    ::taxon::Value m_request_data;
-
-    Push_Message_Task(const shptr<::poseidon::WS_Server_Session>& session,
-                      const cow_string& opcode, const ::taxon::Value& request_data)
-      :
-        m_weak_session(session), m_opcode(opcode), m_request_data(request_data)
-      {
-      }
-
-    virtual
-    void
-    do_on_abstract_task_execute() override
-      {
-        this->m_self_lock.reset();
-        const auto session = this->m_weak_session.lock();
-        if(!session)
-          return;
-
-        ::taxon::Value root;
-        root.mut_object()[&"opcode"] = this->m_opcode;
-
-        if(!this->m_request_data.is_null())
-          root.mut_object()[&"data"] = this->m_request_data;
-
-        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
-      }
   };
 
 void
@@ -108,35 +73,35 @@ User_Service::
 
 void
 User_Service::
-add_http_handler(const phcow_string& opcode, const http_handler_type& handler)
+add_http_handler(const phcow_string& path, const http_handler_type& handler)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->http_handlers.try_emplace(opcode, handler);
+    auto r = this->m_impl->http_handlers.try_emplace(path, handler);
     if(!r.second)
-      POSEIDON_THROW(("An HTTP handler for `$1` already exists"), opcode);
+      POSEIDON_THROW(("An HTTP handler for `$1` already exists"), path);
   }
 
 bool
 User_Service::
-set_http_handler(const phcow_string& opcode, const http_handler_type& handler)
+set_http_handler(const phcow_string& path, const http_handler_type& handler)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->http_handlers.insert_or_assign(opcode, handler);
+    auto r = this->m_impl->http_handlers.insert_or_assign(path, handler);
     return r.second;
   }
 
 bool
 User_Service::
-remove_http_handler(const phcow_string& opcode) noexcept
+remove_http_handler(const phcow_string& path) noexcept
   {
     if(!this->m_impl)
       return false;
 
-    return this->m_impl->http_handlers.erase(opcode);
+    return this->m_impl->http_handlers.erase(path);
   }
 
 void
@@ -293,27 +258,5 @@ reload(const ::poseidon::Config_File& conf_file)
               }));
   }
 
-bool
-User_Service::
-push_message(const phcow_string& username, const cow_string& opcode,
-             const ::taxon::Value& data)
-  {
-    if(!this->m_impl)
-      return false;
-
-    auto conn = this->m_impl->user_connections.ptr(username);
-    if(!conn)
-      return false;
-
-    auto session = conn->weak_session.lock();
-    if(!session)
-      return false;
-
-    // Send the message asynchronously.
-    auto task1 = new_sh<Push_Message_Task>(session, opcode, data);
-    ::poseidon::task_executor.enqueue(task1);
-    task1->m_self_lock = task1;
-    return true;
-  }
 
 }  // namespace k32::agent

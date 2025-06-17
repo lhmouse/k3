@@ -15,7 +15,7 @@ class User_Service
             void (
               const phcow_string& username,
               ::poseidon::Abstract_Fiber& fiber,
-              cow_string& response_content_type,  // output parameter; default `text/plain`
+              cow_string& response_content_type,  // output parameter
               cow_string& response_data,  // output parameter
               cow_string&& request_query)>;
 
@@ -41,17 +41,17 @@ class User_Service
     // Adds a new HTTP handler for requests from users. If a new handler
     // already exists, an exception is thrown.
     void
-    add_http_handler(const phcow_string& opcode, const http_handler_type& handler);
+    add_http_handler(const phcow_string& path, const http_handler_type& handler);
 
     // Adds a new HTTP handler, or replaces an existing one, for requests from
     // users. If a new handler has been added, `true` is returned. If an existent
     // handler has been overwritten, `false` is returned.
     bool
-    set_http_handler(const phcow_string& opcode, const http_handler_type& handler);
+    set_http_handler(const phcow_string& path, const http_handler_type& handler);
 
     // Removes an HTTP handler for requests from users.
     bool
-    remove_http_handler(const phcow_string& opcode) noexcept;
+    remove_http_handler(const phcow_string& path) noexcept;
 
     // Adds a new WebSocket handler for requests from users. If a new handler
     // already exists, an exception is thrown.
@@ -76,10 +76,7 @@ class User_Service
     void
     reload(const ::poseidon::Config_File& conf_file);
 
-    // Sends a notification message to a client.
-    bool
-    push_message(const phcow_string& username, const cow_string& opcode,
-                 const ::taxon::Value& data);
+    // Sends
   };
 
 }  // namespace k32::agent
