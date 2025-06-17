@@ -24,16 +24,39 @@ poseidon_module_main(void)
 
 /*TEST*/
 
+service.add_handler(
+  &"req_op",
+  +[](::poseidon::Abstract_Fiber& fiber,
+      const ::poseidon::UUID& request_service_uuid,
+      ::taxon::Value& response_data,
+      ::taxon::Value&& request_data)
+    {
+      response_data = "<<<< " + request_data.as_string();
+    });
+
 user_service.add_http_handler(
   &"/aa/bb",
   +[](::poseidon::Abstract_Fiber& fiber,
       cow_string& response_content_type, cow_string& response_data,
       cow_string&& request_raw_query)
-     {
-       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-       response_content_type = &"text/plain";
-       response_data = &"meow meow meow";
-     });
+    {
+      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
+
+      auto req1 = new_sh<Service_Future>(broadcast(), &"req_op", &"req_data");
+      service.enqueue(req1);
+      ::poseidon::fiber_scheduler.yield(fiber, req1);
+      POSEIDON_LOG_FATAL(("RESPONSES = $1"), req1->responses().size());
+
+      ::taxon::V_object resp;
+      for(const auto& r : req1->responses())
+        if(r.error == "")
+          resp.try_emplace(r.service_uuid.print_to_string(), r.response_data);
+        else
+          resp.try_emplace(r.service_uuid.print_to_string(), "error: " + r.error);
+
+      response_content_type = &"application/json";
+      response_data = ::taxon::Value(resp).print_to_string();
+    });
 
 user_service.add_ws_authenticator(
   &"/aa/bb",
@@ -46,7 +69,7 @@ user_service.add_ws_authenticator(
     });
 
 user_service.add_ws_handler(
-  &"/aa/bb",
+  &"test1",
   +[](::poseidon::Abstract_Fiber& fiber,
       const phcow_string& username,
       ::taxon::Value& response_data,
