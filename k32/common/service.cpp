@@ -186,12 +186,11 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!session)
           return;
 
-
         try {
           auto handler = impl->handlers.ptr(this->m_opcode);
           if(handler)
-            (* handler) (::poseidon::UUID(session->session_user_data()), *this,
-                         this->m_response_data, move(this->m_request_data));
+            (* handler) (::poseidon::UUID(session->session_user_data().as_string()),
+                         *this, this->m_response_data, move(this->m_request_data));
           else
             format(this->m_error_fmt, "No handler defined for `$1`", this->m_opcode);
         }
@@ -314,7 +313,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
           POSEIDON_CHECK(req_pw == auth_pw);
 
-          session->set_session_user_data(request_service_uuid.print_to_string());
+          session->mut_session_user_data() = request_service_uuid.print_to_string();
           POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
           break;
         }
@@ -420,7 +419,8 @@ do_client_ws_callback(const shptr<Implementation>& impl,
               error = r.second.as_string();
 
           // Find the request future.
-          auto& conn = impl->remote_connections[::poseidon::UUID(session->session_user_data())];
+          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
+          auto& conn = impl->remote_connections[service_uuid];
           shptr<Service_Future> req;
           for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
@@ -452,9 +452,13 @@ do_client_ws_callback(const shptr<Implementation>& impl,
         }
 
       case ::poseidon::easy_ws_close:
-        do_remove_remote_connection(impl, ::poseidon::UUID(session->session_user_data()));
-        POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
-        break;
+        {
+          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
+          do_remove_remote_connection(impl, service_uuid);
+
+          POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
+          break;
+        }
     }
   }
 
@@ -844,9 +848,9 @@ enqueue(const shptr<Service_Future>& req)
                       do_client_ws_callback(impl, session2, event, move(data));
                   }));
 
-        session->set_session_user_data(srv.service_uuid.print_to_string());
-        POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
+        session->mut_session_user_data() = srv.service_uuid.print_to_string();
         conn.weak_session = session;
+        POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
       }
 
       // Add this future to the waiting list.
