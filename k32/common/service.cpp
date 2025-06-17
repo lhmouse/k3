@@ -101,13 +101,13 @@ struct Send_Request_Task final : ::poseidon::Abstract_Task
           return;
 
         ::taxon::Value root;
-        root.mut_object()[&"opcode"] = this->m_opcode;
+        root.open_object()[&"opcode"] = this->m_opcode;
 
         if(!this->m_request_data.is_null())
-          root.mut_object()[&"data"] = this->m_request_data;
+          root.open_object()[&"data"] = this->m_request_data;
 
         if(!this->m_weak_req.expired())
-          root.mut_object()[&"uuid"] = this->m_request_uuid.print_to_string();
+          root.open_object()[&"uuid"] = this->m_request_uuid.print_to_string();
 
         session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
       }
@@ -140,13 +140,13 @@ struct Send_Response_Task final : ::poseidon::Abstract_Task
           return;
 
         ::taxon::Value root;
-        root.mut_object()[&"uuid"] = this->m_request_uuid.print_to_string();
+        root.open_object()[&"uuid"] = this->m_request_uuid.print_to_string();
 
         if(this->m_error != "")
-          root.mut_object()[&"error"] = this->m_error;
+          root.open_object()[&"error"] = this->m_error;
 
         if(!this->m_response_data.is_null())
-          root.mut_object()[&"data"] = this->m_response_data;
+          root.open_object()[&"data"] = this->m_response_data;
 
         session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
         POSEIDON_LOG_TRACE(("Sent request: request_uuid `$1`"), this->m_request_uuid);
@@ -571,7 +571,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
       const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
 
       service_data[&"hostname"] = ::poseidon::hostname;
-      ::taxon::V_array& addresses = service_data[&"addresses"].mut_array();
+      ::taxon::V_array& addresses = service_data[&"addresses"].open_array();
       addresses.clear();
 
       for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)

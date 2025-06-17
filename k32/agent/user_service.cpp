@@ -56,23 +56,24 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
-          phcow_string username;
-
+          // Search for an authenticator handler.
           auto authenticator = impl->ws_authenticators.ptr(path);
           if(!authenticator) {
             POSEIDON_LOG_DEBUG(("No WebSocket authenticator for `$1`"), path);
             session->ws_shut_down(::poseidon::websocket_status_forbidden);
             return;
           }
-          else
-            try {
-              (*authenticator) (fiber, username, cow_string(uri.query.p));
-            }
-            catch(exception& stdex) {
-              POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-              session->ws_shut_down(::poseidon::websocket_status_forbidden);
-              return;
-            }
+
+          // Call the user-defined handler to get the username.
+          phcow_string username;
+          try {
+            (*authenticator) (fiber, username, cow_string(uri.query));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
+            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            return;
+          }
 
           if(username.size() < 3) {
             POSEIDON_LOG_DEBUG(("Authenticated for `$1`"), path);
@@ -111,35 +112,34 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             else if(r.first == &"id")
               request_id = r.second;
 
+          // Search for a handler.
           phcow_string username = session->session_user_data().as_string();
-          ::taxon::Value response_data;
-          tinyfmt_str error_fmt;
-
           auto handler = impl->ws_handlers.ptr(opcode);
-          if(!handler)
-            format(error_fmt, "Unknown opcode `$1`", opcode);
-          else
-            try {
-              (*handler) (fiber, username, response_data, move(request_data));
-            }
-            catch(exception& stdex) {
-              POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
-              format(error_fmt, "Internal error");
-            }
+          if(!handler) {
+            POSEIDON_LOG_WARN(("Unknown opcode `$1` from user `$2`"), opcode, username);
+            session->ws_shut_down(::poseidon::websocket_status_policy_violation);
+            return;
+          }
+
+          // Call the user-defined handler to get response data.
+          ::taxon::Value response_data;
+          try {
+            (*handler) (fiber, username, response_data, move(request_data));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
+            session->ws_shut_down(::poseidon::websocket_status_unexpected_error);
+            return;
+          }
 
           if(request_id.is_null())
             break;
 
           // The client expects a response, so send it.
-          root.mut_object().clear();
-          root.mut_object()[&"id"] = request_id;
-
+          root.open_object().clear();
+          root.open_object().try_emplace(&"id", request_id);
           if(!response_data.is_null())
-            root.mut_object()[&"data"] = response_data;
-
-          if(error_fmt.length() != 0)
-            root.mut_object()[&"error"] = error_fmt.get_string();
-
+            root.open_object().try_emplace(&"data", response_data);
           session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
           break;
         }
@@ -164,24 +164,25 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
-          cow_string response_content_type = &"application/octet-stream";
-          cow_string response_data;
-
+          // Search for a handler.
           auto handler = impl->http_handlers.ptr(path);
           if(!handler) {
             POSEIDON_LOG_DEBUG(("No HTTP handler for `$1`"), path);
             session->http_shut_down(::poseidon::http_status_not_found);
             return;
           }
-          else
-            try {
-              (*handler) (fiber, response_content_type, response_data, cow_string(uri.query));
-            }
-            catch(exception& stdex) {
-              POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), data, stdex);
-              session->http_shut_down(::poseidon::http_status_internal_server_error);
-              return;
-            }
+
+          // Call the user-defined handler to get response data.
+          cow_string response_content_type = &"application/octet-stream";
+          cow_string response_data;
+          try {
+            (*handler) (fiber, response_content_type, response_data, cow_string(uri.query));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), data, stdex);
+            session->http_shut_down(::poseidon::http_status_internal_server_error);
+            return;
+          }
 
           // Make an HTTP response.
           ::poseidon::HTTP_Response_Headers resp;

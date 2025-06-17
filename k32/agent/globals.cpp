@@ -53,7 +53,7 @@ user_service.add_ws_handler(
       ::taxon::Value&& request_data)
     {
        POSEIDON_LOG_FATAL(("WS MSG: $1"), request_data);
-       response_data.mut_array() = { 1, 2, 3 };
+       response_data.open_array() = { 1, 2, 3 };
     });
 
 /*TEST*/
