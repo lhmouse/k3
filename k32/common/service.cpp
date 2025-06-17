@@ -339,16 +339,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value request_data;
           ::poseidon::UUID request_uuid;
 
-          if(auto sub = root.as_object().ptr(&"opcode"))
-            if(sub->is_string())
-              opcode = sub->as_string();
-
-          if(auto sub = root.as_object().ptr(&"data"))
-            request_data = *sub;
-
-          if(auto sub = root.as_object().ptr(&"uuid"))
-            if(sub->is_string())
-              request_uuid.parse(sub->as_string());
+          for(const auto& r : root.as_object())
+            if(r.first == &"opcode")
+              opcode = r.second.as_string();
+            else if(r.first == &"data")
+              request_data = r.second;
+            else if(r.first == &"uuid")
+              request_uuid = ::poseidon::UUID(r.second.as_string());
 
           // Handle the request in another fiber, so it's stateless.
           POSEIDON_CHECK(opcode != "");
@@ -414,16 +411,13 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value response_data;
           cow_string error;
 
-          if(auto sub = root.as_object().ptr(&"uuid"))
-            if(sub->is_string())
-              request_uuid.parse(sub->as_string());
-
-          if(auto sub = root.as_object().ptr(&"data"))
-            response_data = *sub;
-
-          if(auto sub = root.as_object().ptr(&"error"))
-            if(sub->is_string())
-              error = sub->as_string();
+          for(const auto& r : root.as_object())
+            if(r.first == &"uuid")
+              request_uuid = ::poseidon::UUID(r.second.as_string());
+            else if(r.first == &"data")
+              response_data = r.second;
+            else if(r.first == &"error")
+              error = r.second.as_string();
 
           // Find the request future.
           auto& conn = impl->remote_connections[::poseidon::UUID(session->session_user_data())];
