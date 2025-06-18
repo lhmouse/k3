@@ -53,7 +53,7 @@ struct Implementation
 
     // connections
     cow_uuid_dictionary<Remote_Service_Connection_Information> remote_connections;
-    cow_vector<::poseidon::UUID> expired_service_uuids;
+    ::std::vector<::poseidon::UUID> expired_service_uuids;
   };
 
 void
@@ -542,8 +542,10 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     }
 
     while(impl->expired_service_uuids.size() != 0) {
-      do_remove_remote_connection(impl, impl->expired_service_uuids.back());
+      ::poseidon::UUID service_uuid = impl->expired_service_uuids.back();
       impl->expired_service_uuids.pop_back();
+
+      do_remove_remote_connection(impl, service_uuid);
     }
   }
 
