@@ -23,7 +23,11 @@ struct Remote_Service_Information
     Remote_Service_Information& operator=(const Remote_Service_Information&) & = default;
     Remote_Service_Information& operator=(Remote_Service_Information&&) & = default;
     ~Remote_Service_Information();
+
+    explicit operator bool() const noexcept { return !this->service_uuid.is_nil();  }
   };
+
+extern const Remote_Service_Information null_remote_service_information;
 
 }  // namespace k32
 #endif

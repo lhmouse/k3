@@ -543,14 +543,18 @@ remove_ws_handler(const phcow_string& opcode) noexcept
     return this->m_impl->ws_handlers.erase(opcode);
   }
 
-const User_Information*
+const User_Information&
 User_Service::
-find_user_opt(const phcow_string& username) const noexcept
+find_user(const phcow_string& username) const noexcept
   {
     if(!this->m_impl)
-      return nullptr;
+      return null_user_information;
 
-    return this->m_impl->users.ptr(username);
+    auto ptr = this->m_impl->users.ptr(username);
+    if(!ptr)
+      return null_user_information;
+
+    return *ptr;
   }
 
 void
@@ -663,6 +667,5 @@ reload(const ::poseidon::Config_File& conf_file)
                   do_service_timer_callback(impl, fiber, now);
               }));
   }
-
 
 }  // namespace k32::agent

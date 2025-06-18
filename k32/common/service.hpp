@@ -52,8 +52,8 @@ class Service
     service_uuid() const noexcept;
 
     // Gets properties of a remote service.
-    const Remote_Service_Information*
-    find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept;
+    const Remote_Service_Information&
+    find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept;
 
     // Reloads configuration. If `application_name` or `application_password`
     // is changed, a new service (with a new UUID) is initiated.

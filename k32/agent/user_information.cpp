@@ -6,6 +6,8 @@
 #include "user_information.hpp"
 namespace k32::agent {
 
+const User_Information null_user_information;
+
 User_Information::
 ~User_Information()
   {

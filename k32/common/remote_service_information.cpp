@@ -6,6 +6,8 @@
 #include "remote_service_information.hpp"
 namespace k32 {
 
+const Remote_Service_Information null_remote_service_information;
+
 Remote_Service_Information::
 ~Remote_Service_Information()
   {

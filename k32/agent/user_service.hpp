@@ -89,8 +89,8 @@ class User_Service
     remove_ws_handler(const phcow_string& opcode) noexcept;
 
     // Gets properties of a user.
-    const User_Information*
-    find_user_opt(const phcow_string& username) const noexcept;
+    const User_Information&
+    find_user(const phcow_string& username) const noexcept;
 
     // Reloads configuration.
     void

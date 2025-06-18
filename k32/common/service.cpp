@@ -671,14 +671,18 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
-const Remote_Service_Information*
+const Remote_Service_Information&
 Service::
-find_remote_service_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept
+find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {
     if(!this->m_impl)
-      return nullptr;
+      return null_remote_service_information;
 
-    return this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
+    auto ptr = this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
+    if(!ptr)
+      return null_remote_service_information;
+
+    return *ptr;
   }
 
 void
