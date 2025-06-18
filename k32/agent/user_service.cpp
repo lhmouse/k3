@@ -21,11 +21,12 @@ namespace {
 struct User_Connection_Information
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
-    steady_clock::time_point time_last_pong;
+    steady_time time_last_pong;
   };
 
 struct Implementation
   {
+    ::poseidon::UUID agent_uuid = ::poseidon::UUID::random();
     cow_dictionary<User_Service::http_handler_type> http_handlers;
     cow_dictionary<User_Service::ws_authenticator_type> ws_authenticators;
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
@@ -42,8 +43,8 @@ struct Implementation
 
     // connections from clients
     bool db_ready = false;
-    cow_dictionary<User_Information> users;
     cow_dictionary<User_Connection_Information> user_connections;
+    cow_dictionary<User_Information> users;
   };
 
 uniptr<::poseidon::MySQL_Connection>
@@ -87,7 +88,6 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           // Call the user-defined handler to get the username.
           User_Information uinfo;
-          uinfo.login_address = session->remote_address();
           try {
             (*authenticator) (fiber, uinfo.username, cow_string(uri.query));
           }
@@ -103,27 +103,91 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
+          // Create the user if one doesn't exist. Ensure they can only log in
+          // on a single instance.
+          uinfo.login_address = session->remote_address();
+          uinfo.login_time = system_clock::now();
+
+          cow_vector<::poseidon::MySQL_Value> sql_args;
+          cow_string agent_uuid_str = impl->agent_uuid.print_to_string();
+          cow_string remote_address_str = uinfo.login_address.print_to_string();
+
+          static constexpr char insert_into_user[] =
+            R"!!!(
+              INSERT INTO `user`
+                SET `username` = ?,
+                    `login_agent_uuid` = ?,
+                    `login_address` = ?,
+                    `creation_time` = ?,
+                    `login_time` = ?,
+                    `logout_time` = ?
+                ON DUPLICATE KEY
+                UPDATE `login_agent_uuid` = ?,
+                       `login_address` = ?,
+                       `login_time` = ?
+            )!!!";
+
+          sql_args.clear();
+          sql_args.emplace_back(uinfo.username.rdstr());  // SET `username` = ?,
+          sql_args.emplace_back(agent_uuid_str);          //     `login_agent_uuid` = ?,
+          sql_args.emplace_back(remote_address_str);      //     `login_address` = ?,
+          sql_args.emplace_back(uinfo.login_time);        //     `creation_time` = ?,
+          sql_args.emplace_back(uinfo.login_time);        //     `login_time` = ?,
+          sql_args.emplace_back(uinfo.logout_time);       //     `logout_time` = ?
+          sql_args.emplace_back(agent_uuid_str);          // UPDATE `login_agent_uuid` = ?,
+          sql_args.emplace_back(remote_address_str);      //        `login_address` = ?,
+          sql_args.emplace_back(uinfo.login_time);        //        `login_time` = ?
+
+          auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                               do_get_user_db_connection(impl),
+                                                               &insert_into_user, sql_args);
+          ::poseidon::task_executor.enqueue(task1);
+          ::poseidon::fiber_scheduler.yield(fiber, task1);
+
+          static constexpr char select_from_user[] =
+            R"!!!(
+              SELECT `login_agent_uuid`,
+                     `creation_time`,
+                     `logout_time`
+                FROM `user`
+                WHERE `username` = ?
+            )!!!";
+
+          sql_args.clear();
+          sql_args.emplace_back(uinfo.username.rdstr());
+
+          task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                         do_get_user_db_connection(impl),
+                                                         &select_from_user, sql_args);
+          ::poseidon::task_executor.enqueue(task1);
+          ::poseidon::fiber_scheduler.yield(fiber, task1);
+
+          if(task1->result_rows().at(0).at(0).as_blob() != agent_uuid_str) {
+            POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
+            session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4000), "c/Eex7Uiha");
+            return;
+          }
+
+          uinfo.creation_time = task1->result_rows().at(0).at(1).as_system_time();
+          uinfo.logout_time = task1->result_rows().at(0).at(2).as_system_time();
+
+          // Set up connection.
+          auto& user_conn = impl->user_connections.open(uinfo.username);
+          if(auto other_session = user_conn.weak_session.lock()) {
+            POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
+            other_session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4000), "c/riiSh5uy");
+          }
+
+          user_conn.weak_session  = session;
+          user_conn.time_last_pong = steady_clock::now();
+
+          // Authentication complete.
           session->mut_session_user_data() = uinfo.username.rdstr();
-          POSEIDON_LOG_INFO(("`$1` signed in from `$2`"), uinfo.username, session->remote_address());
-
-
-
-
-
-
-
-/*TODO*/
-
-
-    phcow_string username;
-    ::poseidon::IPv6_Address remote_address;
-    system_time time_created;
-    system_time time_signed_in;
-    system_time time_signed_out;
-
-
+          impl->users.insert_or_assign(uinfo.username, uinfo);
+          POSEIDON_LOG_INFO(("Authenticated `$1` from `$2`"), uinfo.username, session->remote_address());
           break;
         }
+
       case ::poseidon::easy_hws_text:
       case ::poseidon::easy_hws_binary:
         {
@@ -234,7 +298,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
 void
 do_service_timer_callback(const shptr<Implementation>& impl,
-                          ::poseidon::Abstract_Fiber& fiber, steady_clock::time_point now)
+                          ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
       // Verify table structures of user database.
@@ -245,26 +309,37 @@ do_service_timer_callback(const shptr<Implementation>& impl,
       ::poseidon::MySQL_Table_Column column;
       column.name = &"username";
       column.type = ::poseidon::mysql_column_varchar;
+      column.nullable = false;
+      table.columns.emplace_back(column);
+
+      column.clear();
+      column.name = &"login_agent_uuid";
+      column.type = ::poseidon::mysql_column_varchar;
+      column.nullable = false;
       table.columns.emplace_back(column);
 
       column.clear();
       column.name = &"login_address";
       column.type = ::poseidon::mysql_column_varchar;
+      column.nullable = false;
       table.columns.emplace_back(column);
 
       column.clear();
       column.name = &"creation_time";
       column.type = ::poseidon::mysql_column_datetime;
+      column.nullable = false;
       table.columns.emplace_back(column);
 
       column.clear();
       column.name = &"login_time";
       column.type = ::poseidon::mysql_column_datetime;
+      column.nullable = false;
       table.columns.emplace_back(column);
 
       column.clear();
       column.name = &"logout_time";
       column.type = ::poseidon::mysql_column_datetime;
+      column.nullable = false;
       table.columns.emplace_back(column);
 
       ::poseidon::MySQL_Table_Index index;
@@ -516,7 +591,7 @@ reload(const ::poseidon::Config_File& conf_file)
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& fiber, steady_clock::time_point now)
+                ::poseidon::Abstract_Fiber& fiber, steady_time now)
               {
                 if(const auto impl = weak_impl.lock())
                   do_service_timer_callback(impl, fiber, now);
