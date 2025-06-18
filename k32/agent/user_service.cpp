@@ -333,7 +333,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           resp.status = ::poseidon::http_status_ok;
           resp.headers.emplace_back(&"Content-Type", response_content_type);
           resp.headers.emplace_back(&"Cache-Control", &"no-cache");
-          session->http_response(move(resp), response_data);
+          if(event == ::poseidon::easy_hws_head) {
+            resp.headers.emplace_back(&"Content-Length", static_cast<int64_t>(response_data.size()));
+            session->http_response_headers_only(move(resp));
+          } else
+            session->http_response(move(resp), response_data);
           break;
         }
       }
