@@ -179,7 +179,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             other_session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/riiSh5uy");
           }
 
-          uconn.weak_session  = session;
+          uconn.weak_session = session;
           uconn.time_last_pong = steady_clock::now();
 
           // Authentication complete.
