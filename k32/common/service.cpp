@@ -749,7 +749,7 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& fiber, steady_clock::time_point /*now*/)
+                ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
               {
                 if(const auto impl = weak_impl.lock())
                   do_publish_service_with_ttl(impl, fiber, 10s);
@@ -760,7 +760,7 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& fiber, steady_clock::time_point /*now*/)
+                ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
               {
                 if(const auto impl = weak_impl.lock())
                   do_subscribe_service(impl, fiber);
