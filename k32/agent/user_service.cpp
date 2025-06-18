@@ -173,14 +173,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           uinfo.logout_time = task1->result_rows().at(0).at(2).as_system_time();
 
           // Set up connection.
-          auto& user_conn = impl->user_connections.open(uinfo.username);
-          if(auto other_session = user_conn.weak_session.lock()) {
+          auto& uconn = impl->user_connections.open(uinfo.username);
+          if(auto other_session = uconn.weak_session.lock()) {
             POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
             other_session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/riiSh5uy");
           }
 
-          user_conn.weak_session  = session;
-          user_conn.time_last_pong = steady_clock::now();
+          uconn.weak_session  = session;
+          uconn.time_last_pong = steady_clock::now();
 
           // Authentication complete.
           session->mut_session_user_data() = uinfo.username.rdstr();
@@ -196,8 +196,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto user_conn = impl->user_connections.mut_ptr(username);
-          if(!user_conn)
+          auto uconn = impl->user_connections.mut_ptr(username);
+          if(!uconn)
             return;
 
           ::taxon::Value root;
@@ -231,7 +231,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value response_data;
           try {
             (*handler) (fiber, username, response_data, move(request_data));
-            user_conn->time_last_pong = steady_clock::now();
+            uconn->time_last_pong = steady_clock::now();
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
@@ -257,12 +257,12 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto user_conn = impl->user_connections.mut_ptr(username);
-          if(!user_conn)
+          auto uconn = impl->user_connections.mut_ptr(username);
+          if(!uconn)
             return;
 
-          user_conn->time_last_pong = steady_clock::now();
-          POSEIDON_LOG_TRACE(("PONG: username `$1`"), username);
+          uconn->time_last_pong = steady_clock::now();
+          POSEIDON_LOG_FATAL(("PONG: username `$1`"), username);
           break;
         }
 
@@ -272,14 +272,32 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto user_conn = impl->user_connections.mut_ptr(username);
-          if(!user_conn)
+          auto uconn = impl->user_connections.mut_ptr(username);
+          if(!uconn)
             return;
 
+          auto uinfo = impl->users.mut_ptr(username);
+          if(!uinfo)
+            return;
 
-/*TODO*/
+          static constexpr char update_user_logout_time[] =
+            R"!!!(
+              UPDATE `user`
+                SET `logout_time` = ?
+                WHERE `username` = ?
+            )!!!";
 
-          POSEIDON_LOG_INFO(("`$1` signed out from `$2`"), username, session->remote_address());
+          cow_vector<::poseidon::MySQL_Value> sql_args;
+          sql_args.emplace_back(system_clock::now());
+          sql_args.emplace_back(username.rdstr());
+
+          auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                              do_get_user_db_connection(impl),
+                                                              &update_user_logout_time, sql_args);
+          ::poseidon::task_executor.enqueue(task2);
+          ::poseidon::fiber_scheduler.yield(fiber, task2);
+
+          POSEIDON_LOG_INFO(("`$1` logged out from `$2`"), username, session->remote_address());
           break;
         }
 
