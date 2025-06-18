@@ -85,10 +85,10 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
         bool all_received = true;
         for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
           if(p->service_uuid != service_uuid)
-            all_received &= p->response_received;
+            all_received &= p->complete;
           else {
             p->error = &"Connection lost";
-            p->response_received = true;
+            p->complete = true;
           }
 
         if(all_received)
@@ -107,11 +107,11 @@ do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::
     bool all_received = true;
     for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
       if(p->request_uuid != request_uuid)
-        all_received &= p->response_received;
+        all_received &= p->complete;
       else {
         p->response_data = response_data;
         p->error = error;
-        p->response_received = true;
+        p->complete = true;
       }
 
     if(all_received)

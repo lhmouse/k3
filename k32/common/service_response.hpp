@@ -13,7 +13,7 @@ struct Service_Response
     ::poseidon::UUID request_uuid;
     ::taxon::Value response_data;
     cow_string error;
-    bool response_received = false;
+    bool complete = false;
 
 #ifdef K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
     Service_Response() noexcept = default;
@@ -23,6 +23,8 @@ struct Service_Response
     Service_Response& operator=(const Service_Response&) & = default;
     Service_Response& operator=(Service_Response&&) & = default;
     ~Service_Response();
+
+    explicit operator bool() const noexcept { return this->complete && this->error.empty();  }
   };
 
 }  // namespace k32
