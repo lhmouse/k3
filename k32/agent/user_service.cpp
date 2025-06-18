@@ -10,15 +10,18 @@
 #include <poseidon/fiber/abstract_fiber.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/http/http_query_parser.hpp>
+#include <poseidon/fiber/mysql_check_table_future.hpp>
+#include <poseidon/static/task_executor.hpp>
+#include <poseidon/fiber/mysql_query_future.hpp>
+#include <poseidon/mysql/mysql_connection.hpp>
+#include <poseidon/static/mysql_connector.hpp>
 namespace k32::agent {
 namespace {
 
 struct User_Connection_Information
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
-    steady_clock::time_point time_last_ping;
     steady_clock::time_point time_last_pong;
-    steady_clock::time_point time_last_message;
   };
 
 struct Implementation
@@ -28,19 +31,30 @@ struct Implementation
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     // local data
-    cow_string mysql_account_service_uri;
-    cow_string mysql_account_password;
+    cow_string mysql_user_db_service_uri;
+    cow_string mysql_user_db_password;
     uint16_t client_port = 0;
     uint32_t client_rate_limit;
     seconds client_ping_timeout;
 
     ::poseidon::Easy_HWS_Server user_server;
-    ::poseidon::Easy_Timer user_ping_timer;
+    ::poseidon::Easy_Timer user_service_timer;
 
     // connections from clients
+    bool db_ready = false;
     cow_dictionary<User_Information> users;
     cow_dictionary<User_Connection_Information> user_connections;
   };
+
+uniptr<::poseidon::MySQL_Connection>
+do_get_user_db_connection(const shptr<Implementation>& impl)
+  {
+    if(impl->mysql_user_db_service_uri == "")
+      return ::poseidon::mysql_connector.allocate_default_connection();
+
+    return ::poseidon::mysql_connector.allocate_connection(
+               impl->mysql_user_db_service_uri, impl->mysql_user_db_password);
+  }
 
 void
 do_server_ws_callback(const shptr<Implementation>& impl,
@@ -56,6 +70,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
+          // Wait for database verification.
+          if(impl->db_ready == false) {
+            POSEIDON_LOG_DEBUG(("User database verification in progress"));
+            session->ws_shut_down(::poseidon::websocket_status_try_again_later);
+            return;
+          }
+
           // Search for an authenticator handler.
           auto authenticator = impl->ws_authenticators.ptr(path);
           if(!authenticator) {
@@ -65,9 +86,10 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
 
           // Call the user-defined handler to get the username.
-          phcow_string username;
+          User_Information uinfo;
+          uinfo.login_address = session->remote_address();
           try {
-            (*authenticator) (fiber, username, cow_string(uri.query));
+            (*authenticator) (fiber, uinfo.username, cow_string(uri.query));
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
@@ -75,16 +97,31 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          if(username.size() < 3) {
+          if(uinfo.username.size() < 3) {
             POSEIDON_LOG_DEBUG(("Authenticated for `$1`"), path);
             session->ws_shut_down(::poseidon::websocket_status_unauthorized);
             return;
           }
 
+          session->mut_session_user_data() = uinfo.username.rdstr();
+          POSEIDON_LOG_INFO(("`$1` signed in from `$2`"), uinfo.username, session->remote_address());
+
+
+
+
+
+
+
 /*TODO*/
 
-          session->mut_session_user_data() = username.rdstr();
-          POSEIDON_LOG_INFO(("`$1` signed in from `$2`"), username, session->remote_address());
+
+    phcow_string username;
+    ::poseidon::IPv6_Address remote_address;
+    system_time time_created;
+    system_time time_signed_in;
+    system_time time_signed_out;
+
+
           break;
         }
       case ::poseidon::easy_hws_text:
@@ -196,9 +233,59 @@ do_server_ws_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_server_ping_timer_callback(const shptr<Implementation>& impl,
-                              steady_clock::time_point now)
+do_service_timer_callback(const shptr<Implementation>& impl,
+                          ::poseidon::Abstract_Fiber& fiber, steady_clock::time_point now)
   {
+    if(impl->db_ready == false) {
+      // Verify table structures of user database.
+      ::poseidon::MySQL_Table_Structure table;
+      table.name = &"user";
+      table.engine = ::poseidon::mysql_engine_innodb;
+
+      ::poseidon::MySQL_Table_Column column;
+      column.name = &"username";
+      column.type = ::poseidon::mysql_column_varchar;
+      table.columns.emplace_back(column);
+
+      column.clear();
+      column.name = &"login_address";
+      column.type = ::poseidon::mysql_column_varchar;
+      table.columns.emplace_back(column);
+
+      column.clear();
+      column.name = &"creation_time";
+      column.type = ::poseidon::mysql_column_datetime;
+      table.columns.emplace_back(column);
+
+      column.clear();
+      column.name = &"login_time";
+      column.type = ::poseidon::mysql_column_datetime;
+      table.columns.emplace_back(column);
+
+      column.clear();
+      column.name = &"logout_time";
+      column.type = ::poseidon::mysql_column_datetime;
+      table.columns.emplace_back(column);
+
+      ::poseidon::MySQL_Table_Index index;
+      index.name = &"PRIMARY";
+      index.type = ::poseidon::mysql_index_unique;
+      index.columns.emplace_back(&"username");
+      table.indexes.emplace_back(index);
+
+      // Get a connection to user database.
+      auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
+                                                               do_get_user_db_connection(impl),
+                                                               table);
+      ::poseidon::task_executor.enqueue(task);
+      ::poseidon::fiber_scheduler.yield(fiber, task);
+
+      impl->db_ready = true;
+      POSEIDON_LOG_INFO(("User database verification complete"));
+    }
+
+/*TODO*/
+
   }
 
 }  // namespace
@@ -333,26 +420,26 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    cow_string mysql_account_service_uri, mysql_account_password;
+    cow_string mysql_user_db_service_uri, mysql_user_db_password;
     int64_t client_port = 0, client_rate_limit = 0, client_ping_timeout = 0;
 
-    // `mysql.k32_account_service_uri`
-    auto conf_value = conf_file.query(&"mysql.k32_account_service_uri");
+    // `mysql.k32_user_db_service_uri`
+    auto conf_value = conf_file.query(&"mysql.k32_user_db_service_uri");
     if(conf_value.is_string())
-      mysql_account_service_uri = conf_value.as_string();
+      mysql_user_db_service_uri = conf_value.as_string();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `mysql.k32_account_service_uri`: expecting a `string`, got `$1`",
+          "Invalid `mysql.k32_user_db_service_uri`: expecting a `string`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
-    // `mysql.k32_account_password`
-    conf_value = conf_file.query(&"mysql.k32_account_password");
+    // `mysql.k32_user_db_password`
+    conf_value = conf_file.query(&"mysql.k32_user_db_password");
     if(conf_value.is_string())
-      mysql_account_password = conf_value.as_string();
+      mysql_user_db_password = conf_value.as_string();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `mysql.k32_account_password`: expecting a `string`, got `$1`",
+          "Invalid `mysql.k32_user_db_password`: expecting a `string`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
@@ -405,8 +492,8 @@ reload(const ::poseidon::Config_File& conf_file)
           client_ping_timeout, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
-    this->m_impl->mysql_account_service_uri = mysql_account_service_uri;
-    this->m_impl->mysql_account_password = mysql_account_password;
+    this->m_impl->mysql_user_db_service_uri = mysql_user_db_service_uri;
+    this->m_impl->mysql_user_db_password = mysql_user_db_password;
     this->m_impl->client_port = static_cast<uint16_t>(client_port);
     this->m_impl->client_rate_limit = static_cast<uint32_t>(client_rate_limit);
     this->m_impl->client_ping_timeout = seconds(client_ping_timeout);
@@ -424,15 +511,15 @@ reload(const ::poseidon::Config_File& conf_file)
                   do_server_ws_callback(impl, session, fiber, event, move(data));
               }));
 
-    this->m_impl->user_ping_timer.start(
+    this->m_impl->user_service_timer.start(
          1000ms, 7001ms,
          ::poseidon::Easy_Timer::callback_type(
             [weak_impl = wkptr<Implementation>(this->m_impl)]
                (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& /*fiber*/, steady_clock::time_point now)
+                ::poseidon::Abstract_Fiber& fiber, steady_clock::time_point now)
               {
                 if(const auto impl = weak_impl.lock())
-                  do_server_ping_timer_callback(impl, now);
+                  do_service_timer_callback(impl, fiber, now);
               }));
   }
 
