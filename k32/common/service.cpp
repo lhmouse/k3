@@ -329,7 +329,7 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
           do_send_remote_response(session, this->m_request_uuid, ::taxon::null,
-                                 sformat("$1", stdex));
+                                  sformat("$1", stdex));
           return;
         }
 
@@ -522,11 +522,13 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
     for(const auto& r : remote_services_by_uuid)
       if(impl->remote_services_by_uuid.count(r.first) == false)
-        POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, r.second.service_type);
+        POSEIDON_LOG_INFO(("Discovered NEW service `$1` of type `$2`"),
+                          r.first, r.second.service_type);
 
     for(const auto& r : impl->remote_services_by_uuid)
       if(remote_services_by_uuid.count(r.first) == false)
-        POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2"), r.first, r.second.service_type);
+        POSEIDON_LOG_INFO(("Forgot DOWN service `$1` of type `$2`"),
+                          r.first, r.second.service_type);
 
     // Update services as an atomic operation.
     impl->remote_services_by_uuid = remote_services_by_uuid;
