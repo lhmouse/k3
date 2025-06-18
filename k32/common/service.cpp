@@ -510,9 +510,6 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
               remote.addresses.emplace_back(addr);
           }
 
-        if(impl->remote_services_by_uuid.count(remote.service_uuid) == false)
-          POSEIDON_LOG_INFO(("Discovered service `$1`: $2"), remote.service_uuid, root);
-
         remote_services_by_uuid.try_emplace(remote.service_uuid, remote);
         remote_services_by_type.open(remote.service_type).emplace_back(remote);
       }
@@ -522,6 +519,14 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
             "Service information from Redis could not be parsed: $3"),
             r.first, r.second, stdex);
       }
+
+    for(const auto& r : remote_services_by_uuid)
+      if(impl->remote_services_by_uuid.count(r.first) == false)
+        POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, r.second.service_type);
+
+    for(const auto& r : impl->remote_services_by_uuid)
+      if(remote_services_by_uuid.count(r.first) == false)
+        POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2"), r.first, r.second.service_type);
 
     // Update services as an atomic operation.
     impl->remote_services_by_uuid = remote_services_by_uuid;
