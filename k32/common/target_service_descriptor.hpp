@@ -11,8 +11,6 @@ struct Target_Service_Descriptor
   {
     ::poseidon::UUID service_uuid;
     cow_string service_type;
-    cow_string hostname;
-    cow_vector<::poseidon::IPv6_Address> addresses;
 
 #ifdef K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
     Target_Service_Descriptor() noexcept = default;
@@ -22,6 +20,8 @@ struct Target_Service_Descriptor
     Target_Service_Descriptor& operator=(const Target_Service_Descriptor&) & = default;
     Target_Service_Descriptor& operator=(Target_Service_Descriptor&&) & = default;
     ~Target_Service_Descriptor();
+
+    explicit operator bool() const noexcept { return !this->service_uuid.is_nil();  }
   };
 
 // `multicast_uuid(service_type)` causes the message to be sent to all
