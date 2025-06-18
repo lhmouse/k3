@@ -262,7 +262,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           uconn->time_last_pong = steady_clock::now();
-          POSEIDON_LOG_FATAL(("PONG: username `$1`"), username);
+          POSEIDON_LOG_TRACE(("PONG: username `$1`"), username);
           break;
         }
 
