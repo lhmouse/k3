@@ -21,6 +21,8 @@ namespace {
 struct User_Connection_Information
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
+    steady_time rate_time;
+    uint32_t rate_counter = 0;
     steady_time pong_time;
   };
 
@@ -180,6 +182,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
 
           uconn.weak_session = session;
+          uconn.rate_time = steady_clock::now();
+          uconn.rate_counter = 0;
           uconn.pong_time = steady_clock::now();
 
           // Authentication complete.
@@ -231,6 +235,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value response_data;
           try {
             (*handler) (fiber, username, response_data, move(request_data));
+            uconn->rate_counter ++;
             uconn->pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
@@ -406,18 +411,34 @@ do_service_timer_callback(const shptr<Implementation>& impl,
     }
 
     // Poll clients.
-    for(const auto& r : impl->connections) {
-      auto session = r.second.weak_session.lock();
+    for(auto it = impl->connections.mut_begin();  it != impl->connections.end();  ++it) {
+      auto session = it->second.weak_session.lock();
       if(!session) {
-        POSEIDON_LOG_TRACE(("CLOSED: username `$1`"), r.first);
-        impl->expired_connections.emplace_back(r.first);
+        POSEIDON_LOG_TRACE(("CLOSED: username `$1`"), it->first);
+        impl->expired_connections.emplace_back(it->first);
+        continue;
       }
-      else if(now - r.second.pong_time >= impl->client_ping_interval * 2) {
-        POSEIDON_LOG_DEBUG(("PING timed out: username `$1`"), r.first);
+
+      if(it->second.rate_counter > impl->client_rate_limit * 60) {
+        POSEIDON_LOG_DEBUG(("Rate limit: username `$1`"), it->first);
+        session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/uSaefae4");
+        continue;
+      }
+
+      if(now - it->second.pong_time > impl->client_ping_interval * 2) {
+        POSEIDON_LOG_DEBUG(("PING timed out: username `$1`"), it->first);
         session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/Ieree7un");
+        continue;
       }
-      else if(now - r.second.pong_time >= impl->client_ping_interval) {
-        POSEIDON_LOG_TRACE(("PING: username `$1`"), r.first);
+
+      if(now - it->second.rate_time > 60s) {
+        POSEIDON_LOG_TRACE(("Rate counter reset: username `$1`"), it->first);
+        it->second.rate_time = now;
+        it->second.rate_counter = 0;
+      }
+
+      if(now - it->second.pong_time > impl->client_ping_interval) {
+        POSEIDON_LOG_TRACE(("PING: username `$1`"), it->first);
         session->ws_send(::poseidon::websocket_PING, "");
       }
     }
