@@ -447,7 +447,7 @@ do_service_timer_callback(const shptr<Implementation>& impl,
       phcow_string username = move(impl->expired_connections.back());
       impl->expired_connections.pop_back();
 
-      POSEIDON_LOG_DEBUG(("Removing user connection: username `$1`"), username);
+      POSEIDON_LOG_INFO(("Unloading user information: username `$1`"), username);
       impl->connections.erase(username);
       impl->users.erase(username);
     }
