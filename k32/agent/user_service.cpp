@@ -21,7 +21,7 @@ namespace {
 struct User_Connection_Information
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
-    steady_time time_last_pong;
+    steady_time pong_time;
   };
 
 struct Implementation
@@ -43,9 +43,9 @@ struct Implementation
 
     // connections from clients
     bool db_ready = false;
-    cow_dictionary<User_Connection_Information> user_connections;
+    cow_dictionary<User_Connection_Information> connections;
     cow_dictionary<User_Information> users;
-    ::std::vector<phcow_string> expired_user_connections;
+    ::std::vector<phcow_string> expired_connections;
   };
 
 uniptr<::poseidon::MySQL_Connection>
@@ -173,14 +173,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           uinfo.logout_time = task1->result_rows().at(0).at(2).as_system_time();
 
           // Set up connection.
-          auto& uconn = impl->user_connections.open(uinfo.username);
+          auto& uconn = impl->connections.open(uinfo.username);
           if(auto other_session = uconn.weak_session.lock()) {
             POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
             other_session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/riiSh5uy");
           }
 
           uconn.weak_session = session;
-          uconn.time_last_pong = steady_clock::now();
+          uconn.pong_time = steady_clock::now();
 
           // Authentication complete.
           session->mut_session_user_data() = uinfo.username.rdstr();
@@ -196,7 +196,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto uconn = impl->user_connections.mut_ptr(username);
+          auto uconn = impl->connections.mut_ptr(username);
           if(!uconn)
             return;
 
@@ -231,7 +231,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value response_data;
           try {
             (*handler) (fiber, username, response_data, move(request_data));
-            uconn->time_last_pong = steady_clock::now();
+            uconn->pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
@@ -257,11 +257,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto uconn = impl->user_connections.mut_ptr(username);
+          auto uconn = impl->connections.mut_ptr(username);
           if(!uconn)
             return;
 
-          uconn->time_last_pong = steady_clock::now();
+          uconn->pong_time = steady_clock::now();
           POSEIDON_LOG_TRACE(("PONG: username `$1`"), username);
           break;
         }
@@ -272,7 +272,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto uconn = impl->user_connections.mut_ptr(username);
+          auto uconn = impl->connections.mut_ptr(username);
           if(!uconn)
             return;
 
@@ -405,30 +405,29 @@ do_service_timer_callback(const shptr<Implementation>& impl,
       POSEIDON_LOG_INFO(("User database verification complete"));
     }
 
-    // Ping clients, and store unresponsive connections into
-    // `expired_user_connections`.
-    for(const auto& r : impl->user_connections) {
+    // Poll clients.
+    for(const auto& r : impl->connections) {
       auto session = r.second.weak_session.lock();
       if(!session) {
         POSEIDON_LOG_TRACE(("CLOSED: username `$1`"), r.first);
-        impl->expired_user_connections.emplace_back(r.first);
+        impl->expired_connections.emplace_back(r.first);
       }
-      else if(now - r.second.time_last_pong >= impl->client_ping_interval * 2) {
+      else if(now - r.second.pong_time >= impl->client_ping_interval * 2) {
         POSEIDON_LOG_DEBUG(("PING timed out: username `$1`"), r.first);
         session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/Ieree7un");
       }
-      else if(now - r.second.time_last_pong >= impl->client_ping_interval) {
+      else if(now - r.second.pong_time >= impl->client_ping_interval) {
         POSEIDON_LOG_TRACE(("PING: username `$1`"), r.first);
         session->ws_send(::poseidon::websocket_PING, "");
       }
     }
 
-    while(impl->expired_user_connections.size() != 0) {
-      phcow_string username = move(impl->expired_user_connections.back());
-      impl->expired_user_connections.pop_back();
+    while(impl->expired_connections.size() != 0) {
+      phcow_string username = move(impl->expired_connections.back());
+      impl->expired_connections.pop_back();
 
       POSEIDON_LOG_DEBUG(("Removing user connection: username `$1`"), username);
-      impl->user_connections.erase(username);
+      impl->connections.erase(username);
       impl->users.erase(username);
     }
   }
