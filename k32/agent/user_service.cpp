@@ -204,10 +204,10 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           if(!uconn)
             return;
 
-          ::taxon::Value root;
+          tinybuf_ln buf(move(data));
           ::taxon::Parser_Context pctx;
-          ::rocket::tinybuf_ln buf(move(data));
-          root.parse_with(pctx, buf);
+          ::taxon::Value root;
+          root.parse_with(pctx, buf, ::taxon::option_json_mode);
           if(pctx.error || !root.is_object()) {
             POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
             session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
@@ -216,15 +216,15 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           phcow_string opcode;
           ::taxon::Value request_data;
-          ::taxon::Value request_id;
+          ::taxon::Value serial;
 
           for(const auto& r : root.as_object())
             if(r.first == &"opcode")
               opcode = r.second.as_string();
             else if(r.first == &"data")
               request_data = r.second;
-            else if(r.first == &"id")
-              request_id = r.second;
+            else if(r.first == &"serial")
+              serial = r.second;
 
           // Search for a handler.
           auto handler = impl->ws_handlers.ptr(opcode);
@@ -247,15 +247,19 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          if(request_id.is_null())
+          if(serial.is_null())
             break;
 
           // The client expects a response, so send it.
           root.open_object().clear();
-          root.open_object().try_emplace(&"id", request_id);
+          root.open_object().try_emplace(&"serial", serial);
           if(!response_data.is_null())
             root.open_object().try_emplace(&"data", response_data);
-          session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
+
+          buf.clear_buffer();
+          root.print_to(buf, ::taxon::option_json_mode);
+
+          session->ws_send(::poseidon::websocket_TEXT, buf);
           break;
         }
 
@@ -692,6 +696,87 @@ reload(const ::poseidon::Config_File& conf_file)
                 if(const auto impl = weak_impl.lock())
                   do_service_timer_callback(impl, fiber, now);
               }));
+  }
+
+void
+User_Service::
+notify_one(const phcow_string& username, const cow_string& opcode,
+           const ::taxon::Value& notification_data)
+  {
+    if(!this->m_impl)
+      return;
+
+    shptr<::poseidon::WS_Server_Session> session;
+    if(auto uconn = this->m_impl->connections.ptr(username))
+      session = uconn->weak_session.lock();
+
+    if(session == nullptr)
+      return;
+
+    // Encode the message and send it.
+    ::taxon::Value root;
+    root.open_object().try_emplace(&"opcode", opcode);
+    if(!notification_data.is_null())
+      root.open_object().try_emplace(&"data", notification_data);
+
+    tinybuf_ln buf;
+    root.print_to(buf, ::taxon::option_json_mode);
+
+    session->ws_send(::poseidon::websocket_TEXT, buf);
+  }
+
+void
+User_Service::
+notify_some(const cow_vector<phcow_string>& username_list, const cow_string& opcode,
+            const ::taxon::Value& notification_data)
+  {
+    if(!this->m_impl)
+      return;
+
+    cow_dictionary<shptr<::poseidon::WS_Server_Session>> session_map;
+    for(const auto& username : username_list)
+      if(auto uconn = this->m_impl->connections.ptr(username))
+        if(auto session = uconn->weak_session.lock())
+          session_map.try_emplace(username, move(session));
+
+    if(session_map.size() == 0)
+      return;
+
+    // Encode the message and send it.
+    ::taxon::Value root;
+    root.open_object().try_emplace(&"opcode", opcode);
+    if(!notification_data.is_null())
+      root.open_object().try_emplace(&"data", notification_data);
+
+    tinybuf_ln buf;
+    root.print_to(buf, ::taxon::option_json_mode);
+
+    for(const auto& r : session_map)
+      r.second->ws_send(::poseidon::websocket_TEXT, buf);
+  }
+
+void
+User_Service::
+notify_all(const cow_string& opcode, const ::taxon::Value& notification_data)
+  {
+    if(!this->m_impl)
+      return;
+
+    if(this->m_impl->connections.size() == 0)
+      return;
+
+    // Encode the message and send it.
+    ::taxon::Value root;
+    root.open_object().try_emplace(&"opcode", opcode);
+    if(!notification_data.is_null())
+      root.open_object().try_emplace(&"data", notification_data);
+
+    tinybuf_ln buf;
+    root.print_to(buf, ::taxon::option_json_mode);
+
+    for(const auto& r : this->m_impl->connections)
+      if(auto session = r.second.weak_session.lock())
+        session->ws_send(::poseidon::websocket_TEXT, buf);
   }
 
 }  // namespace k32::agent

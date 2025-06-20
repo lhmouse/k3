@@ -96,7 +96,19 @@ class User_Service
     void
     reload(const ::poseidon::Config_File& conf_file);
 
-    // Sends
+    // Sends a message to one user.
+    void
+    notify_one(const phcow_string& username, const cow_string& opcode,
+               const ::taxon::Value& notification_data);
+
+    // Sends a message to a list of users.
+    void
+    notify_some(const cow_vector<phcow_string>& username_list, const cow_string& opcode,
+                const ::taxon::Value& notification_data);
+
+    // Sends a message to all users.
+    void
+    notify_all(const cow_string& opcode, const ::taxon::Value& notification_data);
   };
 
 }  // namespace k32::agent
