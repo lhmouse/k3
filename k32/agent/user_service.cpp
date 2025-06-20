@@ -56,8 +56,8 @@ do_get_user_db_connection(const shptr<Implementation>& impl)
     if(impl->mysql_user_db_service_uri == "")
       return ::poseidon::mysql_connector.allocate_default_connection();
 
-    return ::poseidon::mysql_connector.allocate_connection(
-               impl->mysql_user_db_service_uri, impl->mysql_user_db_password);
+    return ::poseidon::mysql_connector.allocate_connection(impl->mysql_user_db_service_uri,
+                                                           impl->mysql_user_db_password);
   }
 
 void
@@ -337,7 +337,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
 
           // Make an HTTP response.
-          ::poseidon::HTTP_Response_Headers resp;
+          ::poseidon::HTTP_S_Headers resp;
           resp.status = ::poseidon::http_status_ok;
           resp.headers.emplace_back(&"Content-Type", response_content_type);
           resp.headers.emplace_back(&"Cache-Control", &"no-cache");
@@ -404,8 +404,7 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
       // Get a connection to user database.
       auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
-                                                               do_get_user_db_connection(impl),
-                                                               table);
+                                                               do_get_user_db_connection(impl), table);
       ::poseidon::task_executor.enqueue(task);
       ::poseidon::fiber_scheduler.yield(fiber, task);
 
