@@ -24,16 +24,16 @@ class Service_Future
   private:
     ::poseidon::UUID m_target_service_uuid;
     cow_string m_target_service_type;
-    cow_string m_opcode;
+    phcow_string m_opcode;
     ::taxon::Value m_request_data;
     cow_vector<Service_Response> m_responses;
 
   public:
-    Service_Future(multicast_selector_t&& selector, const cow_string& opcode,
+    Service_Future(multicast_selector_t&& selector, const phcow_string& opcode,
                    const ::taxon::Value& request_data);
 
     Service_Future(const ::poseidon::UUID& target_service_uuid,
-                   const cow_string& opcode, const ::taxon::Value& request_data);
+                   const phcow_string& opcode, const ::taxon::Value& request_data);
 
   private:
     virtual

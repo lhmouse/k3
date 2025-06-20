@@ -11,7 +11,7 @@ constexpr ::poseidon::UUID randomcast_uuid = POSEIDON_UUID(c8585775,4c4f,11f0,9b
 constexpr ::poseidon::UUID broadcast_uuid = POSEIDON_UUID(c85857a5,4c4f,11f0,b5da,5254005015d2);
 
 Service_Future::
-Service_Future(multicast_selector_t&& selector, const cow_string& opcode,
+Service_Future(multicast_selector_t&& selector, const phcow_string& opcode,
                const ::taxon::Value& request_data)
   {
     this->m_target_service_uuid = selector.target_service_uuid;
@@ -22,7 +22,7 @@ Service_Future(multicast_selector_t&& selector, const cow_string& opcode,
 
 Service_Future::
 Service_Future(const ::poseidon::UUID& target_service_uuid,
-               const cow_string& opcode, const ::taxon::Value& request_data)
+               const phcow_string& opcode, const ::taxon::Value& request_data)
   {
     this->m_target_service_uuid = target_service_uuid;
     this->m_opcode = opcode;

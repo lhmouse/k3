@@ -122,11 +122,11 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
     wkptr<Implementation> m_weak_impl;
     wkptr<Service_Future> m_weak_req;
     ::poseidon::UUID m_request_uuid;
-    cow_string m_opcode;
+    phcow_string m_opcode;
     ::taxon::Value m_request_data;
 
     Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
-                        const ::poseidon::UUID& request_uuid, const cow_string& opcode,
+                        const ::poseidon::UUID& request_uuid, const phcow_string& opcode,
                         const ::taxon::Value& request_data)
       :
         m_weak_impl(impl), m_weak_req(req), m_request_uuid(request_uuid),
@@ -184,9 +184,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           if(session->session_user_data().is_null())
             return;
 
-          ::taxon::Value root;
+          tinybuf_ln buf(move(data));
           ::taxon::Parser_Context pctx;
-          ::rocket::tinybuf_ln buf(move(data));
+          ::taxon::Value root;
           root.parse_with(pctx, buf);
           if(pctx.error || !root.is_object()) {
             POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
@@ -289,13 +289,13 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
     wkptr<Implementation> m_weak_impl;
     wkptr<::poseidon::WS_Server_Session> m_weak_session;
     ::poseidon::UUID m_request_uuid;
-    cow_string m_opcode;
+    phcow_string m_opcode;
     ::taxon::Value m_request_data;
 
     Remote_Request_Fiber(const shptr<Implementation>& impl,
                          const shptr<::poseidon::WS_Server_Session>& session,
                          const ::poseidon::UUID& request_uuid,
-                         const cow_string& opcode, const ::taxon::Value& request_data)
+                         const phcow_string& opcode, const ::taxon::Value& request_data)
       :
         m_weak_impl(impl), m_weak_session(session), m_request_uuid(request_uuid),
         m_opcode(opcode), m_request_data(request_data)
@@ -400,9 +400,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           if(session->session_user_data().is_null())
             return;
 
-          ::taxon::Value root;
+          tinybuf_ln buf(move(data));
           ::taxon::Parser_Context pctx;
-          ::rocket::tinybuf_ln buf(move(data));
+          ::taxon::Value root;
           root.parse_with(pctx, buf);
           if(pctx.error || !root.is_object()) {
             POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
@@ -410,7 +410,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          cow_string opcode;
+          phcow_string opcode;
           ::taxon::Value request_data;
           ::poseidon::UUID request_uuid;
 
@@ -444,12 +444,12 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
     wkptr<::poseidon::WS_Client_Session> m_weak_session;
     wkptr<Service_Future> m_weak_req;
     ::poseidon::UUID m_request_uuid;
-    cow_string m_opcode;
+    phcow_string m_opcode;
     ::taxon::Value m_request_data;
 
     Remote_Request_Task(const shptr<::poseidon::WS_Client_Session>& session,
                         const shptr<Service_Future>& req, const ::poseidon::UUID& request_uuid,
-                        const cow_string& opcode, const ::taxon::Value& request_data)
+                        const phcow_string& opcode, const ::taxon::Value& request_data)
       :
         m_weak_session(session), m_weak_req(req), m_request_uuid(request_uuid),
         m_opcode(opcode), m_request_data(request_data)
