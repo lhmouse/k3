@@ -34,8 +34,6 @@ struct Implementation
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     // local data
-    cow_string mysql_user_db_service_uri;
-    cow_string mysql_user_db_password;
     uint16_t client_port = 0;
     uint32_t client_rate_limit;
     seconds client_ping_interval;
@@ -49,16 +47,6 @@ struct Implementation
     cow_dictionary<User_Information> users;
     ::std::vector<phcow_string> expired_connections;
   };
-
-uniptr<::poseidon::MySQL_Connection>
-do_get_user_db_connection(const shptr<Implementation>& impl)
-  {
-    if(impl->mysql_user_db_service_uri == "")
-      return ::poseidon::mysql_connector.allocate_default_connection();
-
-    return ::poseidon::mysql_connector.allocate_connection(impl->mysql_user_db_service_uri,
-                                                           impl->mysql_user_db_password);
-  }
 
 void
 do_server_ws_callback(const shptr<Implementation>& impl,
@@ -142,8 +130,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           sql_args.emplace_back(uinfo.login_time);        //        `login_time` = ?
 
           auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                               do_get_user_db_connection(impl),
-                                                               &insert_into_user, sql_args);
+                                      ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                                      &insert_into_user, sql_args);
           ::poseidon::task_executor.enqueue(task1);
           ::poseidon::fiber_scheduler.yield(fiber, task1);
 
@@ -160,8 +148,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           sql_args.emplace_back(uinfo.username.rdstr());
 
           task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                         do_get_user_db_connection(impl),
-                                                         &select_from_user, sql_args);
+                                      ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                                      &select_from_user, sql_args);
           ::poseidon::task_executor.enqueue(task1);
           ::poseidon::fiber_scheduler.yield(fiber, task1);
 
@@ -304,8 +292,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           sql_args.emplace_back(username.rdstr());
 
           auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                              do_get_user_db_connection(impl),
-                                                              &update_user_logout_time, sql_args);
+                                      ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                                      &update_user_logout_time, sql_args);
           ::poseidon::task_executor.enqueue(task2);
           ::poseidon::fiber_scheduler.yield(fiber, task2);
 
@@ -408,7 +396,7 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
       // Get a connection to user database.
       auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
-                                                               do_get_user_db_connection(impl), table);
+                              ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
       ::poseidon::task_executor.enqueue(task);
       ::poseidon::fiber_scheduler.yield(fiber, task);
 
@@ -595,31 +583,11 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    cow_string mysql_user_db_service_uri, mysql_user_db_password;
-    int64_t client_port = 0, client_rate_limit = 0, client_ping_interval = 0;
-
-    // `mysql.k32_user_db_service_uri`
-    auto conf_value = conf_file.query(&"mysql.k32_user_db_service_uri");
-    if(conf_value.is_string())
-      mysql_user_db_service_uri = conf_value.as_string();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `mysql.k32_user_db_service_uri`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    // `mysql.k32_user_db_password`
-    conf_value = conf_file.query(&"mysql.k32_user_db_password");
-    if(conf_value.is_string())
-      mysql_user_db_password = conf_value.as_string();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `mysql.k32_user_db_password`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+    int64_t client_port = 0;
+    int64_t client_rate_limit = 0, client_ping_interval = 0;
 
     // `k32.agent.client_port`
-    conf_value = conf_file.query(&"k32.agent.client_port");
+    auto conf_value = conf_file.query(&"k32.agent.client_port");
     if(conf_value.is_integer())
       client_port = conf_value.as_integer();
     else if(!conf_value.is_null())
@@ -667,8 +635,6 @@ reload(const ::poseidon::Config_File& conf_file)
           client_ping_interval, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
-    this->m_impl->mysql_user_db_service_uri = mysql_user_db_service_uri;
-    this->m_impl->mysql_user_db_password = mysql_user_db_password;
     this->m_impl->client_port = static_cast<uint16_t>(client_port);
     this->m_impl->client_rate_limit = static_cast<uint32_t>(client_rate_limit);
     this->m_impl->client_ping_interval = seconds(client_ping_interval);
