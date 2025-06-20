@@ -31,10 +31,9 @@ struct Remote_Service_Connection_Information
 
 struct Implementation
   {
-    cow_dictionary<Service::handler_type> handlers;
-
     ::poseidon::UUID service_uuid = ::poseidon::UUID::random();
-    system_time service_start_time = system_clock::now();
+    system_time service_start_time;
+    cow_dictionary<Service::handler_type> handlers;
 
     // local data
     cow_string service_type;
@@ -562,6 +561,9 @@ void
 do_publish_service_with_ttl(const shptr<Implementation>& impl,
                             ::poseidon::Abstract_Fiber& fiber, seconds ttl)
   {
+    if(impl->service_start_time == system_time())
+      impl->service_start_time = system_clock::now();
+
     ::taxon::V_object& service_data = impl->cached_service_data;
     service_data.insert_or_assign(&"application_name", impl->application_name);
     service_data.insert_or_assign(&"service_type", impl->service_type);
@@ -614,11 +616,10 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
     ::poseidon::task_executor.enqueue(task1);
     ::poseidon::fiber_scheduler.yield(fiber, task1);
+    POSEIDON_CHECK(task1->status() == "OK");
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
-    POSEIDON_CHECK(task1->status() == "OK");
-
-    if(impl->service_start_time - system_clock::now() <= 30s)
+    if(impl->service_start_time - system_clock::now() <= 60s)
       do_subscribe_service(impl, fiber);
   }
 
