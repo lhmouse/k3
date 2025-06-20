@@ -189,8 +189,11 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Parser_Context pctx;
           ::rocket::tinybuf_ln buf(move(data));
           root.parse_with(pctx, buf);
-          POSEIDON_CHECK(!pctx.error);
-          POSEIDON_CHECK(root.is_object());
+          if(pctx.error || !root.is_object()) {
+            POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
+            session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
+            return;
+          }
 
           ::poseidon::UUID request_uuid;
           ::taxon::Value response_data;
@@ -402,8 +405,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Parser_Context pctx;
           ::rocket::tinybuf_ln buf(move(data));
           root.parse_with(pctx, buf);
-          POSEIDON_CHECK(!pctx.error);
-          POSEIDON_CHECK(root.is_object());
+          if(pctx.error || !root.is_object()) {
+            POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
+            session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
+            return;
+          }
 
           cow_string opcode;
           ::taxon::Value request_data;
@@ -492,7 +498,6 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         ::taxon::Parser_Context pctx;
         root.parse_with(pctx, r.second);
         POSEIDON_CHECK(!pctx.error);
-        POSEIDON_CHECK(root.is_object());
 
         if(root.as_object().at(&"application_name").as_string() != impl->application_name)
           continue;
@@ -514,10 +519,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         remote_services_by_type.open(remote.service_type).emplace_back(remote);
       }
       catch(exception& stdex) {
-        POSEIDON_LOG_WARN((
-            "Invalid service `$1`: $2",
-            "Service information from Redis could not be parsed: $3"),
-            r.first, r.second, stdex);
+        POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, r.second, stdex);
       }
 
     for(const auto& r : remote_services_by_uuid)

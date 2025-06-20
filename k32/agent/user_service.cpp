@@ -208,8 +208,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Parser_Context pctx;
           ::rocket::tinybuf_ln buf(move(data));
           root.parse_with(pctx, buf);
-          POSEIDON_CHECK(!pctx.error);
-          POSEIDON_CHECK(root.is_object());
+          if(pctx.error || !root.is_object()) {
+            POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
+            session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
+            return;
+          }
 
           phcow_string opcode;
           ::taxon::Value request_data;
