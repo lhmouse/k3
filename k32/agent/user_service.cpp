@@ -28,7 +28,6 @@ struct User_Connection_Information
 
 struct Implementation
   {
-    ::poseidon::UUID agent_uuid = ::poseidon::UUID::random();
     cow_dictionary<User_Service::http_handler_type> http_handlers;
     cow_dictionary<User_Service::ws_authenticator_type> ws_authenticators;
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
@@ -100,32 +99,27 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           uinfo.login_time = system_clock::now();
 
           cow_vector<::poseidon::MySQL_Value> sql_args;
-          cow_string agent_uuid_str = impl->agent_uuid.print_to_string();
           cow_string remote_address_str = uinfo.login_address.print_to_string();
 
           static constexpr char insert_into_user[] =
             R"!!!(
               INSERT INTO `user`
                 SET `username` = ?,
-                    `login_agent_uuid` = ?,
                     `login_address` = ?,
                     `creation_time` = ?,
                     `login_time` = ?,
                     `logout_time` = ?
                 ON DUPLICATE KEY
-                UPDATE `login_agent_uuid` = ?,
-                       `login_address` = ?,
+                UPDATE `login_address` = ?,
                        `login_time` = ?
             )!!!";
 
           sql_args.clear();
           sql_args.emplace_back(uinfo.username.rdstr());  // SET `username` = ?,
-          sql_args.emplace_back(agent_uuid_str);          //     `login_agent_uuid` = ?,
           sql_args.emplace_back(remote_address_str);      //     `login_address` = ?,
           sql_args.emplace_back(uinfo.login_time);        //     `creation_time` = ?,
           sql_args.emplace_back(uinfo.login_time);        //     `login_time` = ?,
           sql_args.emplace_back(uinfo.logout_time);       //     `logout_time` = ?
-          sql_args.emplace_back(agent_uuid_str);          // UPDATE `login_agent_uuid` = ?,
           sql_args.emplace_back(remote_address_str);      //        `login_address` = ?,
           sql_args.emplace_back(uinfo.login_time);        //        `login_time` = ?
 
@@ -137,8 +131,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           static constexpr char select_from_user[] =
             R"!!!(
-              SELECT `login_agent_uuid`,
-                     `creation_time`,
+              SELECT `creation_time`,
                      `logout_time`
                 FROM `user`
                 WHERE `username` = ?
@@ -153,14 +146,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::poseidon::task_executor.enqueue(task1);
           ::poseidon::fiber_scheduler.yield(fiber, task1);
 
-          if(task1->result_rows().at(0).at(0).as_blob() != agent_uuid_str) {
-            POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
-            session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/Eex7Uiha");
-            return;
-          }
-
-          uinfo.creation_time = task1->result_rows().at(0).at(1).as_system_time();
-          uinfo.logout_time = task1->result_rows().at(0).at(2).as_system_time();
+          uinfo.creation_time = task1->result_rows().at(0).at(0).as_system_time();
+          uinfo.logout_time = task1->result_rows().at(0).at(1).as_system_time();
 
           // Set up connection.
           auto& uconn = impl->connections.open(uinfo.username);
@@ -354,12 +341,6 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
       ::poseidon::MySQL_Table_Column column;
       column.name = &"username";
-      column.type = ::poseidon::mysql_column_varchar;
-      column.nullable = false;
-      table.columns.emplace_back(column);
-
-      column.clear();
-      column.name = &"login_agent_uuid";
       column.type = ::poseidon::mysql_column_varchar;
       column.nullable = false;
       table.columns.emplace_back(column);
