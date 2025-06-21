@@ -3,7 +3,7 @@
 
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
-#include "../common/http_requestor.hpp"  /*TEST*/
+#include "../common/https_requestor.hpp"  /*TEST*/
 #include <poseidon/static/main_config.hpp>
 namespace k32::agent {
 
@@ -35,7 +35,7 @@ service.add_handler(
       response_data = "<<<< " + request_data.as_string();
     });
 
-static HTTP_Requestor requestor;
+static HTTPS_Requestor requestor;
 
 user_service.add_http_handler(
   &"/aa/bb",
