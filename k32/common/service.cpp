@@ -172,7 +172,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Client_Session>& session,
                       ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
-    switch(static_cast<uint32_t>(event))
+    switch(event)
       {
       case ::poseidon::easy_ws_open:
         POSEIDON_LOG_INFO(("Connected to `$1`: $2"), session->remote_address(), data);
@@ -218,6 +218,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           POSEIDON_LOG_TRACE(("Received response: request_uuid `$1`"), request_uuid);
           break;
         }
+
+      case ::poseidon::easy_ws_pong:
+        break;
 
       case ::poseidon::easy_ws_close:
         {
@@ -345,7 +348,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Server_Session>& session,
                       ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
-    switch(static_cast<uint32_t>(event))
+    switch(event)
       {
       case ::poseidon::easy_ws_open:
         {
@@ -428,6 +431,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::poseidon::fiber_scheduler.launch(fiber3);
           break;
         }
+
+      case ::poseidon::easy_ws_pong:
+        break;
 
       case ::poseidon::easy_ws_close:
         if(session->session_user_data().is_null())

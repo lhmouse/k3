@@ -54,7 +54,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
                       ::poseidon::Abstract_Fiber& fiber,
                       ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
-    switch(static_cast<uint32_t>(event))
+    switch(event)
       {
       case ::poseidon::easy_hws_open:
         {
