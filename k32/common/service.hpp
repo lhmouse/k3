@@ -46,10 +46,16 @@ class Service
     bool
     remove_handler(const phcow_string& opcode) noexcept;
 
-    // Returns the UUID of the active service. If there is no active service, a
-    // zero UUID is returned.
+    // Returns the UUID of the active service. If service is not active, a nil
+    // UUID is returned.
     const ::poseidon::UUID&
     service_uuid() const noexcept;
+
+    // Returns the 0-based index of the active service. This value is unique in
+    // all instances sharing the same configuration file. If there is no active
+    // service, 0 is returned.
+    uint32_t
+    service_index() const noexcept;
 
     // Gets properties of a remote service.
     const Remote_Service_Information&

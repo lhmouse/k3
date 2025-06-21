@@ -555,30 +555,46 @@ find_user(const phcow_string& username) const noexcept
 
 void
 User_Service::
-reload(const ::poseidon::Config_File& conf_file)
+reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
+    ::asteria::V_array client_port_list;
     int64_t client_port = 0;
     int64_t client_rate_limit = 0, client_ping_interval = 0;
 
-    // `k32.agent.client_port`
-    auto conf_value = conf_file.query(&"k32.agent.client_port");
+    // `k32.agent.client_port_list`
+    auto conf_value = conf_file.query(&"k32.agent.client_port_list");
+    if(conf_value.is_array())
+      client_port_list = conf_value.as_array();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `k32.agent.client_port_list`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if(service_index >= client_port_list.size())
+      POSEIDON_THROW((
+          "No enough values in `k32.agent.client_port_list`: too many processes",
+          "[in configuration file '$2']"),
+          service_index, conf_file.path());
+
+    conf_value = client_port_list.at(service_index);
     if(conf_value.is_integer())
       client_port = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_port`: expecting an `integer`, got `$1`",
+          "Invalid `k32.agent.client_port_list[$3]`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+          conf_value, conf_file.path(), service_index);
 
     if((client_port < 1) || (client_port > 65535))
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_port`: value `$1` out of range",
+          "Invalid `k32.agent.client_port_list[$3]`: value `$1` out of range",
           "[in configuration file '$2']"),
-          client_port, conf_file.path());
+          client_port, conf_file.path(), service_index);
 
     // `k32.agent.client_rate_limit`
     conf_value = conf_file.query(&"k32.agent.client_rate_limit");

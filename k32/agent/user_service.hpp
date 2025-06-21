@@ -94,7 +94,7 @@ class User_Service
 
     // Reloads configuration.
     void
-    reload(const ::poseidon::Config_File& conf_file);
+    reload(const ::poseidon::Config_File& conf_file, uint32_t service_index);
 
     // Sends a message to one user.
     void

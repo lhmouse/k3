@@ -12,6 +12,7 @@ struct Remote_Service_Information
   {
     ::poseidon::UUID service_uuid;
     cow_string service_type;
+    uint32_t service_index = 0;
     cow_string hostname;
     cow_vector<::poseidon::IPv6_Address> addresses;
 

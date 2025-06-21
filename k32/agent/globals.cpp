@@ -21,7 +21,7 @@ poseidon_module_main(void)
   {
     const auto conf_file = ::poseidon::main_config.copy();
     service.reload(&"agent", conf_file);
-    user_service.reload(conf_file);
+    user_service.reload(conf_file, service.service_index());
 
 /*TEST*/
 

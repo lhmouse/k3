@@ -5,6 +5,7 @@
 #define K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
 #include "service.hpp"
 #include <poseidon/base/config_file.hpp>
+#include <poseidon/base/appointment.hpp>
 #include <poseidon/easy/easy_ws_server.hpp>
 #include <poseidon/easy/easy_ws_client.hpp>
 #include <poseidon/easy/easy_timer.hpp>
@@ -37,6 +38,7 @@ struct Implementation
 
     // local data
     cow_string service_type;
+    ::poseidon::Appointment appointment;
     cow_string application_name;
     cow_string application_password;
 
@@ -509,6 +511,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
         ::taxon::V_object service_data = root.as_object();
         remote.service_type = service_data.at(&"service_type").as_string();
+        remote.service_index = static_cast<uint32_t>(service_data.at(&"service_index").as_number());
 
         if(auto hostname = service_data.ptr(&"hostname"))
           remote.hostname = hostname->as_string();
@@ -520,6 +523,9 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
               remote.addresses.emplace_back(addr);
           }
 
+        if(impl->remote_services_by_uuid.count(remote.service_uuid) == false)
+          POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, root);
+
         remote_services_by_uuid.try_emplace(remote.service_uuid, remote);
         remote_services_by_type.open(remote.service_type).emplace_back(remote);
       }
@@ -527,15 +533,9 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, r.second, stdex);
       }
 
-    for(const auto& r : remote_services_by_uuid)
-      if(impl->remote_services_by_uuid.count(r.first) == false)
-        POSEIDON_LOG_INFO(("Discovered NEW service `$1` of type `$2`"),
-                          r.first, r.second.service_type);
-
     for(const auto& r : impl->remote_services_by_uuid)
       if(remote_services_by_uuid.count(r.first) == false)
-        POSEIDON_LOG_INFO(("Forgot DOWN service `$1` of type `$2`"),
-                          r.first, r.second.service_type);
+        POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2"), r.first, r.second.service_type);
 
     // Update services as an atomic operation.
     impl->remote_services_by_uuid = remote_services_by_uuid;
@@ -567,12 +567,16 @@ void
 do_publish_service_with_ttl(const shptr<Implementation>& impl,
                             ::poseidon::Abstract_Fiber& fiber, seconds ttl)
   {
+    if(impl->appointment.index() < 0)
+      return;
+
     if(impl->service_start_time == system_time())
       impl->service_start_time = system_clock::now();
 
     ::taxon::V_object& service_data = impl->cached_service_data;
     service_data.insert_or_assign(&"application_name", impl->application_name);
     service_data.insert_or_assign(&"service_type", impl->service_type);
+    service_data.insert_or_assign(&"service_index", static_cast<double>(impl->appointment.index()));
 
     auto private_addr = impl->private_server.local_address();
     if(private_addr.port() != 0) {
@@ -687,6 +691,19 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
+uint32_t
+Service::
+service_index() const noexcept
+  {
+    if(!this->m_impl)
+      return 0;
+
+    if(this->m_impl->appointment.index() == -1)
+      return 0;
+
+    return static_cast<uint32_t>(this->m_impl->appointment.index());
+  }
+
 const Remote_Service_Information&
 Service::
 find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
@@ -710,6 +727,7 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
 
     // Define default values here. The operation shall be atomic.
     cow_string application_name, application_password;
+    cow_string lock_directory;
 
     // `application_name`
     auto conf_value = conf_file.query(&"k32.application_name");
@@ -748,10 +766,23 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
+    // `lock_directory`
+    conf_value = conf_file.query(&"k32.lock_directory");
+    if(conf_value.is_string())
+      lock_directory = conf_value.as_string();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `k32.lock_directory`: expecting a `string`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->service_type = service_type;
     this->m_impl->application_name = application_name;
     this->m_impl->application_password = application_password;
+
+    // Assign a new service index.
+    this->m_impl->appointment.enroll(lock_directory + "/" + service_type);
 
     // Restart the service.
     this->m_impl->private_server.start_any(
