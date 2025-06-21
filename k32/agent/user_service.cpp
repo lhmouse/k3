@@ -98,9 +98,6 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           uinfo.login_address = session->remote_address();
           uinfo.login_time = system_clock::now();
 
-          cow_vector<::poseidon::MySQL_Value> sql_args;
-          cow_string remote_address_str = uinfo.login_address.print_to_string();
-
           static constexpr char insert_into_user[] =
             R"!!!(
               INSERT INTO `user`
@@ -114,14 +111,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
                        `login_time` = ?
             )!!!";
 
-          sql_args.clear();
-          sql_args.emplace_back(uinfo.username.rdstr());  // SET `username` = ?,
-          sql_args.emplace_back(remote_address_str);      //     `login_address` = ?,
-          sql_args.emplace_back(uinfo.login_time);        //     `creation_time` = ?,
-          sql_args.emplace_back(uinfo.login_time);        //     `login_time` = ?,
-          sql_args.emplace_back(uinfo.logout_time);       //     `logout_time` = ?
-          sql_args.emplace_back(remote_address_str);      // UPDATE `login_address` = ?,
-          sql_args.emplace_back(uinfo.login_time);        //        `login_time` = ?
+          cow_vector<::poseidon::MySQL_Value> sql_args;
+          sql_args.emplace_back(uinfo.username.rdstr());                  // SET `username` = ?,
+          sql_args.emplace_back(uinfo.login_address.print_to_string());   //     `login_address` = ?,
+          sql_args.emplace_back(uinfo.login_time);                        //     `creation_time` = ?,
+          sql_args.emplace_back(uinfo.login_time);                        //     `login_time` = ?,
+          sql_args.emplace_back(uinfo.logout_time);                       //     `logout_time` = ?
+          sql_args.emplace_back(uinfo.login_address.print_to_string());   // UPDATE `login_address` = ?,
+          sql_args.emplace_back(uinfo.login_time);                        //        `login_time` = ?
 
           auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                                       ::poseidon::mysql_connector.allocate_tertiary_connection(),
