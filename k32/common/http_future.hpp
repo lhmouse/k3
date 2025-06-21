@@ -13,8 +13,7 @@ class HTTP_Future
     public ::poseidon::Abstract_Future
   {
   private:
-    cow_string m_req_path;
-    cow_string m_req_query;
+    cow_string m_req_uri;
     cow_string m_req_content_type;
     cow_string m_req_payload;
 
@@ -23,10 +22,10 @@ class HTTP_Future
     cow_string m_resp_payload;
 
   public:
-    HTTP_Future(const cow_string& req_path, const cow_string& req_query,
-                const cow_string& req_content_type, const cow_string& req_payload);
+    HTTP_Future(const cow_string& req_uri, const cow_string& req_content_type,
+                const cow_string& req_payload);
 
-    HTTP_Future(const cow_string& req_path, const cow_string& req_query);
+    explicit HTTP_Future(const cow_string& req_uri);
 
   private:
     virtual
@@ -36,7 +35,6 @@ class HTTP_Future
   public:
 #ifdef K32_FRIENDS_C84621A4_4E68_11F0_BA96_5254005015D2_
     friend class HTTP_Requestor;
-    friend class HTTPS_Requestor;
     uint32_t& mf_resp_status_code() noexcept { return this->m_resp_status_code;  }
     cow_string& mf_resp_content_type() noexcept { return this->m_resp_content_type;  }
     cow_string& mf_resp_payload() noexcept { return this->m_resp_payload;  }
@@ -46,17 +44,10 @@ class HTTP_Future
     HTTP_Future& operator=(const HTTP_Future&) = delete;
     virtual ~HTTP_Future();
 
-    // Gets the path of the request message. The path must start with `/`. This
-    // field is set by the constructor.
+    // Gets the URI of the request message. This field is set by the constructor.
     const cow_string&
-    request_path() const noexcept
-      { return this->m_req_path;  }
-
-    // Gets the URL-encoded query string of the request message. This field is
-    // set by the constructor.
-    const cow_string&
-    request_query() const noexcept
-      { return this->m_req_query;  }
+    request_uri() const noexcept
+      { return this->m_req_uri;  }
 
     // Gets the `Content-Type` of the request message. This field is set by the
     // constructor.

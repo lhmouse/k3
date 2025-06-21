@@ -3,7 +3,7 @@
 
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
-#include "../common/https_requestor.hpp"  /*TEST*/
+#include "../common/http_requestor.hpp"  /*TEST*/
 #include <poseidon/static/main_config.hpp>
 namespace k32::agent {
 
@@ -35,7 +35,7 @@ service.add_handler(
       response_data = "<<<< " + request_data.as_string();
     });
 
-static HTTPS_Requestor requestor;
+static HTTP_Requestor requestor;
 
 user_service.add_http_handler(
   &"/aa/bb",
@@ -45,8 +45,7 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<HTTP_Future>(&"/", &"wd=meow");
-      requestor.set_target_host(&"www.baidu.com");
+      auto req1 = new_sh<HTTP_Future>(&"http://www.baidu.com/?wd=meow");
       requestor.enqueue(req1);
       ::poseidon::fiber_scheduler.yield(fiber, req1);
       POSEIDON_LOG_FATAL(("HTTP RESP => $1"), req1->response_status_code());

@@ -22,11 +22,6 @@ class HTTP_Requestor
     HTTP_Requestor& operator=(const HTTP_Requestor&) & = delete;
     ~HTTP_Requestor();
 
-    // Sets the target host. This must be called before any request messages
-    // can be sent.
-    void
-    set_target_host(const cow_string& host, uint16_t port = 80);
-
     // Enqueues an HTTP request. After this function returns, the caller shall
     // wait on the future. If this function fails, an exception is thrown, and
     // there is no effect.
