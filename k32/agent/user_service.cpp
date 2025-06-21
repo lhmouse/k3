@@ -120,7 +120,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           sql_args.emplace_back(uinfo.login_time);        //     `creation_time` = ?,
           sql_args.emplace_back(uinfo.login_time);        //     `login_time` = ?,
           sql_args.emplace_back(uinfo.logout_time);       //     `logout_time` = ?
-          sql_args.emplace_back(remote_address_str);      //        `login_address` = ?,
+          sql_args.emplace_back(remote_address_str);      // UPDATE `login_address` = ?,
           sql_args.emplace_back(uinfo.login_time);        //        `login_time` = ?
 
           auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
