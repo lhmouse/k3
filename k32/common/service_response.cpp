@@ -6,6 +6,8 @@
 #include "service_response.hpp"
 namespace k32 {
 
+const Service_Response null_service_response;
+
 Service_Response::
 ~Service_Response()
   {
