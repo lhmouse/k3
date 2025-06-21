@@ -99,17 +99,17 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           uinfo.login_time = system_clock::now();
 
           static constexpr char insert_into_user[] =
-            R"!!!(
-              INSERT INTO `user`
-                SET `username` = ?,
-                    `login_address` = ?,
-                    `creation_time` = ?,
-                    `login_time` = ?,
-                    `logout_time` = ?
-                ON DUPLICATE KEY
-                UPDATE `login_address` = ?,
-                       `login_time` = ?
-            )!!!";
+              R"!!!(
+                INSERT INTO `user`
+                  SET `username` = ?,
+                      `login_address` = ?,
+                      `creation_time` = ?,
+                      `login_time` = ?,
+                      `logout_time` = ?
+                  ON DUPLICATE KEY
+                  UPDATE `login_address` = ?,
+                         `login_time` = ?
+              )!!!";
 
           cow_vector<::poseidon::MySQL_Value> sql_args;
           sql_args.emplace_back(uinfo.username.rdstr());                  // SET `username` = ?,
@@ -127,12 +127,12 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::poseidon::fiber_scheduler.yield(fiber, task1);
 
           static constexpr char select_from_user[] =
-            R"!!!(
-              SELECT `creation_time`,
-                     `logout_time`
-                FROM `user`
-                WHERE `username` = ?
-            )!!!";
+              R"!!!(
+                SELECT `creation_time`,
+                       `logout_time`
+                  FROM `user`
+                  WHERE `username` = ?
+              )!!!";
 
           sql_args.clear();
           sql_args.emplace_back(uinfo.username.rdstr());
@@ -265,11 +265,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           static constexpr char update_user_logout_time[] =
-            R"!!!(
-              UPDATE `user`
-                SET `logout_time` = ?
-                WHERE `username` = ?
-            )!!!";
+              R"!!!(
+                UPDATE `user`
+                  SET `logout_time` = ?
+                  WHERE `username` = ?
+              )!!!";
 
           cow_vector<::poseidon::MySQL_Value> sql_args;
           sql_args.emplace_back(system_clock::now());
