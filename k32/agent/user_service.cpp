@@ -1,4 +1,4 @@
-// This file is part of k32.
+// This file is part of
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
@@ -565,19 +565,19 @@ reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
     int64_t client_port = 0;
     int64_t client_rate_limit = 0, client_ping_interval = 0;
 
-    // `k32.agent.client_port_list`
-    auto conf_value = conf_file.query(&"k32.agent.client_port_list");
+    // `agent.client_port_list`
+    auto conf_value = conf_file.query(&"agent.client_port_list");
     if(conf_value.is_array())
       client_port_list = conf_value.as_array();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_port_list`: expecting an `integer`, got `$1`",
+          "Invalid `agent.client_port_list`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     if(service_index >= client_port_list.size())
       POSEIDON_THROW((
-          "No enough values in `k32.agent.client_port_list`: too many processes",
+          "No enough values in `agent.client_port_list`: too many processes",
           "[in configuration file '$2']"),
           service_index, conf_file.path());
 
@@ -586,45 +586,45 @@ reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
       client_port = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_port_list[$3]`: expecting an `integer`, got `$1`",
+          "Invalid `agent.client_port_list[$3]`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path(), service_index);
 
     if((client_port < 1) || (client_port > 65535))
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_port_list[$3]`: value `$1` out of range",
+          "Invalid `agent.client_port_list[$3]`: value `$1` out of range",
           "[in configuration file '$2']"),
           client_port, conf_file.path(), service_index);
 
-    // `k32.agent.client_rate_limit`
-    conf_value = conf_file.query(&"k32.agent.client_rate_limit");
+    // `agent.client_rate_limit`
+    conf_value = conf_file.query(&"agent.client_rate_limit");
     if(conf_value.is_integer())
       client_rate_limit = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_rate_limit`: expecting an `integer`, got `$1`",
+          "Invalid `agent.client_rate_limit`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     if((client_rate_limit < 1) || (client_rate_limit > 99999))
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_rate_limit`: value `$1` out of range",
+          "Invalid `agent.client_rate_limit`: value `$1` out of range",
           "[in configuration file '$2']"),
           client_rate_limit, conf_file.path());
 
-    // `k32.agent.client_ping_interval`
-    conf_value = conf_file.query(&"k32.agent.client_ping_interval");
+    // `agent.client_ping_interval`
+    conf_value = conf_file.query(&"agent.client_ping_interval");
     if(conf_value.is_integer())
       client_ping_interval = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_ping_interval`: expecting an `integer`, got `$1`",
+          "Invalid `agent.client_ping_interval`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     if((client_ping_interval < 1) || (client_ping_interval > 99999))
       POSEIDON_THROW((
-          "Invalid `k32.agent.client_ping_interval`: value `$1` out of range",
+          "Invalid `agent.client_ping_interval`: value `$1` out of range",
           "[in configuration file '$2']"),
           client_ping_interval, conf_file.path());
 

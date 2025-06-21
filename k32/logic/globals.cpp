@@ -3,7 +3,7 @@
 
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
-#include <poseidon/static/main_config.hpp>
+#include <poseidon/base/config_file.hpp>
 namespace k32::logic {
 
 Clock clock;
@@ -17,6 +17,7 @@ using namespace k32::logic;
 void
 poseidon_module_main(void)
   {
-    const auto conf_file = ::poseidon::main_config.copy();
+    ::poseidon::Config_File conf_file;
+    conf_file.reload(&"k32.conf");
     service.reload(&"logic", conf_file);
   }

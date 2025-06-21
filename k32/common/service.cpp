@@ -1,4 +1,4 @@
-// This file is part of k32.
+// This file is part of
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
@@ -730,18 +730,18 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
     cow_string lock_directory;
 
     // `application_name`
-    auto conf_value = conf_file.query(&"k32.application_name");
+    auto conf_value = conf_file.query(&"application_name");
     if(conf_value.is_string())
       application_name = conf_value.as_string();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.application_name`: expecting a `string`, got `$1`",
+          "Invalid `application_name`: expecting a `string`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     if(application_name.empty())
       POSEIDON_THROW((
-          "Invalid `k32.application_name`: empty name not valid",
+          "Invalid `application_name`: empty name not valid",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
@@ -751,28 +751,28 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
 
       if(::rocket::xmemchr(valid_chars, ch, sizeof(valid_chars) - 1) == nullptr)
         POSEIDON_THROW((
-            "Invalid `k32.application_name`: character `$1` not allowed",
+            "Invalid `application_name`: character `$1` not allowed",
             "[in configuration file '$2']"),
             ch, conf_file.path());
     }
 
     // `application_password`
-    conf_value = conf_file.query(&"k32.application_password");
+    conf_value = conf_file.query(&"application_password");
     if(conf_value.is_string())
       application_password = conf_value.as_string();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.application_password`: expecting a `string`, got `$1`",
+          "Invalid `application_password`: expecting a `string`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     // `lock_directory`
-    conf_value = conf_file.query(&"k32.lock_directory");
+    conf_value = conf_file.query(&"lock_directory");
     if(conf_value.is_string())
       lock_directory = conf_value.as_string();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `k32.lock_directory`: expecting a `string`, got `$1`",
+          "Invalid `lock_directory`: expecting a `string`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
