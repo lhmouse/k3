@@ -1,0 +1,105 @@
+// This file is part of k32.
+// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
+
+#ifndef K32_COMMON_HTTP_FUTURE_
+#define K32_COMMON_HTTP_FUTURE_
+
+#include "../fwd.hpp"
+#include <poseidon/fiber/abstract_future.hpp>
+namespace k32 {
+
+class HTTP_Future
+  :
+    public ::poseidon::Abstract_Future
+  {
+  private:
+    ::poseidon::UUID m_req_uuid;
+    cow_string m_req_path;
+    cow_string m_req_query;
+    cow_string m_req_content_type;
+    cow_string m_req_payload;
+
+    uint32_t m_resp_status_code;
+    cow_string m_resp_content_type;
+    cow_string m_resp_payload;
+
+  public:
+    HTTP_Future(const cow_string& req_path, const cow_string& req_query,
+                const cow_string& req_content_type, const cow_string& req_payload);
+
+    HTTP_Future(const cow_string& req_path, const cow_string& req_query);
+
+  private:
+    virtual
+    void
+    do_on_abstract_future_initialize() override;
+
+  public:
+#ifdef K32_FRIENDS_C84621A4_4E68_11F0_BA96_5254005015D2_
+    friend class HTTP_Requestor;
+    friend class HTTPS_Requestor;
+    uint32_t& mf_resp_status_code() noexcept { return this->m_resp_status_code;  }
+    cow_string& mf_resp_content_type() noexcept { return this->m_resp_content_type;  }
+    cow_string& mf_resp_payload() noexcept { return this->m_resp_payload;  }
+    void mf_abstract_future_complete() { this->do_abstract_future_initialize_once();  }
+#endif
+    HTTP_Future(const HTTP_Future&) = delete;
+    HTTP_Future& operator=(const HTTP_Future&) = delete;
+    virtual ~HTTP_Future();
+
+    // Gets the path of the request message. The path must start with `/`. This
+    // field is set by the constructor.
+    const cow_string&
+    request_path() const noexcept
+      { return this->m_req_path;  }
+
+    // Gets the URL-encoded query string of the request message. This field is
+    // set by the constructor.
+    const cow_string&
+    request_query() const noexcept
+      { return this->m_req_query;  }
+
+    // Gets the `Content-Type` of the request message. This field is set by the
+    // constructor.
+    const cow_string&
+    request_content_type() const noexcept
+      { return this->m_req_content_type;  }
+
+    // Gets the payload of the request message. For a GET message, the payload
+    // shall be empty. This field is set by the constructor.
+    const cow_string&
+    request_payload() const noexcept
+      { return this->m_req_payload;  }
+
+    // Gets the status code of the response message. If the connection is closed
+    // without a response, zero is returned. If `successful()` yields `false`,
+    // an exception is thrown, and there is no effect.
+    uint32_t
+    response_status_code() const
+      {
+        this->check_success();
+        return this->m_resp_status_code;
+      }
+
+    // Gets the `Content-Type` of the response message. If there was no such
+    // header, an empty string is returned. If `successful()` yields `false`, an
+    // exception is thrown, and there is no effect.
+    const cow_string&
+    response_content_type() const
+      {
+        this->check_success();
+        return this->m_resp_content_type;
+      }
+
+    // Gets the payload of the response message. If `successful()` yields
+    // `false`, an exception is thrown, and there is no effect.
+    const cow_string&
+    response_payload() const
+      {
+        this->check_success();
+        return this->m_resp_payload;
+      }
+  };
+
+}  // namespace k32
+#endif

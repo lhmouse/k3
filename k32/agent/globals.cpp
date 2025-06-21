@@ -3,6 +3,7 @@
 
 #include "../xprecompiled.hpp"
 #include "globals.hpp"
+#include "../common/http_requestor.hpp"  /*TEST*/
 #include <poseidon/static/main_config.hpp>
 namespace k32::agent {
 
@@ -34,6 +35,8 @@ service.add_handler(
       response_data = "<<<< " + request_data.as_string();
     });
 
+static HTTP_Requestor requestor;
+
 user_service.add_http_handler(
   &"/aa/bb",
   +[](::poseidon::Abstract_Fiber& fiber,
@@ -42,20 +45,14 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(broadcast(), &"req_op", &"req_data");
-      service.enqueue(req1);
+      auto req1 = new_sh<HTTP_Future>(&"/", &"wd=meow");
+      requestor.set_target_host(&"www.baidu.com");
+      requestor.enqueue(req1);
       ::poseidon::fiber_scheduler.yield(fiber, req1);
-      POSEIDON_LOG_FATAL(("RESPONSES = $1"), req1->responses().size());
+      POSEIDON_LOG_FATAL(("HTTP RESP => $1"), req1->response_status_code());
 
-      ::taxon::V_object resp;
-      for(const auto& r : req1->responses())
-        if(r.error == "")
-          resp.try_emplace(r.service_uuid.print_to_string(), r.response_data);
-        else
-          resp.try_emplace(r.service_uuid.print_to_string(), "error: " + r.error);
-
-      response_content_type = &"application/json";
-      response_data = ::taxon::Value(resp).print_to_string();
+      response_content_type = req1->response_content_type();
+      response_data = req1->response_payload();
     });
 
 user_service.add_ws_authenticator(

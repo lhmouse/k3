@@ -68,7 +68,8 @@ k32_common = shared_library('k32_common',
     sources: [
       'k32/common/service.cpp', 'k32/common/remote_service_information.cpp',
       'k32/common/service_future.cpp', 'k32/common/service_response.cpp',
-      'k32/common/clock.cpp' ],
+      'k32/common/clock.cpp', 'k32/common/http_future.cpp', 'k32/common/http_requestor.cpp',
+      'k32/common/https_requestor.cpp' ],
     soversion: meson.project_version().split('.')[0],
     dependencies: [ dep_openssl, dep_poseidon, dep_asteria, dep_taxon ],
     install: true)

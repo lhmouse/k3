@@ -15,7 +15,7 @@ class User_Service
             void (
               ::poseidon::Abstract_Fiber& fiber,
               cow_string& response_content_type,  // output parameter
-              cow_string& response_data,  // output parameter
+              cow_string& response_payload,  // output parameter
               cow_string&& request_raw_query)>;
 
     using ws_authenticator_type = ::rocket::shared_function<
