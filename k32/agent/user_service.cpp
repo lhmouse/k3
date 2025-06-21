@@ -209,8 +209,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           // Call the user-defined handler to get response data.
           ::taxon::Value response_data;
           try {
-            (*handler) (fiber, username, response_data, move(request_data));
             uconn->rate_counter ++;
+            (*handler) (fiber, username, response_data, move(request_data));
             uconn->pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
