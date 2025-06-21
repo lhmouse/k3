@@ -13,7 +13,6 @@ class HTTP_Future
     public ::poseidon::Abstract_Future
   {
   private:
-    ::poseidon::UUID m_req_uuid;
     cow_string m_req_path;
     cow_string m_req_query;
     cow_string m_req_content_type;

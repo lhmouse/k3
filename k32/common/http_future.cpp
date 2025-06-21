@@ -10,7 +10,6 @@ HTTP_Future::
 HTTP_Future(const cow_string& req_path, const cow_string& req_query,
             const cow_string& req_content_type, const cow_string& req_payload)
   {
-    this->m_req_uuid = ::poseidon::UUID::random();
     this->m_req_path = req_path;
     this->m_req_query = req_query;
     this->m_req_content_type = req_content_type;
@@ -20,7 +19,6 @@ HTTP_Future(const cow_string& req_path, const cow_string& req_query,
 HTTP_Future::
 HTTP_Future(const cow_string& req_path, const cow_string& req_query)
   {
-    this->m_req_uuid = ::poseidon::UUID::random();
     this->m_req_path = req_path;
     this->m_req_query = req_query;
   }
