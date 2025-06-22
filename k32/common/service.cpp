@@ -782,7 +782,7 @@ reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
     this->m_impl->application_password = application_password;
 
     // Assign a new service index.
-    this->m_impl->appointment.enroll(lock_directory + "/" + service_type);
+    this->m_impl->appointment.enroll(sformat("$1/$2.lock", lock_directory, service_type));
 
     // Restart the service.
     this->m_impl->private_server.start_any(
