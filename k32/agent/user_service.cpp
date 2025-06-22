@@ -64,7 +64,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           // Wait for database verification.
           if(impl->db_ready == false) {
             POSEIDON_LOG_DEBUG(("User database verification in progress"));
-            session->ws_shut_down(::poseidon::websocket_status_try_again_later);
+            session->ws_shut_down(::poseidon::ws_status_try_again_later);
             return;
           }
 
@@ -72,7 +72,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           auto authenticator = impl->ws_authenticators.ptr(path);
           if(!authenticator) {
             POSEIDON_LOG_DEBUG(("No WebSocket authenticator for `$1`"), path);
-            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            session->ws_shut_down(::poseidon::ws_status_forbidden);
             return;
           }
 
@@ -83,13 +83,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            session->ws_shut_down(::poseidon::ws_status_forbidden);
             return;
           }
 
           if(uinfo.username.size() < 3) {
             POSEIDON_LOG_DEBUG(("Authenticated for `$1`"), path);
-            session->ws_shut_down(::poseidon::websocket_status_unauthorized);
+            session->ws_shut_down(user_ws_status_authentication_failure);
             return;
           }
 
@@ -150,7 +150,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           auto& uconn = impl->connections.open(uinfo.username);
           if(auto other_session = uconn.weak_session.lock()) {
             POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
-            other_session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/riiSh5uy");
+            other_session->ws_shut_down(user_ws_status_login_conflict);
           }
 
           uconn.weak_session = session;
@@ -182,7 +182,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           root.parse_with(pctx, buf, ::taxon::option_json_mode);
           if(pctx.error || !root.is_object()) {
             POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
+            session->ws_shut_down(::poseidon::ws_status_not_acceptable);
             return;
           }
 
@@ -202,7 +202,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           auto handler = impl->ws_handlers.ptr(opcode);
           if(!handler) {
             POSEIDON_LOG_WARN(("Unknown opcode `$1` from user `$2`"), opcode, username);
-            session->ws_shut_down(::poseidon::websocket_status_policy_violation);
+            session->ws_shut_down(user_ws_status_unknown_opcode);
             return;
           }
 
@@ -215,7 +215,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
-            session->ws_shut_down(::poseidon::websocket_status_unexpected_error);
+            session->ws_shut_down(::poseidon::ws_status_unexpected_error);
             return;
           }
 
@@ -231,7 +231,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           buf.clear_buffer();
           root.print_to(buf, ::taxon::option_json_mode);
 
-          session->ws_send(::poseidon::websocket_TEXT, buf);
+          session->ws_send(::poseidon::ws_TEXT, buf);
           break;
         }
 
@@ -393,13 +393,13 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
       if(it->second.rate_counter > impl->client_rate_limit * 60) {
         POSEIDON_LOG_DEBUG(("Rate limit: username `$1`"), it->first);
-        session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/uSaefae4");
+        session->ws_shut_down(user_ws_status_message_rate_limit);
         continue;
       }
 
       if(now - it->second.pong_time > impl->client_ping_interval * 2) {
         POSEIDON_LOG_DEBUG(("PING timed out: username `$1`"), it->first);
-        session->ws_shut_down(static_cast<::poseidon::WebSocket_Status>(4001), "c/Ieree7un");
+        session->ws_shut_down(user_ws_status_ping_timeout);
         continue;
       }
 
@@ -411,7 +411,7 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
       if(now - it->second.pong_time > impl->client_ping_interval) {
         POSEIDON_LOG_TRACE(("PING: username `$1`"), it->first);
-        session->ws_send(::poseidon::websocket_PING, "");
+        session->ws_send(::poseidon::ws_PING, "");
       }
     }
 
@@ -682,7 +682,7 @@ notify_one(const phcow_string& username, const cow_string& opcode,
     tinybuf_ln buf;
     root.print_to(buf, ::taxon::option_json_mode);
 
-    session->ws_send(::poseidon::websocket_TEXT, buf);
+    session->ws_send(::poseidon::ws_TEXT, buf);
   }
 
 void
@@ -712,7 +712,7 @@ notify_some(const cow_vector<phcow_string>& username_list, const cow_string& opc
     root.print_to(buf, ::taxon::option_json_mode);
 
     for(const auto& r : session_map)
-      r.second->ws_send(::poseidon::websocket_TEXT, buf);
+      r.second->ws_send(::poseidon::ws_TEXT, buf);
   }
 
 void
@@ -736,7 +736,24 @@ notify_all(const cow_string& opcode, const ::taxon::Value& notification_data)
 
     for(const auto& r : this->m_impl->connections)
       if(auto session = r.second.weak_session.lock())
-        session->ws_send(::poseidon::websocket_TEXT, buf);
+        session->ws_send(::poseidon::ws_TEXT, buf);
+  }
+
+void
+User_Service::
+kick_user(const phcow_string& username, User_WS_Status status) noexcept
+  {
+    if(!this->m_impl)
+      return;
+
+    shptr<::poseidon::WS_Server_Session> session;
+    if(auto uconn = this->m_impl->connections.ptr(username))
+      session = uconn->weak_session.lock();
+
+    if(session == nullptr)
+      return;
+
+    session->ws_shut_down(static_cast<::poseidon::WS_Status>(status), "");
   }
 
 }  // namespace k32::agent

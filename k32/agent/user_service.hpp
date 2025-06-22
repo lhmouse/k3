@@ -6,6 +6,7 @@
 
 #include "../fwd.hpp"
 #include "user_information.hpp"
+#include "user_ws_status.hpp"
 namespace k32::agent {
 
 class User_Service
@@ -109,6 +110,10 @@ class User_Service
     // Sends a message to all users.
     void
     notify_all(const cow_string& opcode, const ::taxon::Value& notification_data);
+
+    // Disconnects a user.
+    void
+    kick_user(const phcow_string& username, User_WS_Status status) noexcept;
   };
 
 }  // namespace k32::agent

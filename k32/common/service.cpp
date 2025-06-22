@@ -192,7 +192,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           root.parse_with(pctx, buf);
           if(pctx.error || !root.is_object()) {
             POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
+            session->ws_shut_down(::poseidon::ws_status_not_acceptable);
             return;
           }
 
@@ -272,7 +272,7 @@ struct Remote_Response_Task final : ::poseidon::Abstract_Task
           root.open_object().try_emplace(&"data", this->m_response_data);
         if(this->m_error != "")
           root.open_object().try_emplace(&"error", this->m_error);
-        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
+        session->ws_send(::poseidon::ws_TEXT, root.print_to_string());
       }
   };
 
@@ -358,7 +358,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
 
           if(uri.path != "/") {
-            session->ws_shut_down(::poseidon::websocket_status_forbidden);
+            session->ws_shut_down(::poseidon::ws_status_forbidden);
             return;
           }
 
@@ -390,7 +390,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::websocket_status_unauthorized);
+            session->ws_shut_down(::poseidon::ws_status_unauthorized);
             return;
           }
 
@@ -411,7 +411,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           root.parse_with(pctx, buf);
           if(pctx.error || !root.is_object()) {
             POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::websocket_status_not_acceptable);
+            session->ws_shut_down(::poseidon::ws_status_not_acceptable);
             return;
           }
 
@@ -479,7 +479,7 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
           root.open_object().try_emplace(&"data", this->m_request_data);
         if(!this->m_weak_req.expired())
           root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
-        session->ws_send(::poseidon::websocket_TEXT, root.print_to_string());
+        session->ws_send(::poseidon::ws_TEXT, root.print_to_string());
       }
   };
 
@@ -549,7 +549,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         continue;
 
       if(session)
-        session->ws_shut_down(::poseidon::websocket_status_normal_closure);
+        session->ws_shut_down(::poseidon::ws_status_normal);
 
       POSEIDON_LOG_INFO(("Purging expired service `$1`"), r.first);
       impl->expired_service_uuids.emplace_back(r.first);
