@@ -832,11 +832,11 @@ void
 Service::
 enqueue(const shptr<Service_Future>& req)
   {
-    if(!this->m_impl)
-      POSEIDON_THROW(("Service not initialized"));
-
     if(!req)
       POSEIDON_THROW(("Null request pointer"));
+
+    if(!this->m_impl)
+      POSEIDON_THROW(("Service not initialized"));
 
     req->m_responses.clear();
     if(req->m_target_service_uuid == multicast_uuid) {
