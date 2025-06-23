@@ -234,7 +234,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::taxon::Value root;
           root.parse_with(pctx, buf, ::taxon::option_json_mode);
           if(pctx.error || !root.is_object()) {
-            POSEIDON_LOG_ERROR(("Invalid TAXON object from `$1`"), session->remote_address());
+            POSEIDON_LOG_ERROR(("Invalid JSON object from `$1`"), session->remote_address());
             session->ws_shut_down(::poseidon::ws_status_not_acceptable);
             return;
           }
