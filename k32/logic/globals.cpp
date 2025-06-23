@@ -19,5 +19,5 @@ poseidon_module_main(void)
   {
     ::poseidon::Config_File conf_file;
     conf_file.reload(&"k32.conf");
-    service.reload(&"logic", conf_file);
+    service.reload(conf_file, &"logic");
   }

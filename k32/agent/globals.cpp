@@ -20,6 +20,6 @@ poseidon_module_main(void)
   {
     ::poseidon::Config_File conf_file;
     conf_file.reload(&"k32.conf");
-    service.reload(&"agent", conf_file);
+    service.reload(conf_file, &"agent");
     user_service.reload(conf_file, service.service_index());
   }

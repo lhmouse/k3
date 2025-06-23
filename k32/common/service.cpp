@@ -719,7 +719,7 @@ find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
 
 void
 Service::
-reload(const cow_string& service_type, const ::poseidon::Config_File& conf_file)
+reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
