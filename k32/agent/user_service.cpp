@@ -4,12 +4,13 @@
 #include "../xprecompiled.hpp"
 #define K32_FRIENDS_FC7DDE3B_4A8E_11F0_BB68_5254005015D2_
 #include "user_service.hpp"
+#include "globals.hpp"
 #include <poseidon/base/config_file.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_timer.hpp>
-#include <poseidon/fiber/abstract_fiber.hpp>
 #include <poseidon/http/http_query_parser.hpp>
 #include <poseidon/fiber/mysql_check_table_future.hpp>
+#include <poseidon/fiber/redis_query_future.hpp>
 #include <poseidon/static/task_scheduler.hpp>
 #include <poseidon/fiber/mysql_query_future.hpp>
 #include <poseidon/mysql/mysql_connection.hpp>
@@ -32,6 +33,7 @@ struct Implementation
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     // local data
+    cow_string application_name;
     uint16_t client_port = 0;
     uint32_t client_rate_limit;
     seconds client_ping_interval;
@@ -41,8 +43,8 @@ struct Implementation
 
     // connections from clients
     bool db_ready = false;
-    cow_dictionary<User_Connection_Information> connections;
     cow_dictionary<User_Information> users;
+    cow_dictionary<User_Connection_Information> connections;
     ::std::vector<phcow_string> expired_connections;
   };
 
@@ -91,6 +93,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             session->ws_shut_down(user_ws_status_authentication_failure);
             return;
           }
+
+          POSEIDON_LOG_INFO(("Authenticated `$1` from `$2`"), uinfo.username, session->remote_address());
+          session->mut_session_user_data() = uinfo.username.rdstr();
 
           // Create the user if one doesn't exist. Ensure they can only log in
           // on a single instance.
@@ -145,22 +150,71 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           uinfo.creation_time = task1->result_rows().at(0).at(0).as_system_time();
           uinfo.logout_time = task1->result_rows().at(0).at(1).as_system_time();
 
-          // Set up connection.
-          auto& uconn = impl->connections.open(uinfo.username);
-          if(auto other_session = uconn.weak_session.lock()) {
-            POSEIDON_LOG_DEBUG(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
-            other_session->ws_shut_down(user_ws_status_login_conflict);
+          // Publish my connection.
+          ::taxon::Value redis_uinfo;
+          redis_uinfo.open_object().try_emplace(&"service_uuid", service.service_uuid().to_string());
+          redis_uinfo.open_object().try_emplace(&"login_address", uinfo.login_address.to_string());
+          redis_uinfo.open_object().try_emplace(&"login_time", uinfo.login_time);
+
+          cow_vector<cow_string> redis_cmd;
+          redis_cmd.emplace_back(&"SET");
+          redis_cmd.emplace_back(sformat("$1/user/$2", impl->application_name, uinfo.username));
+          redis_cmd.emplace_back(redis_uinfo.to_string());
+          redis_cmd.emplace_back(&"GET");
+
+          auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+          ::poseidon::task_scheduler.enqueue(task2);
+          fiber.yield(task2);
+
+          if(task2->result().is_string()) {
+            // Parse previous data on Redis. If it is not my service UUID, then
+            // kick the user on that service.
+            ::taxon::Parser_Context pctx;
+            redis_uinfo.parse_with(pctx, task2->result().as_string());
+            if(pctx.error || !redis_uinfo.is_object())
+              POSEIDON_LOG_WARN(("Could not parse user information from Redis: $1"), pctx.error);
+            else {
+              auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
+              if(pval && pval->is_string()) {
+                ::poseidon::UUID other_service_uuid(pval->as_string());
+                if(other_service_uuid != service.service_uuid()) {
+                  POSEIDON_LOG_INFO(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
+                  auto remote = service.find_remote_service(other_service_uuid);
+                  if(remote) {
+                    // Kick this user from the other service.
+                    ::taxon::V_object args;
+                    args.try_emplace(&"username", uinfo.username.rdstr());
+                    args.try_emplace(&"status", static_cast<int>(user_ws_status_login_conflict));
+
+                    auto ntf = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", args);
+                    service.enqueue(ntf);
+                    fiber.yield(ntf);
+                  }
+                }
+              }
+            }
           }
 
+          if(auto uconn = impl->connections.ptr(uinfo.username)) {
+            // Like above, but on the same service.
+            auto other_session = uconn->weak_session.lock();
+            if(other_session) {
+              POSEIDON_LOG_INFO(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
+              other_session->ws_shut_down(user_ws_status_login_conflict);
+            }
+          }
+
+          // Set up connection.
+          User_Connection_Information uconn;
           uconn.weak_session = session;
           uconn.rate_time = steady_clock::now();
           uconn.rate_counter = 0;
           uconn.pong_time = steady_clock::now();
 
-          // Authentication complete.
-          session->mut_session_user_data() = uinfo.username.rdstr();
           impl->users.insert_or_assign(uinfo.username, uinfo);
-          POSEIDON_LOG_INFO(("Authenticated `$1` from `$2`"), uinfo.username, session->remote_address());
+          impl->connections.insert_or_assign(uinfo.username, uconn);
+
+          POSEIDON_LOG_INFO(("`$1` logged in from `$2`"), uinfo.username, session->remote_address());
           break;
         }
 
@@ -317,7 +371,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           resp.headers.emplace_back(&"Content-Type", response_content_type);
           resp.headers.emplace_back(&"Cache-Control", &"no-cache");
           if(event == ::poseidon::easy_hws_head) {
-            resp.headers.emplace_back(&"Content-Length", static_cast<int64_t>(response_data.size()));
+            resp.headers.emplace_back(&"Content-Length", response_data.ssize());
             session->http_response_headers_only(move(resp));
           } else
             session->http_response(move(resp), response_data);
@@ -423,6 +477,43 @@ do_user_service_timer_callback(const shptr<Implementation>& impl,
       impl->users.erase(username);
     }
   }
+
+void
+do_handle_service_user_kick(const shptr<Implementation>& impl,
+                            ::taxon::Value&& request_data)
+  {
+    POSEIDON_LOG_INFO(("do_handle_service_user_kick: $1"), request_data);
+
+    phcow_string username;
+    int status = 1008;
+    cow_string reason;
+
+    if(request_data.is_string())
+      username = request_data.as_string();
+    else
+      for(const auto& r : request_data.as_object())
+       if(r.first == &"username")
+          username = r.second.as_string();
+        else if(r.first == &"status")
+          status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
+        else if(r.first == &"reason")
+          reason = r.second.as_string();
+
+    if(username.empty())
+      return;
+
+    ////////////////////////////////////////////////////////////
+    //
+    auto uconn = impl->connections.ptr(username);
+    if(!uconn)
+      return;
+
+    auto session = uconn->weak_session.lock();
+    if(!session)
+      return;
+
+    session->ws_shut_down(status, reason);
+   }
 
 }  // namespace
 
@@ -554,18 +645,46 @@ find_user(const phcow_string& username) const noexcept
 
 void
 User_Service::
-reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
+reload(const ::poseidon::Config_File& conf_file)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
+    cow_string application_name;
     ::asteria::V_array client_port_list;
     int64_t client_port = 0;
     int64_t client_rate_limit = 0, client_ping_interval = 0;
 
+    // `application_name`
+    auto conf_value = conf_file.query(&"application_name");
+    if(conf_value.is_string())
+      application_name = conf_value.as_string();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `application_name`: expecting a `string`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if(application_name.empty())
+      POSEIDON_THROW((
+          "Invalid `application_name`: empty name not valid",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    for(char ch : application_name) {
+      static constexpr char valid_chars[] =
+         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _+-,.()~!@#$%";
+
+      if(::rocket::xmemchr(valid_chars, ch, sizeof(valid_chars) - 1) == nullptr)
+        POSEIDON_THROW((
+            "Invalid `application_name`: character `$1` not allowed",
+            "[in configuration file '$2']"),
+            ch, conf_file.path());
+    }
+
     // `agent.client_port_list`
-    auto conf_value = conf_file.query(&"agent.client_port_list");
+    conf_value = conf_file.query(&"agent.client_port_list");
     if(conf_value.is_array())
       client_port_list = conf_value.as_array();
     else if(!conf_value.is_null())
@@ -574,26 +693,26 @@ reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
-    if(service_index >= client_port_list.size())
+    if(service.service_index() >= client_port_list.size())
       POSEIDON_THROW((
           "No enough values in `agent.client_port_list`: too many processes",
           "[in configuration file '$2']"),
-          service_index, conf_file.path());
+          service.service_index(), conf_file.path());
 
-    conf_value = client_port_list.at(service_index);
+    conf_value = client_port_list.at(service.service_index());
     if(conf_value.is_integer())
       client_port = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
           "Invalid `agent.client_port_list[$3]`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
-          conf_value, conf_file.path(), service_index);
+          conf_value, conf_file.path(), service.service_index());
 
     if((client_port < 1) || (client_port > 65535))
       POSEIDON_THROW((
           "Invalid `agent.client_port_list[$3]`: value `$1` out of range",
           "[in configuration file '$2']"),
-          client_port, conf_file.path(), service_index);
+          client_port, conf_file.path(), service.service_index());
 
     // `agent.client_rate_limit`
     conf_value = conf_file.query(&"agent.client_rate_limit");
@@ -628,9 +747,22 @@ reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
           client_ping_interval, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
+    this->m_impl->application_name = application_name;
     this->m_impl->client_port = static_cast<uint16_t>(client_port);
     this->m_impl->client_rate_limit = static_cast<uint32_t>(client_rate_limit);
     this->m_impl->client_ping_interval = seconds(client_ping_interval);
+
+    // Set up request handlers.
+    service.set_handler(&"/user/kick",
+        Service::handler_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (::poseidon::Abstract_Fiber& /*fiber*/,
+              const ::poseidon::UUID& /*request_service_uuid*/,
+              ::taxon::Value& /*response_data*/, ::taxon::Value&& request_data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_handle_service_user_kick(impl, move(request_data));
+            }));
 
     // Restart the service.
     this->m_impl->user_server.start_any(

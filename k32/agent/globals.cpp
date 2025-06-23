@@ -21,5 +21,19 @@ poseidon_module_main(void)
     ::poseidon::Config_File conf_file;
     conf_file.reload(&"k32.conf");
     service.reload(conf_file, &"agent");
-    user_service.reload(conf_file, service.service_index());
+    user_service.reload(conf_file);
+
+/*TEST*/
+user_service.add_ws_authenticator(
+  &"/aa/bb",
+  +[](::poseidon::Abstract_Fiber& fiber,
+      phcow_string& username,
+      cow_string&& request_raw_query)
+    {
+       POSEIDON_LOG_FATAL(("WS AUTH: $1"), request_raw_query);
+       username = &"test_user";
+    });
+/*TEST*/
+
+
   }
