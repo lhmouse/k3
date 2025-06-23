@@ -5,6 +5,7 @@
 #define K32_FRIENDS_FC7DDE3B_4A8E_11F0_BB68_5254005015D2_
 #include "user_service.hpp"
 #include "globals.hpp"
+#include "../common/service.hpp"
 #include <poseidon/base/config_file.hpp>
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_timer.hpp>

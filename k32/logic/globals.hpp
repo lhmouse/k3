@@ -9,8 +9,8 @@
 #include "../common/service.hpp"
 namespace k32::logic {
 
-extern Clock clock;
-extern Service service;
+extern Clock& clock;
+extern Service& service;
 
 }  // namespace k32::logic
 #endif
