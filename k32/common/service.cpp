@@ -489,7 +489,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
     cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
 
-    auto pattern = sformat("$1/services/*", impl->application_name);
+    auto pattern = sformat("$1/service/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
     ::poseidon::task_scheduler.enqueue(task2);
     fiber.yield(task2);
@@ -617,7 +617,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
 
     cow_vector<cow_string> cmd;
     cmd.emplace_back(&"SET");
-    cmd.emplace_back(sformat("$1/services/$2", impl->application_name, impl->service_uuid));
+    cmd.emplace_back(sformat("$1/service/$2", impl->application_name, impl->service_uuid));
     cmd.emplace_back(::taxon::Value(service_data).print_to_string());
     cmd.emplace_back(&"EX");
     cmd.emplace_back(sformat("$1", ttl.count()));
