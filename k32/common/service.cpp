@@ -616,7 +616,6 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     }
 
     cow_vector<cow_string> cmd;
-    cmd.reserve(6);
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1/services/$2", impl->application_name, impl->service_uuid));
     cmd.emplace_back(::taxon::Value(service_data).print_to_string());
