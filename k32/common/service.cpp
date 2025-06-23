@@ -10,11 +10,11 @@
 #include <poseidon/easy/easy_ws_client.hpp>
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/fiber/abstract_fiber.hpp>
+#include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/fiber/redis_query_future.hpp>
 #include <poseidon/fiber/redis_scan_and_get_future.hpp>
 #include <poseidon/base/abstract_task.hpp>
-#include <poseidon/static/task_executor.hpp>
-#include <poseidon/static/fiber_scheduler.hpp>
+#include <poseidon/static/task_scheduler.hpp>
 #include <poseidon/http/http_query_parser.hpp>
 #define OPENSSL_API_COMPAT  0x10100000L
 #include <openssl/md5.h>
@@ -285,7 +285,7 @@ do_send_remote_response(const shptr<::poseidon::WS_Server_Session>& session,
       return;
 
     auto task4 = new_sh<Remote_Response_Task>(session, request_uuid, response_data, error);
-    ::poseidon::task_executor.enqueue(task4);
+    ::poseidon::task_scheduler.enqueue(task4);
     task4->m_self_lock = task4;
   }
 
@@ -491,8 +491,8 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
     auto pattern = sformat("$1/services/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
-    ::poseidon::task_executor.enqueue(task2);
-    ::poseidon::fiber_scheduler.yield(fiber, task2);
+    ::poseidon::task_scheduler.enqueue(task2);
+    fiber.yield(task2);
     POSEIDON_LOG_TRACE(("Fetched $1 services"), task2->result().size());
 
     for(const auto& r : task2->result())
@@ -624,8 +624,8 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     cmd.emplace_back(sformat("$1", ttl.count()));
 
     auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
-    ::poseidon::task_executor.enqueue(task1);
-    ::poseidon::fiber_scheduler.yield(fiber, task1);
+    ::poseidon::task_scheduler.enqueue(task1);
+    fiber.yield(task1);
     POSEIDON_CHECK(task1->status() == "OK");
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
@@ -937,7 +937,7 @@ enqueue(const shptr<Service_Future>& req)
         // Send the request asynchronously.
         auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
                                                  req->m_opcode, req->m_request_data);
-        ::poseidon::task_executor.enqueue(task2);
+        ::poseidon::task_scheduler.enqueue(task2);
         task2->m_self_lock = task2;
       }
 

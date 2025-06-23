@@ -8,10 +8,9 @@
 #include <poseidon/easy/easy_hws_server.hpp>
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/fiber/abstract_fiber.hpp>
-#include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/http/http_query_parser.hpp>
 #include <poseidon/fiber/mysql_check_table_future.hpp>
-#include <poseidon/static/task_executor.hpp>
+#include <poseidon/static/task_scheduler.hpp>
 #include <poseidon/fiber/mysql_query_future.hpp>
 #include <poseidon/mysql/mysql_connection.hpp>
 #include <poseidon/static/mysql_connector.hpp>
@@ -123,8 +122,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                                       ::poseidon::mysql_connector.allocate_tertiary_connection(),
                                       &insert_into_user, sql_args);
-          ::poseidon::task_executor.enqueue(task1);
-          ::poseidon::fiber_scheduler.yield(fiber, task1);
+          ::poseidon::task_scheduler.enqueue(task1);
+          fiber.yield(task1);
 
           static constexpr char select_from_user[] =
               R"!!!(
@@ -140,8 +139,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                                       ::poseidon::mysql_connector.allocate_tertiary_connection(),
                                       &select_from_user, sql_args);
-          ::poseidon::task_executor.enqueue(task1);
-          ::poseidon::fiber_scheduler.yield(fiber, task1);
+          ::poseidon::task_scheduler.enqueue(task1);
+          fiber.yield(task1);
 
           uinfo.creation_time = task1->result_rows().at(0).at(0).as_system_time();
           uinfo.logout_time = task1->result_rows().at(0).at(1).as_system_time();
@@ -278,8 +277,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                                       ::poseidon::mysql_connector.allocate_tertiary_connection(),
                                       &update_user_logout_time, sql_args);
-          ::poseidon::task_executor.enqueue(task2);
-          ::poseidon::fiber_scheduler.yield(fiber, task2);
+          ::poseidon::task_scheduler.enqueue(task2);
+          fiber.yield(task2);
 
           POSEIDON_LOG_INFO(("`$1` logged out from `$2`"), username, session->remote_address());
           break;
@@ -375,8 +374,8 @@ do_service_timer_callback(const shptr<Implementation>& impl,
       // Get a connection to user database.
       auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
                               ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
-      ::poseidon::task_executor.enqueue(task);
-      ::poseidon::fiber_scheduler.yield(fiber, task);
+      ::poseidon::task_scheduler.enqueue(task);
+      fiber.yield(task);
 
       impl->db_ready = true;
       POSEIDON_LOG_INFO(("User database verification complete"));
