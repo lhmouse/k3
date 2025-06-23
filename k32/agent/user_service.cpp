@@ -34,7 +34,6 @@ struct Implementation
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     // local data
-    cow_string application_name;
     uint16_t client_port = 0;
     uint32_t client_rate_limit;
     seconds client_ping_interval;
@@ -159,7 +158,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           cow_vector<cow_string> redis_cmd;
           redis_cmd.emplace_back(&"SET");
-          redis_cmd.emplace_back(sformat("$1/user/$2", impl->application_name, uinfo.username));
+          redis_cmd.emplace_back(sformat("$1/user/$2", service.application_name(), uinfo.username));
           redis_cmd.emplace_back(redis_uinfo.to_string());
           redis_cmd.emplace_back(&"GET");
 
@@ -652,40 +651,12 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    cow_string application_name;
     ::asteria::V_array client_port_list;
     int64_t client_port = 0;
     int64_t client_rate_limit = 0, client_ping_interval = 0;
 
-    // `application_name`
-    auto conf_value = conf_file.query(&"application_name");
-    if(conf_value.is_string())
-      application_name = conf_value.as_string();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `application_name`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if(application_name.empty())
-      POSEIDON_THROW((
-          "Invalid `application_name`: empty name not valid",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    for(char ch : application_name) {
-      static constexpr char valid_chars[] =
-         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _+-,.()~!@#$%";
-
-      if(::rocket::xmemchr(valid_chars, ch, sizeof(valid_chars) - 1) == nullptr)
-        POSEIDON_THROW((
-            "Invalid `application_name`: character `$1` not allowed",
-            "[in configuration file '$2']"),
-            ch, conf_file.path());
-    }
-
     // `agent.client_port_list`
-    conf_value = conf_file.query(&"agent.client_port_list");
+    auto conf_value = conf_file.query(&"agent.client_port_list");
     if(conf_value.is_array())
       client_port_list = conf_value.as_array();
     else if(!conf_value.is_null())
@@ -748,7 +719,6 @@ reload(const ::poseidon::Config_File& conf_file)
           client_ping_interval, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
-    this->m_impl->application_name = application_name;
     this->m_impl->client_port = static_cast<uint16_t>(client_port);
     this->m_impl->client_rate_limit = static_cast<uint32_t>(client_rate_limit);
     this->m_impl->client_ping_interval = seconds(client_ping_interval);

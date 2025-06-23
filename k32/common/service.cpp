@@ -702,6 +702,16 @@ service_index() const noexcept
     return static_cast<uint32_t>(this->m_impl->appointment.index());
   }
 
+const cow_string&
+Service::
+application_name() const noexcept
+  {
+    if(!this->m_impl)
+      return ::poseidon::empty_cow_string;
+
+    return this->m_impl->application_name;
+  }
+
 const Remote_Service_Information&
 Service::
 find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept

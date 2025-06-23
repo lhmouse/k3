@@ -57,6 +57,11 @@ class Service
     uint32_t
     service_index() const noexcept;
 
+    // Returns the application name of the active service. If there is no active
+    // service, an empty string is returned.
+    const cow_string&
+    application_name() const noexcept;
+
     // Gets properties of a remote service.
     const Remote_Service_Information&
     find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept;
