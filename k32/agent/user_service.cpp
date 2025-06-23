@@ -1,4 +1,4 @@
-// This file is part of
+// This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
 #include "../xprecompiled.hpp"
@@ -111,13 +111,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
               )!!!";
 
           cow_vector<::poseidon::MySQL_Value> sql_args;
-          sql_args.emplace_back(uinfo.username.rdstr());                  // SET `username` = ?,
-          sql_args.emplace_back(uinfo.login_address.print_to_string());   //     `login_address` = ?,
-          sql_args.emplace_back(uinfo.login_time);                        //     `creation_time` = ?,
-          sql_args.emplace_back(uinfo.login_time);                        //     `login_time` = ?,
-          sql_args.emplace_back(uinfo.logout_time);                       //     `logout_time` = ?
-          sql_args.emplace_back(uinfo.login_address.print_to_string());   // UPDATE `login_address` = ?,
-          sql_args.emplace_back(uinfo.login_time);                        //        `login_time` = ?
+          sql_args.emplace_back(uinfo.username.rdstr());            // SET `username` = ?,
+          sql_args.emplace_back(uinfo.login_address.to_string());   //     `login_address` = ?,
+          sql_args.emplace_back(uinfo.login_time);                  //     `creation_time` = ?,
+          sql_args.emplace_back(uinfo.login_time);                  //     `login_time` = ?,
+          sql_args.emplace_back(uinfo.logout_time);                 //     `logout_time` = ?
+          sql_args.emplace_back(uinfo.login_address.to_string());   // UPDATE `login_address` = ?,
+          sql_args.emplace_back(uinfo.login_time);                  //        `login_time` = ?
 
           auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                                       ::poseidon::mysql_connector.allocate_tertiary_connection(),
@@ -327,8 +327,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_service_timer_callback(const shptr<Implementation>& impl,
-                          ::poseidon::Abstract_Fiber& fiber, steady_time now)
+do_user_service_timer_callback(const shptr<Implementation>& impl,
+                               ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
       ::poseidon::MySQL_Table_Structure table;
@@ -634,27 +634,27 @@ reload(const ::poseidon::Config_File& conf_file, uint32_t service_index)
 
     // Restart the service.
     this->m_impl->user_server.start_any(
-         this->m_impl->client_port,
-         ::poseidon::Easy_HWS_Server::callback_type(
-            [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::WS_Server_Session>& session,
-                ::poseidon::Abstract_Fiber& fiber,
-                ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
-              {
-                if(const auto impl = weak_impl.lock())
-                  do_server_ws_callback(impl, session, fiber, event, move(data));
-              }));
+        this->m_impl->client_port,
+        ::poseidon::Easy_HWS_Server::callback_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (const shptr<::poseidon::WS_Server_Session>& session,
+              ::poseidon::Abstract_Fiber& fiber,
+              ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_server_ws_callback(impl, session, fiber, event, move(data));
+            }));
 
     this->m_impl->user_service_timer.start(
-         1000ms, 7001ms,
-         ::poseidon::Easy_Timer::callback_type(
-            [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& fiber, steady_time now)
-              {
-                if(const auto impl = weak_impl.lock())
-                  do_service_timer_callback(impl, fiber, now);
-              }));
+        1000ms, 7001ms,
+        ::poseidon::Easy_Timer::callback_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+              ::poseidon::Abstract_Fiber& fiber, steady_time now)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_user_service_timer_callback(impl, fiber, now);
+            }));
   }
 
 void

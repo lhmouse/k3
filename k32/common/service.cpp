@@ -9,7 +9,6 @@
 #include <poseidon/easy/easy_ws_server.hpp>
 #include <poseidon/easy/easy_ws_client.hpp>
 #include <poseidon/easy/easy_timer.hpp>
-#include <poseidon/fiber/abstract_fiber.hpp>
 #include <poseidon/static/fiber_scheduler.hpp>
 #include <poseidon/fiber/redis_query_future.hpp>
 #include <poseidon/fiber/redis_scan_and_get_future.hpp>
@@ -267,12 +266,12 @@ struct Remote_Response_Task final : ::poseidon::Abstract_Task
         POSEIDON_LOG_TRACE(("Sending response: request_uuid `$1`"), this->m_request_uuid);
 
         ::taxon::Value root;
-        root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
+        root.open_object().try_emplace(&"uuid", this->m_request_uuid.to_string());
         if(!this->m_response_data.is_null())
           root.open_object().try_emplace(&"data", this->m_response_data);
         if(this->m_error != "")
           root.open_object().try_emplace(&"error", this->m_error);
-        session->ws_send(::poseidon::ws_TEXT, root.print_to_string());
+        session->ws_send(::poseidon::ws_TEXT, root.to_string());
       }
   };
 
@@ -394,7 +393,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          session->mut_session_user_data() = request_service_uuid.print_to_string();
+          session->mut_session_user_data() = request_service_uuid.to_string();
           POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
           break;
         }
@@ -478,8 +477,8 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
         if(!this->m_request_data.is_null())
           root.open_object().try_emplace(&"data", this->m_request_data);
         if(!this->m_weak_req.expired())
-          root.open_object().try_emplace(&"uuid", this->m_request_uuid.print_to_string());
-        session->ws_send(::poseidon::ws_TEXT, root.print_to_string());
+          root.open_object().try_emplace(&"uuid", this->m_request_uuid.to_string());
+        session->ws_send(::poseidon::ws_TEXT, root.to_string());
       }
   };
 
@@ -603,7 +602,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
           ::memcpy(addr.mut_data(), ::poseidon::ipv4_unspecified.data(), 16);
           ::memcpy(addr.mut_data() + 12, &(sa->sin_addr), 4);
           addr.set_port(private_addr.port());
-          addresses.emplace_back(addr.print_to_string());
+          addresses.emplace_back(addr.to_string());
         }
         else if(ifa->ifa_addr->sa_family == AF_INET6) {
           // IPv6
@@ -611,14 +610,14 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
           ::poseidon::IPv6_Address addr;
           addr.set_addr(sa->sin6_addr);
           addr.set_port(private_addr.port());
-          addresses.emplace_back(addr.print_to_string());
+          addresses.emplace_back(addr.to_string());
         }
     }
 
     cow_vector<cow_string> cmd;
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1/service/$2", impl->application_name, impl->service_uuid));
-    cmd.emplace_back(::taxon::Value(service_data).print_to_string());
+    cmd.emplace_back(::taxon::Value(service_data).to_string());
     cmd.emplace_back(&"EX");
     cmd.emplace_back(sformat("$1", ttl.count()));
 
@@ -785,38 +784,38 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
 
     // Restart the service.
     this->m_impl->private_server.start_any(
-         0,  // any port
-         ::poseidon::Easy_WS_Server::callback_type(
-            [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::WS_Server_Session>& session,
-                ::poseidon::Abstract_Fiber& /*fiber*/,
-                ::poseidon::Easy_WS_Event event, linear_buffer&& data)
-              {
-                if(const auto impl = weak_impl.lock())
-                  do_server_ws_callback(impl, session, event, move(data));
-              }));
+        0,  // any port
+        ::poseidon::Easy_WS_Server::callback_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (const shptr<::poseidon::WS_Server_Session>& session,
+              ::poseidon::Abstract_Fiber& /*fiber*/,
+              ::poseidon::Easy_WS_Event event, linear_buffer&& data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_server_ws_callback(impl, session, event, move(data));
+            }));
 
     this->m_impl->publish_timer.start(
-         2500ms, 3001ms,
-         ::poseidon::Easy_Timer::callback_type(
-            [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
-              {
-                if(const auto impl = weak_impl.lock())
-                  do_publish_service_with_ttl(impl, fiber, 10s);
-              }));
+        2500ms, 3001ms,
+        ::poseidon::Easy_Timer::callback_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+              ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_publish_service_with_ttl(impl, fiber, 10s);
+            }));
 
     this->m_impl->subscribe_timer.start(
-         3000ms, 31001ms,
-         ::poseidon::Easy_Timer::callback_type(
-            [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
-              {
-                if(const auto impl = weak_impl.lock())
-                  do_subscribe_service(impl, fiber);
-              }));
+        3000ms, 31001ms,
+        ::poseidon::Easy_Timer::callback_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+              ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_subscribe_service(impl, fiber);
+            }));
   }
 
 void
@@ -908,7 +907,7 @@ enqueue(const shptr<Service_Future>& req)
                       do_client_ws_callback(impl, session2, event, move(data));
                   }));
 
-        session->mut_session_user_data() = srv.service_uuid.print_to_string();
+        session->mut_session_user_data() = srv.service_uuid.to_string();
         conn.weak_session = session;
         POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
       }
