@@ -5,7 +5,6 @@
 #define K32_AGENT_DATA_USER_INFORMATION_
 
 #include "../../fwd.hpp"
-#include <poseidon/socket/ipv6_address.hpp>
 namespace k32::agent {
 
 struct User_Information

@@ -7,6 +7,7 @@
 #include <asteria/value.hpp>
 #include <asteria/utils.hpp>
 #include <poseidon/base/uuid.hpp>
+#include <poseidon/socket/ipv6_address.hpp>
 #include <poseidon/fiber/abstract_fiber.hpp>
 #include <poseidon/utils.hpp>
 #include <taxon.hpp>
