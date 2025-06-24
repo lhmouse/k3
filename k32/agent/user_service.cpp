@@ -380,58 +380,111 @@ do_server_ws_callback(const shptr<Implementation>& impl,
   }
 
 void
+do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
+  {
+    ::poseidon::MySQL_Table_Structure table;
+    table.name = &"user";
+    table.engine = ::poseidon::mysql_engine_innodb;
+
+    ::poseidon::MySQL_Table_Column column;
+    column.name = &"username";
+    column.type = ::poseidon::mysql_column_varchar;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"login_address";
+    column.type = ::poseidon::mysql_column_varchar;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"creation_time";
+    column.type = ::poseidon::mysql_column_datetime;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"login_time";
+    column.type = ::poseidon::mysql_column_datetime;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"logout_time";
+    column.type = ::poseidon::mysql_column_datetime;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    ::poseidon::MySQL_Table_Index index;
+    index.name = &"PRIMARY";
+    index.type = ::poseidon::mysql_index_unique;
+    index.columns.emplace_back(&"username");
+    table.indexes.emplace_back(index);
+
+    // This is in the user database.
+    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
+                           ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
+    ::poseidon::task_scheduler.launch(task);
+    fiber.yield(task);
+    POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
+  }
+
+void
+do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
+  {
+    ::poseidon::MySQL_Table_Structure table;
+    table.name = &"nickname";
+    table.engine = ::poseidon::mysql_engine_innodb;
+
+    ::poseidon::MySQL_Table_Column column;
+    column.name = &"nickname";
+    column.type = ::poseidon::mysql_column_varchar;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"serial";
+    column.type = ::poseidon::mysql_column_auto_increment;
+    column.nullable = false;
+    column.default_value = 15743;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"creation_time";
+    column.type = ::poseidon::mysql_column_datetime;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    ::poseidon::MySQL_Table_Index index;
+    index.name = &"PRIMARY";
+    index.type = ::poseidon::mysql_index_unique;
+    index.columns.emplace_back(&"nickname");
+    table.indexes.emplace_back(index);
+
+    index.clear();
+    index.name = &"serial";
+    index.type = ::poseidon::mysql_index_unique;
+    index.columns.emplace_back(&"serial");
+    table.indexes.emplace_back(index);
+
+    // This is in the user database.
+    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
+                           ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
+    ::poseidon::task_scheduler.launch(task);
+    fiber.yield(task);
+    POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
+  }
+
+void
 do_user_service_timer_callback(const shptr<Implementation>& impl,
                                ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
-      ::poseidon::MySQL_Table_Structure table;
-      table.name = &"user";
-      table.engine = ::poseidon::mysql_engine_innodb;
-
-      ::poseidon::MySQL_Table_Column column;
-      column.name = &"username";
-      column.type = ::poseidon::mysql_column_varchar;
-      column.nullable = false;
-      table.columns.emplace_back(column);
-
-      column.clear();
-      column.name = &"login_address";
-      column.type = ::poseidon::mysql_column_varchar;
-      column.nullable = false;
-      table.columns.emplace_back(column);
-
-      column.clear();
-      column.name = &"creation_time";
-      column.type = ::poseidon::mysql_column_datetime;
-      column.nullable = false;
-      table.columns.emplace_back(column);
-
-      column.clear();
-      column.name = &"login_time";
-      column.type = ::poseidon::mysql_column_datetime;
-      column.nullable = false;
-      table.columns.emplace_back(column);
-
-      column.clear();
-      column.name = &"logout_time";
-      column.type = ::poseidon::mysql_column_datetime;
-      column.nullable = false;
-      table.columns.emplace_back(column);
-
-      ::poseidon::MySQL_Table_Index index;
-      index.name = &"PRIMARY";
-      index.type = ::poseidon::mysql_index_unique;
-      index.columns.emplace_back(&"username");
-      table.indexes.emplace_back(index);
-
-      // Get a connection to user database.
-      auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
-                             ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
-      ::poseidon::task_scheduler.launch(task);
-      fiber.yield(task);
-
+      // Check tables.
+      do_mysql_check_table_user(fiber);
+      do_mysql_check_table_nickname(fiber);
       impl->db_ready = true;
-      POSEIDON_LOG_INFO(("User database verification complete"));
     }
 
     // Poll clients.
