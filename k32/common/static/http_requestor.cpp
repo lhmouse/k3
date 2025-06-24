@@ -1,7 +1,7 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#include "../xprecompiled.hpp"
+#include "../../xprecompiled.hpp"
 #define K32_FRIENDS_C84621A4_4E68_11F0_BA96_5254005015D2_
 #include "http_requestor.hpp"
 #include <poseidon/easy/easy_http_client.hpp>

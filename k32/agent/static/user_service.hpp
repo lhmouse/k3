@@ -1,12 +1,12 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_AGENT_USER_SERVICE_
-#define K32_AGENT_USER_SERVICE_
+#ifndef K32_AGENT_STATIC_USER_SERVICE_
+#define K32_AGENT_STATIC_USER_SERVICE_
 
-#include "../fwd.hpp"
-#include "user_information.hpp"
-#include "user_ws_status.hpp"
+#include "../../fwd.hpp"
+#include "../data/user_information.hpp"
+#include "../data/user_ws_status.hpp"
 namespace k32::agent {
 
 class User_Service

@@ -5,9 +5,9 @@
 #define K32_AGENT_GLOBALS_
 
 #include "../fwd.hpp"
-#include "user_service.hpp"
-#include "../common/clock.hpp"
-#include "../common/service.hpp"
+#include "static/user_service.hpp"
+#include "../common/static/clock.hpp"
+#include "../common/static/service.hpp"
 namespace k32::agent {
 
 extern Clock& clock;

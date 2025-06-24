@@ -1,12 +1,12 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_COMMON_SERVICE_
-#define K32_COMMON_SERVICE_
+#ifndef K32_COMMON_STATIC_SERVICE_
+#define K32_COMMON_STATIC_SERVICE_
 
-#include "../fwd.hpp"
-#include "remote_service_information.hpp"
-#include "service_future.hpp"
+#include "../../fwd.hpp"
+#include "../data/remote_service_information.hpp"
+#include "../service_future.hpp"
 namespace k32 {
 
 class Service

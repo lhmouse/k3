@@ -1,10 +1,10 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_AGENT_USER_WS_STATUS_
-#define K32_AGENT_USER_WS_STATUS_
+#ifndef K32_AGENT_DATA_USER_WS_STATUS_
+#define K32_AGENT_DATA_USER_WS_STATUS_
 
-#include "../fwd.hpp"
+#include "../../fwd.hpp"
 namespace k32::agent {
 
 enum User_WS_Status : uint16_t

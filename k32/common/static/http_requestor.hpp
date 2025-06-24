@@ -1,11 +1,11 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_COMMON_HTTP_REQUESTOR_
-#define K32_COMMON_HTTP_REQUESTOR_
+#ifndef K32_COMMON_STATIC_HTTP_REQUESTOR_
+#define K32_COMMON_STATIC_HTTP_REQUESTOR_
 
-#include "../fwd.hpp"
-#include "http_future.hpp"
+#include "../../fwd.hpp"
+#include "../http_future.hpp"
 namespace k32 {
 
 class HTTP_Requestor

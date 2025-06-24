@@ -5,8 +5,8 @@
 #define K32_LOGIC_GLOBALS_
 
 #include "../fwd.hpp"
-#include "../common/clock.hpp"
-#include "../common/service.hpp"
+#include "../common/static/clock.hpp"
+#include "../common/static/service.hpp"
 namespace k32::logic {
 
 extern Clock& clock;

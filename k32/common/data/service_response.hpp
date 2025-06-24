@@ -1,10 +1,10 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_COMMON_SERVICE_RESPONSE_
-#define K32_COMMON_SERVICE_RESPONSE_
+#ifndef K32_COMMON_DATA_SERVICE_RESPONSE_
+#define K32_COMMON_DATA_SERVICE_RESPONSE_
 
-#include "../fwd.hpp"
+#include "../../fwd.hpp"
 namespace k32 {
 
 struct Service_Response

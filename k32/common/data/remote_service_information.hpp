@@ -1,10 +1,10 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_COMMON_REMOTE_SERVICE_INFORMATION_
-#define K32_COMMON_REMOTE_SERVICE_INFORMATION_
+#ifndef K32_COMMON_DATA_REMOTE_SERVICE_INFORMATION_
+#define K32_COMMON_DATA_REMOTE_SERVICE_INFORMATION_
 
-#include "../fwd.hpp"
+#include "../../fwd.hpp"
 #include <poseidon/socket/ipv6_address.hpp>
 namespace k32 {
 

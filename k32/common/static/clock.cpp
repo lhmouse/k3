@@ -1,7 +1,7 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#include "../xprecompiled.hpp"
+#include "../../xprecompiled.hpp"
 #include "clock.hpp"
 #include <time.h>
 namespace k32 {
