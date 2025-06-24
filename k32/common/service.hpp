@@ -71,11 +71,11 @@ class Service
     void
     reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type);
 
-    // Enqueues a service request. After this function returns, the caller shall
-    // wait on the future. If this function fails, an exception is thrown, and
-    // there is no effect.
+    // Initiates an asynchronous service request. After this function returns,
+    // the caller may wait on the future. If this function fails, an exception
+    // is thrown, and there is no effect.
     void
-    enqueue(const shptr<Service_Future>& req);
+    launch(const shptr<Service_Future>& req);
   };
 
 }  // namespace k32

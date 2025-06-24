@@ -239,7 +239,6 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 
 struct Remote_Response_Task final : ::poseidon::Abstract_Task
   {
-    shptr<Remote_Response_Task> m_self_lock;
     wkptr<::poseidon::WS_Server_Session> m_weak_session;
     ::poseidon::UUID m_request_uuid;
     ::taxon::Value m_response_data;
@@ -258,7 +257,6 @@ struct Remote_Response_Task final : ::poseidon::Abstract_Task
     void
     do_on_abstract_task_execute() override
       {
-        this->m_self_lock.reset();
         const auto session = this->m_weak_session.lock();
         if(!session)
           return;
@@ -284,8 +282,7 @@ do_send_remote_response(const shptr<::poseidon::WS_Server_Session>& session,
       return;
 
     auto task4 = new_sh<Remote_Response_Task>(session, request_uuid, response_data, error);
-    ::poseidon::task_scheduler.enqueue(task4);
-    task4->m_self_lock = task4;
+    ::poseidon::task_scheduler.launch(task4);
   }
 
 struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
@@ -447,7 +444,6 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
 struct Remote_Request_Task final : ::poseidon::Abstract_Task
   {
-    shptr<Remote_Request_Task> m_self_lock;
     wkptr<::poseidon::WS_Client_Session> m_weak_session;
     wkptr<Service_Future> m_weak_req;
     ::poseidon::UUID m_request_uuid;
@@ -467,7 +463,6 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
     void
     do_on_abstract_task_execute() override
       {
-        this->m_self_lock.reset();
         const auto session = this->m_weak_session.lock();
         if(!session)
           return;
@@ -490,7 +485,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
     auto pattern = sformat("$1/service/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
-    ::poseidon::task_scheduler.enqueue(task2);
+    ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
     POSEIDON_LOG_TRACE(("Fetched $1 services"), task2->result().size());
 
@@ -622,7 +617,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     cmd.emplace_back(sformat("$1", ttl.count()));
 
     auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
-    ::poseidon::task_scheduler.enqueue(task1);
+    ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
     POSEIDON_CHECK(task1->status() == "OK");
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
@@ -830,7 +825,7 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
 
 void
 Service::
-enqueue(const shptr<Service_Future>& req)
+launch(const shptr<Service_Future>& req)
   {
     if(!req)
       POSEIDON_THROW(("Null request pointer"));
@@ -945,8 +940,7 @@ enqueue(const shptr<Service_Future>& req)
         // Send the request asynchronously.
         auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
                                                  req->m_opcode, req->m_request_data);
-        ::poseidon::task_scheduler.enqueue(task2);
-        task2->m_self_lock = task2;
+        ::poseidon::task_scheduler.launch(task2);
       }
 
       something_sent = true;
