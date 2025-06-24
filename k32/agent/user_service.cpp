@@ -184,11 +184,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
                     // Kick this user from the other service.
                     ::taxon::V_object args;
                     args.try_emplace(&"username", uinfo.username.rdstr());
-                    args.try_emplace(&"status", static_cast<int>(user_ws_status_login_conflict));
+                    args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                    auto ntf = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", args);
-                    service.launch(ntf);
-                    fiber.yield(ntf);
+                    auto req = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", args);
+                    service.launch(req);
+                    fiber.yield(req);
                   }
                 }
               }
@@ -483,7 +483,7 @@ do_handle_service_user_kick(const shptr<Implementation>& impl, ::taxon::Value&& 
     POSEIDON_LOG_INFO(("do_handle_service_user_kick: $1"), request_data);
 
     phcow_string username;
-    int status = 1008;
+    int ws_status = 1008;
     cow_string reason;
 
     if(request_data.is_string())
@@ -492,8 +492,8 @@ do_handle_service_user_kick(const shptr<Implementation>& impl, ::taxon::Value&& 
       for(const auto& r : request_data.as_object())
        if(r.first == &"username")
           username = r.second.as_string();
-        else if(r.first == &"status")
-          status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
+        else if(r.first == &"ws_status")
+          ws_status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
         else if(r.first == &"reason")
           reason = r.second.as_string();
 
@@ -510,7 +510,7 @@ do_handle_service_user_kick(const shptr<Implementation>& impl, ::taxon::Value&& 
     if(!session)
       return;
 
-    session->ws_shut_down(static_cast<::poseidon::WS_Status>(status), reason);
+    session->ws_shut_down(static_cast<::poseidon::WS_Status>(ws_status), reason);
    }
 
 }  // namespace
@@ -841,7 +841,7 @@ notify_all(const cow_string& opcode, const ::taxon::Value& notification_data)
 
 void
 User_Service::
-kick_user(const phcow_string& username, User_WS_Status status) noexcept
+kick_user(const phcow_string& username, User_WS_Status ws_status) noexcept
   {
     if(!this->m_impl)
       return;
@@ -853,7 +853,7 @@ kick_user(const phcow_string& username, User_WS_Status status) noexcept
     if(session == nullptr)
       return;
 
-    session->ws_shut_down(static_cast<::poseidon::WS_Status>(status), "");
+    session->ws_shut_down(static_cast<::poseidon::WS_Status>(ws_status), "");
   }
 
 }  // namespace k32::agent

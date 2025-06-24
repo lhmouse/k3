@@ -113,7 +113,7 @@ class User_Service
 
     // Disconnects a user.
     void
-    kick_user(const phcow_string& username, User_WS_Status status) noexcept;
+    kick_user(const phcow_string& username, User_WS_Status ws_status) noexcept;
   };
 
 }  // namespace k32::agent

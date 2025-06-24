@@ -1,23 +1,35 @@
-# k32 Internal Commands
+# Table of Contents
+
+1. [General Status Codes](#general-status-codes)
+2. [Agent Service Commands](#agent-service-commands)
+   1. [`/user/kick`](#userkick)
+
+## General Status Codes
+
+Whenever `status` occurs as a response parameter, it may either be null, or one
+string of the following:
+
+- TODO
+
+## Agent Service Commands
 
 ### `/user/kick`
 
-* Service Type
-
-  - `agent`
-
 * Request Parameters
 
-  - `username` \(_string_, _required_): Name of user to kick.
-  - `status` \(_integer_, _optional_): WebSocket status code to send to the
-    client. The default value is `1008`.
-  - `reason` \(_string_, _optional_): Additional reason string, sent in the
-    WebSocket closure notification.
+  - `username` <sub><i>string , required</i></sub>
+    : Name of user to kick.
+  - `ws_status` <sub><i>number , optional</i></sub>
+    : WebSocket status code.
+  - `reason` <sub><i>string , optional</i></sub>
+    : Additional reason string.
 
 * Response Parameters
 
   - _None_
 
-* Operation
+* Description
 
-  - Terminates a connection from a user.
+  Terminates the connection from `username` by sending a WebSocket closure
+  notification of `ws_status` and `reason`. The default value for `ws_status` is
+  `1008` (_Policy Violation_).
