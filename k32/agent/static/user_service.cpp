@@ -575,38 +575,43 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    if(task1->affected_rows() == 0) {
-      resp_data.open_object().insert_or_assign(&"status", &"gs_nickname_exists");
-      if(!username.empty()) {
-        // In this case, we still want to return a serial if the nickname belongs
-        // to the same user.
-        static constexpr char select_from_nickname[] =
-            R"!!!(
-              SELECT `serial`
-                FROM `nickname`
-                WHERE `nickname` = ?
-                      AND `username` = ?
-            )!!!";
-
-        sql_args.clear();
-        sql_args.emplace_back(nickname);          //  WHERE `nickname` = ?
-        sql_args.emplace_back(username.rdstr());  //        AND `username` = ?
-
-        auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                ::poseidon::mysql_connector.allocate_tertiary_connection(),
-                                &select_from_nickname, sql_args);
-        ::poseidon::task_scheduler.launch(task2);
-        fiber.yield(task2);
-
-        for(const auto& row : task2->result_rows())
-          resp_data.open_object().insert_or_assign(&"serial", row.at(0).as_integer());  // SELECT `serial`
-      }
+    if((task1->affected_rows() == 0) && username.empty()) {
+      resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
       return;
     }
 
-    resp_data.open_object().insert_or_assign(&"status", &"gs_ok");
-    resp_data.open_object().insert_or_assign(&"serial", static_cast<int64_t>(task1->insert_id()));
+    if(task1->affected_rows() == 0) {
+      // In this case, we still want to return a serial if the nickname belongs
+      // to the same user.
+      static constexpr char select_from_nickname[] =
+          R"!!!(
+            SELECT `serial`
+              FROM `nickname`
+              WHERE `nickname` = ?
+                    AND `username` = ?
+          )!!!";
+
+      sql_args.clear();
+      sql_args.emplace_back(nickname);          //  WHERE `nickname` = ?
+      sql_args.emplace_back(username.rdstr());  //        AND `username` = ?
+
+      task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                            ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                            &select_from_nickname, sql_args);
+      ::poseidon::task_scheduler.launch(task1);
+      fiber.yield(task1);
+
+      for(const auto& row : task1->result_rows())
+        resp_data.open_object().try_emplace(&"serial", row.at(0).as_integer());  // SELECT `serial`
+
+      resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
+      return;
+    }
+
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
+
+    resp_data.open_object().try_emplace(&"serial", static_cast<int64_t>(task1->insert_id()));
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -640,12 +645,13 @@ do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
     fiber.yield(task1);
 
     if(task1->affected_rows() == 0) {
-      resp_data.open_object().insert_or_assign(&"status", &"gs_nickname_not_found");
+      resp_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
       return;
     }
 
-    resp_data.open_object().insert_or_assign(&"status", &"gs_ok");
     POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
+
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -674,14 +680,15 @@ do_service_user_kick(const shptr<Implementation>& impl,
       session = uconn->weak_session.lock();
 
     if(session == nullptr) {
-      resp_data.open_object().insert_or_assign(&"status", &"gs_user_not_online");
+      resp_data.open_object().try_emplace(&"status", &"gs_user_not_online");
       return;
     }
 
     session->ws_shut_down(ws_status, reason);
 
-    resp_data.open_object().insert_or_assign(&"status", &"gs_ok");
     POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
+
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 }  // namespace
