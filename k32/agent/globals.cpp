@@ -32,7 +32,11 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(service.service_uuid(), &"/user/nickname/acquire", &"meow");
+      ::taxon::V_object args;
+      args.try_emplace(&"nickname", &"meow");
+      args.try_emplace(&"username", &"bb");
+
+      auto req1 = new_sh<Service_Future>(service.service_uuid(), &"/user/nickname/acquire", args);
       service.launch(req1);
       fiber.yield(req1);
 
@@ -49,7 +53,10 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(service.service_uuid(), &"/user/nickname/release", &"meow");
+      ::taxon::V_object args;
+      args.try_emplace(&"nickname", &"meow");
+
+      auto req1 = new_sh<Service_Future>(service.service_uuid(), &"/user/nickname/release", args);
       service.launch(req1);
       fiber.yield(req1);
 

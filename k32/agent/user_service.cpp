@@ -147,8 +147,10 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           ::poseidon::task_scheduler.launch(task1);
           fiber.yield(task1);
 
-          uinfo.creation_time = task1->result_rows().at(0).at(0).as_system_time();
-          uinfo.logout_time = task1->result_rows().at(0).at(1).as_system_time();
+          for(const auto& row : task1->result_rows()) {
+            uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`,
+            uinfo.logout_time = row.at(1).as_system_time();     //        `logout_time`
+          }
 
           // Publish my connection.
           ::taxon::Value redis_uinfo;
@@ -393,14 +395,14 @@ do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
     table.columns.emplace_back(column);
 
     column.clear();
-    column.name = &"login_address";
-    column.type = ::poseidon::mysql_column_varchar;
+    column.name = &"creation_time";
+    column.type = ::poseidon::mysql_column_datetime;
     column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
-    column.name = &"creation_time";
-    column.type = ::poseidon::mysql_column_datetime;
+    column.name = &"login_address";
+    column.type = ::poseidon::mysql_column_varchar;
     column.nullable = false;
     table.columns.emplace_back(column);
 
@@ -448,6 +450,12 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
     column.type = ::poseidon::mysql_column_auto_increment;
     column.nullable = false;
     column.default_value = 15743;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"username";
+    column.type = ::poseidon::mysql_column_varchar;
+    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
@@ -535,13 +543,16 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
                                  ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
+    phcow_string username;
 
     if(req_data.is_string())
       nickname = req_data.as_string();
     else
       for(const auto& r : req_data.as_object())
        if(r.first == &"nickname")
-          nickname = r.second.as_string();
+         nickname = r.second.as_string();
+       else if(r.first == &"username")
+         username = r.second.as_string();
 
     ////////////////////////////////////////////////////////////
     //
@@ -549,11 +560,13 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
         R"!!!(
           INSERT IGNORE INTO `nickname`
             SET `nickname` = ?,
+                `username` = ?,
                 `creation_time` = ?
         )!!!";
 
     cow_vector<::poseidon::MySQL_Value> sql_args;
     sql_args.emplace_back(nickname);               // SET `nickname` = ?,
+    sql_args.emplace_back(username.rdstr());       //     `username` = ?,
     sql_args.emplace_back(system_clock::now());    //     `login_time` = ?
 
     auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
@@ -563,16 +576,38 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
     fiber.yield(task1);
 
     if(task1->affected_rows() == 0) {
-      resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
+      resp_data.open_object().insert_or_assign(&"status", &"gs_nickname_exists");
+      if(!username.empty()) {
+        // In this case, we still want to return a serial if the nickname belongs
+        // to the same user.
+        static constexpr char select_from_nickname[] =
+            R"!!!(
+              SELECT `serial`
+                FROM `nickname`
+                WHERE `nickname` = ?
+                      AND `username` = ?
+            )!!!";
+
+        sql_args.clear();
+        sql_args.emplace_back(nickname);          //  WHERE `nickname` = ?
+        sql_args.emplace_back(username.rdstr());  //        AND `username` = ?
+
+        auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                                &select_from_nickname, sql_args);
+        ::poseidon::task_scheduler.launch(task2);
+        fiber.yield(task2);
+
+        for(const auto& row : task2->result_rows())
+          resp_data.open_object().insert_or_assign(&"serial", row.at(0).as_integer());  // SELECT `serial`
+      }
       return;
     }
 
-    int64_t serial = static_cast<int64_t>(task1->insert_id());
-    resp_data.open_object().try_emplace(&"serial", serial);
-
-    POSEIDON_LOG_INFO(("Acquired nickname `$1` with serial `$2`"), nickname, serial);
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
-   }
+    resp_data.open_object().insert_or_assign(&"status", &"gs_ok");
+    resp_data.open_object().insert_or_assign(&"serial", static_cast<int64_t>(task1->insert_id()));
+    POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
+  }
 
 void
 do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
@@ -605,13 +640,13 @@ do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
     fiber.yield(task1);
 
     if(task1->affected_rows() == 0) {
-      resp_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
+      resp_data.open_object().insert_or_assign(&"status", &"gs_nickname_not_found");
       return;
     }
 
+    resp_data.open_object().insert_or_assign(&"status", &"gs_ok");
     POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
-   }
+  }
 
 void
 do_service_user_kick(const shptr<Implementation>& impl,
@@ -639,15 +674,15 @@ do_service_user_kick(const shptr<Implementation>& impl,
       session = uconn->weak_session.lock();
 
     if(session == nullptr) {
-      resp_data.open_object().try_emplace(&"status", &"gs_user_not_online");
+      resp_data.open_object().insert_or_assign(&"status", &"gs_user_not_online");
       return;
     }
 
     session->ws_shut_down(ws_status, reason);
 
+    resp_data.open_object().insert_or_assign(&"status", &"gs_ok");
     POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
-   }
+  }
 
 }  // namespace
 

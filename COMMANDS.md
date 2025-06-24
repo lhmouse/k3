@@ -43,6 +43,7 @@ strings:
 * Request Parameters
 
   - `nickname` <sub>string</sub> : Nickname to acquire.
+  - `username` <sub>string</sub> : Name of new owner.
 
 * Response Parameters
 
@@ -53,8 +54,9 @@ strings:
 
   Attempts to acquire ownership of a nickname and returns its serial number.
   Both the nickname and the serial number are unique within the _user_ database.
-  If the nickname already exists, the operation fails, and no serial number is
-  returned.
+  If the nickname already exists under the same username, the old serial
+  number is returned. If the nickname already exists under a different username,
+  no serial number is returned.
 
 ### `/user/nickname/release`
 
