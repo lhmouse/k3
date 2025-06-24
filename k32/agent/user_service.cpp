@@ -531,18 +531,100 @@ do_user_service_timer_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_handle_service_user_kick(const shptr<Implementation>& impl, ::taxon::Value&& request_data)
+do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
+                                 ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
-    POSEIDON_LOG_INFO(("do_handle_service_user_kick: $1"), request_data);
+    cow_string nickname;
 
+    if(req_data.is_string())
+      nickname = req_data.as_string();
+    else
+      for(const auto& r : req_data.as_object())
+       if(r.first == &"nickname")
+          nickname = r.second.as_string();
+
+    ////////////////////////////////////////////////////////////
+    //
+    static constexpr char insert_into_nickname[] =
+        R"!!!(
+          INSERT IGNORE INTO `nickname`
+            SET `nickname` = ?,
+                `creation_time` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(nickname);               // SET `nickname` = ?,
+    sql_args.emplace_back(system_clock::now());    //     `login_time` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                            ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                            &insert_into_nickname, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    if(task1->affected_rows() == 0) {
+      resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
+      return;
+    }
+
+    int64_t serial = static_cast<int64_t>(task1->insert_id());
+    resp_data.open_object().try_emplace(&"serial", serial);
+
+    POSEIDON_LOG_INFO(("Acquired nickname `$1` with serial `$2`"), nickname, serial);
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+   }
+
+void
+do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
+                                 ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+  {
+    cow_string nickname;
+
+    if(req_data.is_string())
+      nickname = req_data.as_string();
+    else
+      for(const auto& r : req_data.as_object())
+       if(r.first == &"nickname")
+          nickname = r.second.as_string();
+
+    ////////////////////////////////////////////////////////////
+    //
+    static constexpr char delete_from_nickname[] =
+        R"!!!(
+          DELETE FROM `nickname`
+            WHERE `nickname` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(nickname);               // WHERE `nickname` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                            ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                            &delete_from_nickname, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    if(task1->affected_rows() == 0) {
+      resp_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
+      return;
+    }
+
+    POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+   }
+
+void
+do_service_user_kick(const shptr<Implementation>& impl,
+                     ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+  {
     phcow_string username;
     int ws_status = 1008;
     cow_string reason;
 
-    if(request_data.is_string())
-      username = request_data.as_string();
+    if(req_data.is_string())
+      username = req_data.as_string();
     else
-      for(const auto& r : request_data.as_object())
+      for(const auto& r : req_data.as_object())
        if(r.first == &"username")
           username = r.second.as_string();
         else if(r.first == &"ws_status")
@@ -550,20 +632,21 @@ do_handle_service_user_kick(const shptr<Implementation>& impl, ::taxon::Value&& 
         else if(r.first == &"reason")
           reason = r.second.as_string();
 
-    if(username.empty())
-      return;
-
     ////////////////////////////////////////////////////////////
     //
-    auto uconn = impl->connections.ptr(username);
-    if(!uconn)
-      return;
+    shptr<::poseidon::WS_Server_Session> session;
+    if(auto uconn = impl->connections.ptr(username))
+      session = uconn->weak_session.lock();
 
-    auto session = uconn->weak_session.lock();
-    if(!session)
+    if(session == nullptr) {
+      resp_data.open_object().try_emplace(&"status", &"gs_user_not_online");
       return;
+    }
 
-    session->ws_shut_down(static_cast<::poseidon::WS_Status>(ws_status), reason);
+    session->ws_shut_down(ws_status, reason);
+
+    POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
    }
 
 }  // namespace
@@ -775,15 +858,37 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->client_ping_interval = seconds(client_ping_interval);
 
     // Set up request handlers.
+    service.set_handler(&"/user/nickname/acquire",
+        Service::handler_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (::poseidon::Abstract_Fiber& fiber,
+              const ::poseidon::UUID& /*req_service_uuid*/,
+              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_service_user_nickname_acquire(fiber, resp_data, move(req_data));
+            }));
+
+    service.set_handler(&"/user/nickname/release",
+        Service::handler_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (::poseidon::Abstract_Fiber& fiber,
+              const ::poseidon::UUID& /*req_service_uuid*/,
+              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_service_user_nickname_release(fiber, resp_data, move(req_data));
+            }));
+
     service.set_handler(&"/user/kick",
         Service::handler_type(
           [weak_impl = wkptr<Implementation>(this->m_impl)]
              (::poseidon::Abstract_Fiber& /*fiber*/,
-              const ::poseidon::UUID& /*request_service_uuid*/,
-              ::taxon::Value& /*response_data*/, ::taxon::Value&& request_data)
+              const ::poseidon::UUID& /*req_service_uuid*/,
+              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
             {
               if(const auto impl = weak_impl.lock())
-                do_handle_service_user_kick(impl, move(request_data));
+                do_service_user_kick(impl, resp_data, move(req_data));
             }));
 
     // Restart the service.
@@ -906,7 +1011,7 @@ kick_user(const phcow_string& username, User_WS_Status ws_status) noexcept
     if(session == nullptr)
       return;
 
-    session->ws_shut_down(static_cast<::poseidon::WS_Status>(ws_status), "");
+    session->ws_shut_down(ws_status, "");
   }
 
 }  // namespace k32::agent

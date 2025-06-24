@@ -2,27 +2,63 @@
 
 1. [General Status Codes](#general-status-codes)
 2. [Agent Service Commands](#agent-service-commands)
-   1. [`/user/kick`](#userkick)
+   1. [`/user/nickname/acquire`](#usernicknameacquire)
+   2. [`/user/nickname/release`](#usernicknamerelease)
+   3. [`/user/kick`](#userkick)
 
 ## General Status Codes
 
-Whenever `status` occurs as a response parameter, it may either be null, or one
-string of the following:
+Whenever `status` occurs as a response parameter, it may be one of the following
+strings:
 
-- TODO
+|Status Code                 |Description                                    |
+|:---------------------------|:----------------------------------------------|
+|`gs_ok`                     |Operation completed successfully.              |
+|`gs_user_not_online`        |User is not online.                            |
+|`gs_nickname_exists`        |Nickname already exists in database.           |
+|`gs_nickname_not_found`     |Nickname not found in database.                |
 
 ## Agent Service Commands
+
+### `/user/nickname/acquire`
+
+* Request Parameters
+
+  - `nickname` <sub>string</sub> : Nickname to acquire.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : General status code.
+  - `serial` <sub>integer, optional</sub> : Serial number of new nickname.
+
+* Description
+
+  Attempts to acquire ownership of a nickname and returns its serial number.
+  Both the nickname and the serial number are unique within the _user_ database.
+  If the nickname already exists, the operation fails, and no serial number is
+  returned.
+
+### `/user/nickname/release`
+
+* Request Parameters
+
+  - `nickname` <sub>string</sub> : Nickname to release.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : General status code.
+
+* Description
+
+  Releases ownership of a nickname so it can be re-acquired by others.
 
 ### `/user/kick`
 
 * Request Parameters
 
-  - `username` <sub><i>string , required</i></sub>
-    : Name of user to kick.
-  - `ws_status` <sub><i>number , optional</i></sub>
-    : WebSocket status code.
-  - `reason` <sub><i>string , optional</i></sub>
-    : Additional reason string.
+  - `username` <sub>string</sub> : Name of user to kick.
+  - `ws_status` <sub>number, optional</sub> : WebSocket status code.
+  - `reason` <sub>string, optional</sub> : Additional reason string.
 
 * Response Parameters
 
@@ -30,6 +66,6 @@ string of the following:
 
 * Description
 
-  Terminates the connection from `username` by sending a WebSocket closure
+  Terminates the connection from a user, by sending a WebSocket closure
   notification of `ws_status` and `reason`. The default value for `ws_status` is
   `1008` (_Policy Violation_).
