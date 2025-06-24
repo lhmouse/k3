@@ -61,17 +61,18 @@ endif
 shared_module('k32_agent',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/common/static/service.cpp', 'k32/common/data/remote_service_information.cpp',
-      'k32/common/data/service_response.cpp', 'k32/common/service_future.cpp',
-      'k32/common/static/clock.cpp', 'k32/common/static/http_requestor.cpp',
-      'k32/common/http_future.cpp', 'k32/agent/static/user_service.cpp',
-      'k32/agent/data/user_information.cpp', 'k32/agent/globals.cpp' ],
+      'k32/agent/globals.cpp', 'k32/common/data/remote_service_information.cpp',
+      'k32/common/static/service.cpp', 'k32/common/data/service_response.cpp',
+      'k32/common/service_future.cpp', 'k32/common/static/clock.cpp',
+      'k32/common/static/http_requestor.cpp', 'k32/common/http_future.cpp',
+      'k32/agent/static/user_service.cpp', 'k32/agent/data/user_information.cpp',
+      'k32/agent/data/role_snapshot.cpp', 'k32/agent/static/role_service.cpp' ],
     install: true)
 
 shared_module('k32_logic',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/common/static/service.cpp', 'k32/common/data/remote_service_information.cpp',
-      'k32/common/data/service_response.cpp', 'k32/common/service_future.cpp',
-      'k32/common/static/clock.cpp', 'k32/logic/globals.cpp' ],
+      'k32/logic/globals.cpp', 'k32/common/data/remote_service_information.cpp',
+      'k32/common/static/service.cpp', 'k32/common/data/service_response.cpp',
+      'k32/common/service_future.cpp', 'k32/common/static/clock.cpp' ],
     install: true)
