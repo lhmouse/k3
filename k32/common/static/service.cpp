@@ -48,8 +48,8 @@ struct Implementation
     ::poseidon::Easy_Timer subscribe_timer;
 
     // remote data from redis
-    cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
+    cow_uuid_dictionary<Service_Information> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Service_Information>> remote_services_by_type;
 
     // connections
     cow_uuid_dictionary<Remote_Service_Connection_Information> remote_connections;
@@ -480,8 +480,8 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
 void
 do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
   {
-    cow_uuid_dictionary<Remote_Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Remote_Service_Information>> remote_services_by_type;
+    cow_uuid_dictionary<Service_Information> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Service_Information>> remote_services_by_type;
 
     auto pattern = sformat("$1/service/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
@@ -491,7 +491,7 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
 
     for(const auto& r : task2->result())
       try {
-        Remote_Service_Information remote;
+        Service_Information remote;
         POSEIDON_CHECK(r.first.size() == pattern.size() + 35);  // note `*` in pattern
         POSEIDON_CHECK(remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) == 36);
 
@@ -707,16 +707,16 @@ application_name() const noexcept
     return this->m_impl->application_name;
   }
 
-const Remote_Service_Information&
+const Service_Information&
 Service::
 find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {
     if(!this->m_impl)
-      return null_remote_service_information;
+      return null_service_information;
 
     auto ptr = this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
     if(!ptr)
-      return null_remote_service_information;
+      return null_service_information;
 
     return *ptr;
   }

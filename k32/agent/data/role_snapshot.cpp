@@ -6,7 +6,7 @@
 #include "role_snapshot.hpp"
 namespace k32::agent {
 
-const Role_Snapshot null_role_snapshot;
+const Role_Snapshot& null_role_snapshot = *new Role_Snapshot();
 
 Role_Snapshot::
 ~Role_Snapshot()

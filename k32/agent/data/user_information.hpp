@@ -27,7 +27,7 @@ struct User_Information
     explicit operator bool() const noexcept { return !this->username.empty();  }
   };
 
-extern const User_Information null_user_information;
+extern const User_Information& null_user_information;
 
 }  // namespace k32::agent
 #endif

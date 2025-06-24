@@ -5,7 +5,7 @@
 #define K32_COMMON_STATIC_SERVICE_
 
 #include "../../fwd.hpp"
-#include "../data/remote_service_information.hpp"
+#include "../data/service_information.hpp"
 #include "../service_future.hpp"
 namespace k32 {
 
@@ -63,7 +63,7 @@ class Service
     application_name() const noexcept;
 
     // Gets properties of a remote service.
-    const Remote_Service_Information&
+    const Service_Information&
     find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept;
 
     // Reloads configuration. If `application_name` or `application_password`

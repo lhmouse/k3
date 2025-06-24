@@ -28,7 +28,7 @@ struct Role_Snapshot
     explicit operator bool() const noexcept { return this->uid == 0;  }
   };
 
-extern const Role_Snapshot null_role_snapshot;
+extern const Role_Snapshot& null_role_snapshot;
 
 }  // namespace k32::agent
 #endif

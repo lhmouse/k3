@@ -27,7 +27,7 @@ struct Service_Response
     explicit operator bool() const noexcept { return this->complete && this->error.empty();  }
   };
 
-extern const Service_Response null_service_response;
+extern const Service_Response& null_service_response;
 
 }  // namespace k32
 #endif

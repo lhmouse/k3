@@ -3,13 +3,13 @@
 
 #include "../../xprecompiled.hpp"
 #define K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
-#include "remote_service_information.hpp"
+#include "service_information.hpp"
 namespace k32 {
 
-const Remote_Service_Information null_remote_service_information;
+const Service_Information& null_service_information = *new Service_Information();
 
-Remote_Service_Information::
-~Remote_Service_Information()
+Service_Information::
+~Service_Information()
   {
   }
 
