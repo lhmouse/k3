@@ -208,8 +208,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           User_Connection_Information uconn;
           uconn.weak_session = session;
           uconn.rate_time = steady_clock::now();
-          uconn.rate_counter = 0;
-          uconn.pong_time = steady_clock::now();
+          uconn.pong_time = uconn.rate_time;
 
           impl->users.insert_or_assign(uinfo.username, uinfo);
           impl->connections.insert_or_assign(uinfo.username, uconn);
@@ -479,8 +478,7 @@ do_user_service_timer_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_handle_service_user_kick(const shptr<Implementation>& impl,
-                            ::taxon::Value&& request_data)
+do_handle_service_user_kick(const shptr<Implementation>& impl, ::taxon::Value&& request_data)
   {
     POSEIDON_LOG_INFO(("do_handle_service_user_kick: $1"), request_data);
 
@@ -512,7 +510,7 @@ do_handle_service_user_kick(const shptr<Implementation>& impl,
     if(!session)
       return;
 
-    session->ws_shut_down(status, reason);
+    session->ws_shut_down(static_cast<::poseidon::WS_Status>(status), reason);
    }
 
 }  // namespace
