@@ -29,7 +29,6 @@ class Role_Service
     // Reloads configuration.
     void
     reload(const ::poseidon::Config_File& conf_file);
-
   };
 
 }  // namespace k32::agent

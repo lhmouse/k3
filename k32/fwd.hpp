@@ -75,12 +75,6 @@ using hours = ::std::chrono::duration<int, ::std::ratio<3600>>;
 using days = ::std::chrono::duration<int, ::std::ratio<86400>>;
 using weeks = ::std::chrono::duration<int, ::std::ratio<604800>>;
 
-using ::std::static_pointer_cast;
-using ::std::dynamic_pointer_cast;
-using ::std::const_pointer_cast;
-using ::std::chrono::duration_cast;
-using ::std::chrono::time_point_cast;
-
 using ::rocket::atomic;
 using ::rocket::atomic_relaxed;
 using ::rocket::atomic_acq_rel;
@@ -107,6 +101,19 @@ using ::rocket::unique_posix_fd;
 using ::rocket::unique_posix_file;
 using ::rocket::unique_posix_dir;
 using ::rocket::shared_function;
+
+POSEIDON_USING cow_bivector = cow_vector<pair<Ts...>>;
+POSEIDON_USING cow_dictionary = cow_hashmap<phcow_string, Ts..., phcow_string::hash>;
+POSEIDON_USING cow_uint32_dictionary = cow_hashmap<uint32_t, Ts..., ::std::hash<uint32_t>>;
+POSEIDON_USING cow_uint64_dictionary = cow_hashmap<uint64_t, Ts..., ::std::hash<uint64_t>>;
+POSEIDON_USING cow_uuid_dictionary = cow_hashmap<::poseidon::UUID, Ts..., ::poseidon::UUID::hash>;
+
+using ::std::static_pointer_cast;
+using ::std::dynamic_pointer_cast;
+using ::std::const_pointer_cast;
+using ::std::chrono::duration_cast;
+using ::std::chrono::time_point_cast;
+
 using ::rocket::begin;
 using ::rocket::end;
 using ::rocket::swap;
@@ -143,11 +150,15 @@ using ::poseidon::shptr;
 using ::poseidon::wkptr;
 using ::poseidon::new_sh;
 
-POSEIDON_USING cow_bivector = cow_vector<pair<Ts...>>;
-POSEIDON_USING cow_dictionary = cow_hashmap<phcow_string, Ts..., phcow_string::hash>;
-POSEIDON_USING cow_uint32_dictionary = cow_hashmap<uint32_t, Ts..., ::std::hash<uint32_t>>;
-POSEIDON_USING cow_uint64_dictionary = cow_hashmap<uint64_t, Ts..., ::std::hash<uint64_t>>;
-POSEIDON_USING cow_uuid_dictionary = cow_hashmap<::poseidon::UUID, Ts..., ::poseidon::UUID::hash>;
+// Private WebSocket status codes to clients
+enum User_WS_Status : uint16_t
+  {
+    user_ws_status_authentication_failure    = 4301,
+    user_ws_status_login_conflict            = 4302,
+    user_ws_status_unknown_opcode            = 4303,
+    user_ws_status_message_rate_limit        = 4304,
+    user_ws_status_ping_timeout              = 4305,
+  };
 
 }  // namespace k32
 #endif
