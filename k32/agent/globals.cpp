@@ -9,6 +9,7 @@ namespace k32::agent {
 Clock& clock = *new Clock;
 Service& service = *new Service;
 User_Service& user_service = *new User_Service;
+Role_Service& role_service = *new Role_Service;
 
 }  // namespace k32::agent
 
@@ -22,47 +23,16 @@ poseidon_module_main(void)
     conf_file.reload(&"k32.conf");
     service.reload(conf_file, &"agent");
     user_service.reload(conf_file);
+    role_service.reload(conf_file);
 
 /*TEST*/
-user_service.add_http_handler(
-  &"/11",
+user_service.add_ws_authenticator(
+  &"/t0",
   +[](::poseidon::Abstract_Fiber& fiber,
-      cow_string& response_content_type, cow_string& response_data,
-      cow_string&& request_raw_query)
+      phcow_string& username, cow_string&& request_raw_query)
     {
-      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-
-      ::taxon::V_object args;
-      args.try_emplace(&"nickname", &"meow");
-      args.try_emplace(&"username", &"bb");
-
-      auto req1 = new_sh<Service_Future>(service.service_uuid(), &"/user/nickname/acquire", args);
-      service.launch(req1);
-      fiber.yield(req1);
-
-      response_content_type = &"text/plain";
-      response_data = req1->responses().at(0).response_data.to_string();
-      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
-    });
-
-user_service.add_http_handler(
-  &"/22",
-  +[](::poseidon::Abstract_Fiber& fiber,
-      cow_string& response_content_type, cow_string& response_data,
-      cow_string&& request_raw_query)
-    {
-      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-
-      ::taxon::V_object args;
-      args.try_emplace(&"nickname", &"meow");
-
-      auto req1 = new_sh<Service_Future>(service.service_uuid(), &"/user/nickname/release", args);
-      service.launch(req1);
-      fiber.yield(req1);
-
-      response_content_type = &"text/plain";
-      response_data = req1->responses().at(0).response_data.to_string();
-      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
+      POSEIDON_LOG_FATAL(("WS AUTH: $1"), request_raw_query);
+      username = &"test01001";
     });
 /*TEST*/
 

@@ -22,6 +22,13 @@ class Role_Service
     Role_Service& operator=(const Role_Service&) & = delete;
     ~Role_Service();
 
+    // Gets properties of a role.
+    const Role_Information&
+    find_role(int64_t roid) const noexcept;
+
+    // Reloads configuration.
+    void
+    reload(const ::poseidon::Config_File& conf_file);
 
   };
 
