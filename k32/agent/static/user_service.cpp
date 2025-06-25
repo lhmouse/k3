@@ -119,7 +119,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           sql_args.emplace_back(uinfo.login_address.to_string());   //     `login_address` = ?,
           sql_args.emplace_back(uinfo.login_time);                  //     `creation_time` = ?,
           sql_args.emplace_back(uinfo.login_time);                  //     `login_time` = ?,
-          sql_args.emplace_back(uinfo.logout_time);                 //     `logout_time` = ?
+          sql_args.emplace_back(uinfo.login_time);                  //     `logout_time` = ?
           sql_args.emplace_back(uinfo.login_address.to_string());   // UPDATE `login_address` = ?,
           sql_args.emplace_back(uinfo.login_time);                  //        `login_time` = ?
 
@@ -132,7 +132,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           static constexpr char select_from_user[] =
               R"!!!(
                 SELECT `creation_time`,
-                       `logout_time`
+                       `logout_time`,
+                       `banned_until`
                   FROM `user`
                   WHERE `username` = ?
               )!!!";
@@ -148,7 +149,15 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           for(const auto& row : task1->result_rows()) {
             uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`,
-            uinfo.logout_time = row.at(1).as_system_time();     //        `logout_time`
+            uinfo.logout_time = row.at(1).as_system_time();     //        `logout_time`,
+            if(row.at(2).is_datetime())
+              uinfo.banned_until = row.at(2).as_system_time();  //        `banned_until`
+          }
+
+          if(uinfo.login_time < uinfo.banned_until) {
+            POSEIDON_LOG_DEBUG(("User `$1` is banned until `$2`"), uinfo.username, uinfo.banned_until);
+            session->ws_shut_down(user_ws_status_ban);
+            return;
           }
 
           // Publish my connection.
@@ -441,6 +450,12 @@ do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
     column.nullable = false;
     table.columns.emplace_back(column);
 
+    column.clear();
+    column.name = &"banned_until";
+    column.type = ::poseidon::mysql_column_datetime;
+    column.nullable = true;
+    table.columns.emplace_back(column);
+
     ::poseidon::MySQL_Table_Index index;
     index.name = &"PRIMARY";
     index.type = ::poseidon::mysql_index_unique;
@@ -577,6 +592,8 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
         else if(r.first == &"username")
           username = r.second.as_string();
 
+    POSEIDON_CHECK(nickname != "");
+
     ////////////////////////////////////////////////////////////
     //
     static constexpr char insert_into_nickname[] =
@@ -598,12 +615,12 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    if((task1->affected_rows() == 0) && username.empty()) {
+    if((task1->match_count() == 0) && username.empty()) {
       resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
       return;
     }
 
-    if(task1->affected_rows() == 0) {
+    if(task1->match_count() == 0) {
       // In this case, we still want to return a serial if the nickname belongs
       // to the same user.
       static constexpr char select_from_nickname[] =
@@ -650,6 +667,8 @@ do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
         if(r.first == &"nickname")
           nickname = r.second.as_string();
 
+    POSEIDON_CHECK(nickname != "");
+
     ////////////////////////////////////////////////////////////
     //
     static constexpr char delete_from_nickname[] =
@@ -667,7 +686,7 @@ do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    if(task1->affected_rows() == 0) {
+    if(task1->match_count() == 0) {
       resp_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
       return;
     }
@@ -696,6 +715,8 @@ do_service_user_kick(const shptr<Implementation>& impl,
         else if(r.first == &"reason")
           reason = r.second.as_string();
 
+    POSEIDON_CHECK(username != "");
+
     ////////////////////////////////////////////////////////////
     //
     shptr<::poseidon::WS_Server_Session> session;
@@ -710,6 +731,106 @@ do_service_user_kick(const shptr<Implementation>& impl,
     session->ws_shut_down(ws_status, reason);
 
     POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
+
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_service_user_ban_set(const shptr<Implementation>& impl,
+                        ::poseidon::Abstract_Fiber& fiber,
+                        ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+  {
+    constexpr time_point<system_clock, seconds> _2000_01_01(946684800s);
+    phcow_string username;
+    system_time until;
+
+    for(const auto& r : req_data.as_object())
+      if(r.first == &"username")
+        username = r.second.as_string();
+      else if(r.first == &"until")
+        until = r.second.as_time();
+
+    POSEIDON_CHECK(username != "");
+    POSEIDON_CHECK(until >= _2000_01_01);
+
+    ////////////////////////////////////////////////////////////
+    //
+    static constexpr char update_user_banned_until[] =
+        R"!!!(
+          UPDATE `user`
+            SET `banned_until` = ?
+            WHERE `username` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(until);              // SET `banned_until` = ?
+    sql_args.emplace_back(username.rdstr());   // WHERE `username` = ?
+
+    auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                                &update_user_banned_until, sql_args);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(task2->match_count() == 0) {
+      resp_data.open_object().try_emplace(&"status", &"gs_user_not_found");
+      return;
+    }
+
+    // Also update data in memory.
+    if(auto uinfo = impl->users.mut_ptr(username))
+      uinfo->banned_until = until;
+
+    if(auto uconn = impl->connections.ptr(username))
+      if(auto session = uconn->weak_session.lock())
+        session->ws_shut_down(user_ws_status_ban);
+
+    POSEIDON_LOG_INFO(("Set ban on `$1` until `$2`"), username, until);
+
+    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_service_user_ban_lift(const shptr<Implementation>& impl,
+                         ::poseidon::Abstract_Fiber& fiber,
+                         ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+  {
+    phcow_string username;
+
+    for(const auto& r : req_data.as_object())
+      if(r.first == &"username")
+        username = r.second.as_string();
+
+    POSEIDON_CHECK(username != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    static constexpr char update_user_banned_until[] =
+        R"!!!(
+          UPDATE `user`
+            SET `banned_until` = NULL
+            WHERE `username` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(username.rdstr());   // WHERE `username` = ?
+
+    auto task2 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                                &update_user_banned_until, sql_args);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(task2->match_count() == 0) {
+      resp_data.open_object().try_emplace(&"status", &"gs_user_not_found");
+      return;
+    }
+
+    // Also update data in memory.
+    if(auto uinfo = impl->users.mut_ptr(username))
+      uinfo->banned_until = system_time();
+
+    POSEIDON_LOG_INFO(("Lift ban on `$1`"), username);
 
     resp_data.open_object().try_emplace(&"status", &"gs_ok");
   }
@@ -954,6 +1075,28 @@ reload(const ::poseidon::Config_File& conf_file)
             {
               if(const auto impl = weak_impl.lock())
                 do_service_user_kick(impl, resp_data, move(req_data));
+            }));
+
+    service.set_handler(&"/user/ban/set",
+        Service::handler_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (::poseidon::Abstract_Fiber& fiber,
+              const ::poseidon::UUID& /*req_service_uuid*/,
+              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_service_user_ban_set(impl, fiber, resp_data, move(req_data));
+            }));
+
+    service.set_handler(&"/user/ban/lift",
+        Service::handler_type(
+          [weak_impl = wkptr<Implementation>(this->m_impl)]
+             (::poseidon::Abstract_Fiber& fiber,
+              const ::poseidon::UUID& /*req_service_uuid*/,
+              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+            {
+              if(const auto impl = weak_impl.lock())
+                do_service_user_ban_lift(impl, fiber, resp_data, move(req_data));
             }));
 
     // Restart the service.

@@ -2,9 +2,11 @@
 
 1. [General Status Codes](#general-status-codes)
 2. [Agent Service Commands](#agent-service-commands)
-   1. [`/user/kick`](#userkick)
-   2. [`/user/nickname/acquire`](#usernicknameacquire)
-   3. [`/user/nickname/release`](#usernicknamerelease)
+   1. [`/user/ban/set`](#userbanset)
+   2. [`/user/ban/lift`](#userbanlift)
+   3. [`/user/kick`](#userkick)
+   4. [`/user/nickname/acquire`](#usernicknameacquire)
+   5. [`/user/nickname/release`](#usernicknamerelease)
 
 ## General Status Codes
 
@@ -14,12 +16,43 @@ strings:
 |Status Code                 |Description                                    |
 |:---------------------------|:----------------------------------------------|
 |`gs_ok`                     |Operation completed successfully.              |
-|`gs_user_not_online`        |User is not online.                            |
+|`gs_user_not_online`        |User not online.                               |
+|`gs_user_not_found`         |User not found in database.                    |
 |`gs_nickname_exists`        |Nickname already exists in database.           |
 |`gs_nickname_not_found`     |Nickname not found in database.                |
 |`gs_nickname_length_error`  |Nickname length out of range.                  |
 
 ## Agent Service Commands
+
+### `/user/ban/set`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Name of user to ban.
+  - `until` <sub>timestamp</sub> : Ban in effect until this time point.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : General status code.
+
+* Description
+
+  Sets a ban on a user until a given time point. If the user is online, they are
+  kicked with `reason`.
+
+### `/user/ban/lift`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Name of user to ban.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : General status code.
+
+* Description
+
+  Lifts a ban on a user.
 
 ### `/user/kick`
 

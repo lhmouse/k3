@@ -26,6 +26,7 @@ poseidon_module_main(void)
     role_service.reload(conf_file);
 
 /*TEST*/
+
 user_service.add_ws_authenticator(
   &"/t0",
   +[](::poseidon::Abstract_Fiber& fiber,
@@ -34,6 +35,49 @@ user_service.add_ws_authenticator(
       POSEIDON_LOG_FATAL(("WS AUTH: $1"), request_raw_query);
       username = &"test01001";
     });
+
+user_service.add_http_handler(
+  &"/11",
+  +[](::poseidon::Abstract_Fiber& fiber,
+      cow_string& response_content_type, cow_string& response_data,
+      cow_string&& request_raw_query)
+    {
+      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
+
+      ::taxon::V_object args;
+      args.try_emplace(&"username", &"test01001");
+      args.try_emplace(&"until", system_clock::now() + 10s);
+
+      auto req1 = new_sh<Service_Future>(loopback_uuid, &"/user/ban/set", args);
+      service.launch(req1);
+      fiber.yield(req1);
+
+      response_content_type = &"text/plain";
+      response_data = req1->responses().at(0).response_data.to_string();
+      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
+    });
+
+user_service.add_http_handler(
+  &"/22",
+  +[](::poseidon::Abstract_Fiber& fiber,
+      cow_string& response_content_type, cow_string& response_data,
+      cow_string&& request_raw_query)
+    {
+      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
+
+      ::taxon::V_object args;
+      args.try_emplace(&"username", &"test01001");
+      args.try_emplace(&"until", system_clock::now() + 10s);
+
+      auto req1 = new_sh<Service_Future>(loopback_uuid, &"/user/ban/lift", args);
+      service.launch(req1);
+      fiber.yield(req1);
+
+      response_content_type = &"text/plain";
+      response_data = req1->responses().at(0).response_data.to_string();
+      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
+    });
+
 /*TEST*/
 
 

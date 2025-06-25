@@ -158,6 +158,7 @@ enum User_WS_Status : uint16_t
     user_ws_status_unknown_opcode            = 4303,
     user_ws_status_message_rate_limit        = 4304,
     user_ws_status_ping_timeout              = 4305,
+    user_ws_status_ban                       = 4306,
   };
 
 }  // namespace k32
