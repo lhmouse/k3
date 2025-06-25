@@ -154,12 +154,12 @@ using ::poseidon::new_sh;
 template<typename xSelf, typename xOther, typename... xArgs>
 ROCKET_ALWAYS_INLINE
 shared_function<void (xArgs...)>
-bindw(const shptr<xSelf>& obj, vfn<const shptr<xOther>&, xArgs...>* pfunc)
+bindw(const shptr<xSelf>& self, vfn<const shptr<xOther>&, xArgs...>* pfunc)
   {
     return shared_function<void (xArgs...)>(
-        [w = wkptr<xSelf>(obj), pfunc] (xArgs&&... args) {
-          if(const auto obj2 = w.lock())
-            ::std::invoke(*pfunc, obj2, forward<xArgs>(args)...);
+        [w = wkptr<xSelf>(self), pfunc] (xArgs&&... args) {
+          if(const auto other = w.lock())
+            ::std::invoke(*pfunc, other, forward<xArgs>(args)...);
         });
   }
 

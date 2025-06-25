@@ -50,10 +50,10 @@ struct Implementation
   };
 
 void
-do_server_ws_callback(const shptr<Implementation>& impl,
-                      const shptr<::poseidon::WS_Server_Session>& session,
-                      ::poseidon::Abstract_Fiber& fiber,
-                      ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+do_server_hws_callback(const shptr<Implementation>& impl,
+                       const shptr<::poseidon::WS_Server_Session>& session,
+                       ::poseidon::Abstract_Fiber& fiber,
+                       ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
   {
     switch(event)
       {
@@ -474,6 +474,7 @@ do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
 
 void
 do_service_timer_callback(const shptr<Implementation>& impl,
+                          const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                           ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
@@ -527,16 +528,18 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
 void
 do_service_user_kick(const shptr<Implementation>& impl,
-                     ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+                     ::poseidon::Abstract_Fiber& /*fiber*/,
+                     const ::poseidon::UUID& /*request_service_uuid*/,
+                     ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     phcow_string username;
     int ws_status = 1008;
     cow_string reason;
 
-    if(req_data.is_string())
-      username = req_data.as_string();
+    if(request_data.is_string())
+      username = request_data.as_string();
     else
-      for(const auto& r : req_data.as_object())
+      for(const auto& r : request_data.as_object())
         if(r.first == &"username")
           username = r.second.as_string();
         else if(r.first == &"ws_status")
@@ -553,7 +556,7 @@ do_service_user_kick(const shptr<Implementation>& impl,
       session = uconn->weak_session.lock();
 
     if(session == nullptr) {
-      resp_data.open_object().try_emplace(&"status", &"gs_user_not_online");
+      response_data.open_object().try_emplace(&"status", &"gs_user_not_online");
       return;
     }
 
@@ -561,19 +564,20 @@ do_service_user_kick(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
 
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_service_user_ban_set(const shptr<Implementation>& impl,
                         ::poseidon::Abstract_Fiber& fiber,
-                        ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+                        const ::poseidon::UUID& /*request_service_uuid*/,
+                        ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     constexpr time_point<system_clock, seconds> _2000_01_01(946684800s);
     phcow_string username;
     system_time until;
 
-    for(const auto& r : req_data.as_object())
+    for(const auto& r : request_data.as_object())
       if(r.first == &"username")
         username = r.second.as_string();
       else if(r.first == &"until")
@@ -602,7 +606,7 @@ do_service_user_ban_set(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->match_count() == 0) {
-      resp_data.open_object().try_emplace(&"status", &"gs_user_not_found");
+      response_data.open_object().try_emplace(&"status", &"gs_user_not_found");
       return;
     }
 
@@ -616,17 +620,18 @@ do_service_user_ban_set(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Set ban on `$1` until `$2`"), username, until);
 
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_service_user_ban_lift(const shptr<Implementation>& impl,
                          ::poseidon::Abstract_Fiber& fiber,
-                         ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+                         const ::poseidon::UUID& /*request_service_uuid*/,
+                         ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     phcow_string username;
 
-    for(const auto& r : req_data.as_object())
+    for(const auto& r : request_data.as_object())
       if(r.first == &"username")
         username = r.second.as_string();
 
@@ -651,7 +656,7 @@ do_service_user_ban_lift(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->match_count() == 0) {
-      resp_data.open_object().try_emplace(&"status", &"gs_user_not_found");
+      response_data.open_object().try_emplace(&"status", &"gs_user_not_found");
       return;
     }
 
@@ -661,7 +666,7 @@ do_service_user_ban_lift(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Lift ban on `$1`"), username);
 
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 }  // namespace
@@ -909,62 +914,13 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
-    service.set_handler(&"/user/kick",
-        Service::handler_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (::poseidon::Abstract_Fiber& /*fiber*/,
-              const ::poseidon::UUID& /*req_service_uuid*/,
-              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_user_kick(impl, resp_data, move(req_data));
-            }));
-
-    service.set_handler(&"/user/ban/set",
-        Service::handler_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (::poseidon::Abstract_Fiber& fiber,
-              const ::poseidon::UUID& /*req_service_uuid*/,
-              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_user_ban_set(impl, fiber, resp_data, move(req_data));
-            }));
-
-    service.set_handler(&"/user/ban/lift",
-        Service::handler_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (::poseidon::Abstract_Fiber& fiber,
-              const ::poseidon::UUID& /*req_service_uuid*/,
-              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_user_ban_lift(impl, fiber, resp_data, move(req_data));
-            }));
+    service.set_handler(&"/user/kick", bindw(this->m_impl, do_service_user_kick));
+    service.set_handler(&"/user/ban/set", bindw(this->m_impl, do_service_user_ban_set));
+    service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_service_user_ban_lift));
 
     // Restart the service.
-    this->m_impl->user_server.start_any(
-        this->m_impl->client_port,
-        ::poseidon::Easy_HWS_Server::callback_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (const shptr<::poseidon::WS_Server_Session>& session,
-              ::poseidon::Abstract_Fiber& fiber,
-              ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_server_ws_callback(impl, session, fiber, event, move(data));
-            }));
-
-    this->m_impl->service_timer.start(
-        1500ms, 7001ms,
-        ::poseidon::Easy_Timer::callback_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-              ::poseidon::Abstract_Fiber& fiber, steady_time now)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_timer_callback(impl, fiber, now);
-            }));
+    this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
+    this->m_impl->service_timer.start(1500ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
   }
 
 }  // namespace k32::agent

@@ -56,16 +56,15 @@ struct Implementation
   };
 
 void
-do_salt_password(char* pw, const ::poseidon::UUID& service_uuid, int64_t timestamp,
-                 const cow_string& application_password)
+do_salt_password(char* pw, const ::poseidon::UUID& s, int64_t ts, const cow_string& password)
   {
     ::MD5_CTX ctx;
     ::MD5_Init(&ctx);
 
-    ::MD5_Update(&ctx, service_uuid.data(), service_uuid.size());
-    uint64_t be_timestamp = ROCKET_HTOBE64(static_cast<uint64_t>(timestamp));
-    ::MD5_Update(&ctx, &be_timestamp, 8);
-    ::MD5_Update(&ctx, application_password.data(), application_password.size());
+    ::MD5_Update(&ctx, s.data(), s.size());
+    uint64_t be = ROCKET_HTOBE64(static_cast<uint64_t>(ts));
+    ::MD5_Update(&ctx, &be, 8);
+    ::MD5_Update(&ctx, password.data(), password.size());
 
     uint8_t checksum[16];
     ::MD5_Final(checksum, &ctx);
@@ -173,6 +172,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
 void
 do_client_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Client_Session>& session,
+                      ::poseidon::Abstract_Fiber& /*fiber*/,
                       ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
     switch(event)
@@ -344,6 +344,7 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
 void
 do_server_ws_callback(const shptr<Implementation>& impl,
                       const shptr<::poseidon::WS_Server_Session>& session,
+                      ::poseidon::Abstract_Fiber& /*fiber*/,
                       ::poseidon::Easy_WS_Event event, linear_buffer&& data)
   {
     switch(event)
@@ -364,25 +365,24 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             ::poseidon::HTTP_Query_Parser parser;
             parser.reload(cow_string(uri.query));
 
-            cow_string req_srv, req_pw;
-            int64_t req_t = 0;
+            cow_string req_pw;
+            int64_t req_ts = 0;
 
             while(parser.next_element())
-              if(parser.current_name() == "srv")
-                req_srv = parser.current_value().as_string();
-              else if(parser.current_name() == "t")
-                req_t = parser.current_value().as_integer();
+              if(parser.current_name() == "s")
+                request_service_uuid = ::poseidon::UUID(parser.current_value().as_string());
+              else if(parser.current_name() == "ts")
+                req_ts = parser.current_value().as_integer();
               else if(parser.current_name() == "pw")
                 req_pw = parser.current_value().as_string();
 
             int64_t now = ::time(nullptr);
-            POSEIDON_CHECK((req_t >= now - 60) && (req_t <= now + 60));
+            POSEIDON_CHECK((req_ts >= now - 60) && (req_ts <= now + 60));
+            POSEIDON_CHECK(!request_service_uuid.is_nil());
 
             char auth_pw[33];
-            do_salt_password(auth_pw, impl->service_uuid, req_t, impl->application_password);
+            do_salt_password(auth_pw, request_service_uuid, req_ts, impl->application_password);
             POSEIDON_CHECK(req_pw == auth_pw);
-
-            request_service_uuid = ::poseidon::UUID(req_srv);
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
@@ -476,7 +476,9 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
   };
 
 void
-do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber)
+do_subscribe_services(const shptr<Implementation>& impl,
+                      const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                      ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     cow_uuid_dictionary<Service_Information> remote_services_by_uuid;
     cow_dictionary<cow_vector<Service_Information>> remote_services_by_type;
@@ -550,8 +552,9 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
   }
 
 void
-do_publish_service_with_ttl(const shptr<Implementation>& impl,
-                            ::poseidon::Abstract_Fiber& fiber, seconds ttl)
+do_publish_service(const shptr<Implementation>& impl,
+                   const shptr<::poseidon::Abstract_Timer>& timer,
+                   ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->appointment.index() < 0)
       return;
@@ -605,7 +608,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     cmd.emplace_back(sformat("$1/service/$2", impl->application_name, impl->service_uuid));
     cmd.emplace_back(impl->service_data.to_string());
     cmd.emplace_back(&"EX");
-    cmd.emplace_back(sformat("$1", ttl.count()));
+    cmd.emplace_back("10");
 
     auto task1 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, cmd);
     ::poseidon::task_scheduler.launch(task1);
@@ -614,7 +617,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
     if(impl->service_start_time - system_clock::now() <= 60s)
-      do_subscribe_service(impl, fiber);
+      do_subscribe_services(impl, timer, fiber, now);
   }
 
 }  // namespace
@@ -783,39 +786,9 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
       this->m_impl->appointment.enroll(sformat("$1/$2.lock", lock_directory, service_type));
 
     // Restart the service.
-    this->m_impl->private_server.start_any(
-        0,  // any port
-        ::poseidon::Easy_WS_Server::callback_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (const shptr<::poseidon::WS_Server_Session>& session,
-              ::poseidon::Abstract_Fiber& /*fiber*/,
-              ::poseidon::Easy_WS_Event event, linear_buffer&& data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_server_ws_callback(impl, session, event, move(data));
-            }));
-
-    this->m_impl->publish_timer.start(
-        2500ms, 3001ms,
-        ::poseidon::Easy_Timer::callback_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-              ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_publish_service_with_ttl(impl, fiber, 10s);
-            }));
-
-    this->m_impl->subscribe_timer.start(
-        3000ms, 31001ms,
-        ::poseidon::Easy_Timer::callback_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-              ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_subscribe_service(impl, fiber);
-            }));
+    this->m_impl->publish_timer.start(1500ms, 6101ms, bindw(this->m_impl, do_publish_service));
+    this->m_impl->subscribe_timer.start(31001ms, bindw(this->m_impl, do_subscribe_services));
+    this->m_impl->private_server.start(0, bindw(this->m_impl, do_server_ws_callback));
   }
 
 void
@@ -901,21 +874,13 @@ launch(const shptr<Service_Future>& req)
               continue;
             }
 
-            int64_t now = ::time(nullptr);
+            int64_t ts = ::time(nullptr);
             char auth_pw[33];
-            do_salt_password(auth_pw, srv.service_uuid, now, this->m_impl->application_password);
+            do_salt_password(auth_pw, this->m_impl->service_uuid, ts, this->m_impl->application_password);
 
             session = this->m_impl->private_client.connect(
-                 sformat("$1/?srv=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
-                 ::poseidon::Easy_WS_Client::callback_type(
-                    [weak_impl = wkptr<Implementation>(this->m_impl)]
-                       (const shptr<::poseidon::WS_Client_Session>& session2,
-                        ::poseidon::Abstract_Fiber& /*fiber*/,
-                        ::poseidon::Easy_WS_Event event, linear_buffer&& data)
-                      {
-                        if(const auto impl = weak_impl.lock())
-                          do_client_ws_callback(impl, session2, event, move(data));
-                      }));
+                  sformat("$1/?s=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, ts, auth_pw),
+                  bindw(this->m_impl, do_client_ws_callback));
 
             session->mut_session_user_data() = srv.service_uuid.to_string();
             conn.weak_session = session;

@@ -81,7 +81,9 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_service_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
+do_service_nickname_acquire(const shptr<Implementation>& /*impl*/,
+                            ::poseidon::Abstract_Fiber& fiber,
+                            const ::poseidon::UUID& /*req_service_uuid*/,
                             ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
@@ -159,7 +161,9 @@ do_service_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
   }
 
 void
-do_service_nickname_release(::poseidon::Abstract_Fiber& fiber,
+do_service_nickname_release(const shptr<Implementation>& /*impl*/,
+                            ::poseidon::Abstract_Fiber& fiber,
+                            const ::poseidon::UUID& /*req_service_uuid*/,
                             ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
@@ -276,6 +280,7 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
 
 void
 do_service_timer_callback(const shptr<Implementation>& impl,
+                          const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                           ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
@@ -347,40 +352,12 @@ reload(const ::poseidon::Config_File& conf_file)
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->role_cache_ttl = seconds(role_cache_ttl);
 
-    // Set up request handlers.
-    service.set_handler(&"/nickname/acquire",
-        Service::handler_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (::poseidon::Abstract_Fiber& fiber,
-              const ::poseidon::UUID& /*req_service_uuid*/,
-              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_nickname_acquire(fiber, resp_data, move(req_data));
-            }));
-
-    service.set_handler(&"/nickname/release",
-        Service::handler_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (::poseidon::Abstract_Fiber& fiber,
-              const ::poseidon::UUID& /*req_service_uuid*/,
-              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_nickname_release(fiber, resp_data, move(req_data));
-            }));
-
     // Restart the service.
-    this->m_impl->service_timer.start(
-        300ms, 31001ms,
-        ::poseidon::Easy_Timer::callback_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-              ::poseidon::Abstract_Fiber& fiber, steady_time now)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_timer_callback(impl, fiber, now);
-            }));
+    this->m_impl->service_timer.start(300ms, 31001ms, bindw(this->m_impl, do_service_timer_callback));
+
+    // Set up request handlers.
+    service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_service_nickname_acquire));
+    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_service_nickname_release));
   }
 
 }  // namespace k32::monitor
