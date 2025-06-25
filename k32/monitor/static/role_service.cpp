@@ -136,8 +136,8 @@ do_service_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
           )!!!";
 
       sql_args.clear();
-      sql_args.emplace_back(nickname);          //  WHERE `nickname` = ?
-      sql_args.emplace_back(username.rdstr());  //        AND `username` = ?
+      sql_args.emplace_back(nickname);          // WHERE `nickname` = ?
+      sql_args.emplace_back(username.rdstr());  //       AND `username` = ?
 
       task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                             ::poseidon::mysql_connector.allocate_tertiary_connection(),

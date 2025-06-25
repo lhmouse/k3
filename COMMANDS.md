@@ -127,9 +127,9 @@ strings:
 
 * Request Parameters
 
-  - `username` <sub>string</sub> : Owner of role to create.
-  - `roid` <sub>integer</sub> : Unique ID of new role.
+  - `roid` <sub>integer</sub> : Unique ID of role to create.
   - `nickname` <sub>string</sub> : Nickname of new role.
+  - `username` <sub>string</sub> : Owner of new role.
 
 * Response Parameters
 
