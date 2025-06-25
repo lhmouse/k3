@@ -19,9 +19,6 @@ namespace {
 
 struct Implementation
   {
-    uint16_t max_number_of_roles_per_user = 0;
-    uint8_t nickname_length_limits[2] = { };
-
     ::poseidon::Easy_Timer role_service_timer;
 
     // remote data from mysql
@@ -325,65 +322,6 @@ reload(const ::poseidon::Config_File& conf_file)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
-
-    // Define default values here. The operation shall be atomic.
-    ::asteria::V_integer max_number_of_roles_per_user = 4;
-    ::asteria::V_array nickname_length_limits;
-    ::asteria::V_integer nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
-
-    // `monitor.max_number_of_roles_per_user`
-    auto conf_value = conf_file.query(&"monitor.max_number_of_roles_per_user");
-    if(conf_value.is_integer())
-      max_number_of_roles_per_user = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `monitor.max_number_of_roles_per_user`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((max_number_of_roles_per_user < 0) || (max_number_of_roles_per_user > 9999))
-      POSEIDON_THROW((
-          "Invalid `monitor.max_number_of_roles_per_user`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          max_number_of_roles_per_user, conf_file.path());
-
-    // `monitor.nickname_length_limits`
-    conf_value = conf_file.query(&"monitor.nickname_length_limits");
-    if(conf_value.is_array())
-      nickname_length_limits = conf_value.as_array();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `monitor.nickname_length_limits`: expecting an `array`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    try {
-      nickname_length_limits_0 = nickname_length_limits.at(0).as_integer();
-      nickname_length_limits_1 = nickname_length_limits.at(1).as_integer();
-    }
-    catch(...) {
-      POSEIDON_THROW((
-          "Invalid `monitor.nickname_length_limits`: expecting an `array` of two `integer`s, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-    }
-
-    if((nickname_length_limits_0 < 1) || (nickname_length_limits_0 > 255))
-      POSEIDON_THROW((
-          "Invalid `monitor.nickname_length_limits[0]`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          nickname_length_limits_0, conf_file.path());
-
-    if((nickname_length_limits_1 < 1) || (nickname_length_limits_1 > 255))
-      POSEIDON_THROW((
-          "Invalid `monitor.nickname_length_limits[1]`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          nickname_length_limits_1, conf_file.path());
-
-    // Set up new configuration. This operation shall be atomic.
-    this->m_impl->max_number_of_roles_per_user = static_cast<uint16_t>(max_number_of_roles_per_user);
-    this->m_impl->nickname_length_limits[0] = static_cast<uint8_t>(nickname_length_limits_0);
-    this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
     service.set_handler(&"/nickname/acquire",

@@ -30,7 +30,9 @@ struct User_Connection_Information
 struct Implementation
   {
     uint16_t client_port;
-    uint32_t client_rate_limit;
+    uint16_t client_rate_limit;
+    uint16_t max_number_of_roles_per_user = 0;
+    uint8_t nickname_length_limits[2] = { };
     seconds client_ping_interval;
 
     cow_dictionary<User_Service::http_handler_type> http_handlers;
@@ -798,27 +800,13 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    ::asteria::V_array client_port_list;
     ::asteria::V_integer client_port = 0;
     ::asteria::V_integer client_rate_limit = 0, client_ping_interval = 0;
+    ::asteria::V_integer max_number_of_roles_per_user = 4;
+    ::asteria::V_integer nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
 
     // `agent.client_port_list`
-    auto conf_value = conf_file.query(&"agent.client_port_list");
-    if(conf_value.is_array())
-      client_port_list = conf_value.as_array();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `agent.client_port_list`: expecting an `array`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if(service.service_index() >= client_port_list.size())
-      POSEIDON_THROW((
-          "No enough values in `agent.client_port_list`: too many processes",
-          "[in configuration file '$2']"),
-          service.service_index(), conf_file.path());
-
-    conf_value = client_port_list.at(service.service_index());
+    auto conf_value = conf_file.query(sformat("agent.client_port_list[$1]", service.service_index()));
     if(conf_value.is_integer())
       client_port = conf_value.as_integer();
     else if(!conf_value.is_null())
@@ -865,10 +853,60 @@ reload(const ::poseidon::Config_File& conf_file)
           "[in configuration file '$2']"),
           client_ping_interval, conf_file.path());
 
+    // `agent.max_number_of_roles_per_user`
+    conf_value = conf_file.query(&"agent.max_number_of_roles_per_user");
+    if(conf_value.is_integer())
+      max_number_of_roles_per_user = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `agent.max_number_of_roles_per_user`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((max_number_of_roles_per_user < 0) || (max_number_of_roles_per_user > 9999))
+      POSEIDON_THROW((
+          "Invalid `agent.max_number_of_roles_per_user`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          max_number_of_roles_per_user, conf_file.path());
+
+    // `agent.nickname_length_limits`
+    conf_value = conf_file.query(&"agent.nickname_length_limits[0]");
+    if(conf_value.is_integer())
+      nickname_length_limits_0 = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `agent.nickname_length_limits[0]`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((nickname_length_limits_0 < 1) || (nickname_length_limits_0 > 255))
+      POSEIDON_THROW((
+          "Invalid `agent.nickname_length_limits[0]`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          nickname_length_limits_0, conf_file.path());
+
+    conf_value = conf_file.query(&"agent.nickname_length_limits[1]");
+    if(conf_value.is_integer())
+      nickname_length_limits_1 = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `agent.nickname_length_limits[1]`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((nickname_length_limits_1 < 1) || (nickname_length_limits_1 > 255))
+      POSEIDON_THROW((
+          "Invalid `agent.nickname_length_limits[1]`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          nickname_length_limits_1, conf_file.path());
+
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->client_port = static_cast<uint16_t>(client_port);
-    this->m_impl->client_rate_limit = static_cast<uint32_t>(client_rate_limit);
+    this->m_impl->client_rate_limit = static_cast<uint16_t>(client_rate_limit);
     this->m_impl->client_ping_interval = seconds(client_ping_interval);
+    this->m_impl->max_number_of_roles_per_user = static_cast<uint16_t>(max_number_of_roles_per_user);
+    this->m_impl->nickname_length_limits[0] = static_cast<uint8_t>(nickname_length_limits_0);
+    this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
     service.set_handler(&"/user/kick",
