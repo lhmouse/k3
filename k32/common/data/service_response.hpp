@@ -24,7 +24,7 @@ struct Service_Response
     Service_Response& operator=(Service_Response&&) & = default;
     ~Service_Response();
 
-    explicit operator bool() const noexcept { return this->complete && this->error.empty();  }
+    explicit operator bool() const noexcept { return this->complete;  }
   };
 
 extern const Service_Response& null_service_response;

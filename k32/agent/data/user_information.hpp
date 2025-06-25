@@ -24,7 +24,7 @@ struct User_Information
     User_Information& operator=(User_Information&&) & = default;
     ~User_Information();
 
-    explicit operator bool() const noexcept { return !this->username.empty();  }
+    explicit operator bool() const noexcept { return this->username.length() != 0;  }
   };
 
 extern const User_Information& null_user_information;

@@ -24,7 +24,7 @@ struct Service_Information
     Service_Information& operator=(Service_Information&&) & = default;
     ~Service_Information();
 
-    explicit operator bool() const noexcept { return !this->service_uuid.is_nil();  }
+    explicit operator bool() const noexcept { return this->service_uuid.is_nil() == false;  }
   };
 
 extern const Service_Information& null_service_information;
