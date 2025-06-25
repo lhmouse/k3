@@ -183,13 +183,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
                   auto remote = service.find_remote_service(other_service_uuid);
                   if(remote) {
                     // Kick this user from the other service.
-                    ::taxon::V_object args;
-                    args.try_emplace(&"username", uinfo.username.rdstr());
-                    args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
+                    ::taxon::V_object srv_args;
+                    srv_args.try_emplace(&"username", uinfo.username.rdstr());
+                    srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                    auto req = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", args);
-                    service.launch(req);
-                    fiber.yield(req);
+                    auto srv_req = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", srv_args);
+                    service.launch(srv_req);
+                    fiber.yield(srv_req);
                   }
                 }
               }
