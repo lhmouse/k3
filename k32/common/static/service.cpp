@@ -40,9 +40,9 @@ struct Implementation
     system_time service_start_time;
     cow_dictionary<Service::handler_type> handlers;
 
+    ::taxon::Value service_data;
     ::poseidon::Easy_WS_Server private_server;
     ::poseidon::Easy_WS_Client private_client;
-    ::taxon::V_object cached_service_data;
     ::poseidon::Easy_Timer publish_timer;
     ::poseidon::Easy_Timer subscribe_timer;
 
@@ -502,19 +502,15 @@ do_subscribe_service(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
         if(root.as_object().at(&"application_name").as_string() != impl->application_name)
           continue;
 
-        ::taxon::V_object service_data = root.as_object();
-        remote.service_type = service_data.at(&"service_type").as_string();
-        remote.service_index = static_cast<uint32_t>(service_data.at(&"service_index").as_number());
+        remote.service_type = root.as_object().at(&"service_type").as_string();
+        remote.service_index = static_cast<uint32_t>(root.as_object().at(&"service_index").as_integer());
 
-        if(auto hostname = service_data.ptr(&"hostname"))
+        if(auto hostname = root.as_object().ptr(&"hostname"))
           remote.hostname = hostname->as_string();
 
-        if(auto addresses = service_data.ptr(&"addresses"))
-          for(const auto& t : addresses->as_array()) {
-            ::poseidon::IPv6_Address addr;
-            if(addr.parse(t.as_string()))
-              remote.addresses.emplace_back(addr);
-          }
+        if(auto addresses = root.as_object().ptr(&"addresses"))
+          for(const auto& t : addresses->as_array())
+            remote.addresses.emplace_back(t.as_string());
 
         if(impl->remote_services_by_uuid.count(remote.service_uuid) == false)
           POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, root);
@@ -566,10 +562,9 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     if(impl->service_start_time == system_time())
       impl->service_start_time = system_clock::now();
 
-    ::taxon::V_object& service_data = impl->cached_service_data;
-    service_data.insert_or_assign(&"application_name", impl->application_name);
-    service_data.insert_or_assign(&"service_type", impl->service_type);
-    service_data.insert_or_assign(&"service_index", static_cast<double>(impl->appointment.index()));
+    impl->service_data.open_object().insert_or_assign(&"application_name", impl->application_name);
+    impl->service_data.open_object().insert_or_assign(&"service_type", impl->service_type);
+    impl->service_data.open_object().insert_or_assign(&"service_index", impl->appointment.index());
 
     auto private_addr = impl->private_server.local_address();
     if(private_addr.port() != 0) {
@@ -582,8 +577,8 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
 
       const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
 
-      service_data.insert_or_assign(&"hostname", ::poseidon::hostname);
-      ::taxon::V_array& addresses = service_data.open(&"addresses").open_array();
+      impl->service_data.open_object().insert_or_assign(&"hostname", ::poseidon::hostname);
+      ::taxon::V_array& addresses = impl->service_data.open_object().open(&"addresses").open_array();
       addresses.clear();
 
       for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
@@ -611,7 +606,7 @@ do_publish_service_with_ttl(const shptr<Implementation>& impl,
     cow_vector<cow_string> cmd;
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1/service/$2", impl->application_name, impl->service_uuid));
-    cmd.emplace_back(::taxon::Value(service_data).to_string());
+    cmd.emplace_back(impl->service_data.to_string());
     cmd.emplace_back(&"EX");
     cmd.emplace_back(sformat("$1", ttl.count()));
 
