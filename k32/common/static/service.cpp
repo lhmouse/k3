@@ -31,15 +31,14 @@ struct Remote_Service_Connection_Information
 
 struct Implementation
   {
-    ::poseidon::UUID service_uuid = ::poseidon::UUID::random();
-    system_time service_start_time;
-    cow_dictionary<Service::handler_type> handlers;
-
-    // local data
     cow_string service_type;
     ::poseidon::Appointment appointment;
     cow_string application_name;
     cow_string application_password;
+
+    ::poseidon::UUID service_uuid;
+    system_time service_start_time;
+    cow_dictionary<Service::handler_type> handlers;
 
     ::poseidon::Easy_WS_Server private_server;
     ::poseidon::Easy_WS_Client private_client;
@@ -729,8 +728,8 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    cow_string application_name, application_password;
-    cow_string lock_directory;
+    ::asteria::V_string application_name, application_password;
+    ::asteria::V_string lock_directory;
 
     // `application_name`
     auto conf_value = conf_file.query(&"application_name");
@@ -784,8 +783,12 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
     this->m_impl->application_name = application_name;
     this->m_impl->application_password = application_password;
 
-    // Assign a new service index.
-    this->m_impl->appointment.enroll(sformat("$1/$2.lock", lock_directory, service_type));
+    // Set up constants.
+    if(this->m_impl->service_uuid.is_nil())
+      this->m_impl->service_uuid = ::poseidon::UUID::random();
+
+    if(this->m_impl->appointment.index() == -1)
+      this->m_impl->appointment.enroll(sformat("$1/$2.lock", lock_directory, service_type));
 
     // Restart the service.
     this->m_impl->private_server.start_any(

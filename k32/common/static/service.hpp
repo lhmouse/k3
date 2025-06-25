@@ -11,14 +11,6 @@ namespace k32 {
 
 class Service
   {
-  public:
-    using handler_type = ::rocket::shared_function<
-            void (
-              ::poseidon::Abstract_Fiber& fiber,
-              const ::poseidon::UUID& request_service_uuid,
-              ::taxon::Value& response_data,  // output parameter
-              ::taxon::Value&& request_data)>;
-
   private:
     struct X_Implementation;
     shptr<X_Implementation> m_impl;
@@ -30,6 +22,15 @@ class Service
     Service(const Service&) = delete;
     Service& operator=(const Service&) & = delete;
     ~Service();
+
+    // This callback is invoked when a service request message is received.
+    // `request_data` is the same field as in the source `Service_Future`.
+    using handler_type = ::rocket::shared_function<
+            void (
+              ::poseidon::Abstract_Fiber& fiber,
+              const ::poseidon::UUID& request_service_uuid,
+              ::taxon::Value& response_data,  // output parameter
+              ::taxon::Value&& request_data)>;
 
     // Adds a new handler for requests from other servers. If a new handler
     // already exists, an exception is thrown.

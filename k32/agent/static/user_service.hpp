@@ -11,27 +11,6 @@ namespace k32::agent {
 
 class User_Service
   {
-  public:
-    using http_handler_type = ::rocket::shared_function<
-            void (
-              ::poseidon::Abstract_Fiber& fiber,
-              cow_string& response_content_type,  // output parameter
-              cow_string& response_payload,  // output parameter
-              cow_string&& request_raw_query)>;
-
-    using ws_authenticator_type = ::rocket::shared_function<
-            void (
-              ::poseidon::Abstract_Fiber& fiber,
-              phcow_string& username,  // output parameter
-              cow_string&& request_raw_query)>;
-
-    using ws_handler_type = ::rocket::shared_function<
-            void (
-              ::poseidon::Abstract_Fiber& fiber,
-              const phcow_string& username,
-              ::taxon::Value& response_data,  // output parameter
-              ::taxon::Value&& request_data)>;
-
   private:
     struct X_Implementation;
     shptr<X_Implementation> m_impl;
@@ -43,6 +22,15 @@ class User_Service
     User_Service(const User_Service&) = delete;
     User_Service& operator=(const User_Service&) & = delete;
     ~User_Service();
+
+    // This callback is invoked when an HTTP GET or HEAD message is received from
+    // a client. `request_raw_query` is the query string in the request URI.
+    using http_handler_type = ::rocket::shared_function<
+            void (
+              ::poseidon::Abstract_Fiber& fiber,
+              cow_string& response_content_type,  // output parameter
+              cow_string& response_payload,  // output parameter
+              cow_string&& request_raw_query)>;
 
     // Adds a new HTTP handler for requests from users. If a new handler
     // already exists, an exception is thrown.
@@ -59,6 +47,14 @@ class User_Service
     bool
     remove_http_handler(const phcow_string& path) noexcept;
 
+    // This callback is invoked when a WebSocket connection is established from
+    // a client. `request_raw_query` is the query string in the request URI.
+    using ws_authenticator_type = ::rocket::shared_function<
+            void (
+              ::poseidon::Abstract_Fiber& fiber,
+              phcow_string& username,  // output parameter
+              cow_string&& request_raw_query)>;
+
     // Adds a new WebSocket authentication handler for users. If a new handler
     // already exists, an exception is thrown.
     void
@@ -73,6 +69,15 @@ class User_Service
     // Removes a WebSocket authentication handler for requests from users.
     bool
     remove_ws_authenticator(const phcow_string& path) noexcept;
+
+    // This callback is invoked when a WebSocket (text or binary) message is
+    // received from a client.
+    using ws_handler_type = ::rocket::shared_function<
+            void (
+              ::poseidon::Abstract_Fiber& fiber,
+              const phcow_string& username,
+              ::taxon::Value& response_data,  // output parameter
+              ::taxon::Value&& request_data)>;
 
     // Adds a new WebSocket handler for requests from users. If a new handler
     // already exists, an exception is thrown.

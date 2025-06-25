@@ -29,14 +29,13 @@ struct User_Connection_Information
 
 struct Implementation
   {
+    uint16_t client_port;
+    uint32_t client_rate_limit;
+    seconds client_ping_interval;
+
     cow_dictionary<User_Service::http_handler_type> http_handlers;
     cow_dictionary<User_Service::ws_authenticator_type> ws_authenticators;
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
-
-    // local data
-    uint16_t client_port = 0;
-    uint32_t client_rate_limit;
-    seconds client_ping_interval;
 
     ::poseidon::Easy_HWS_Server user_server;
     ::poseidon::Easy_Timer user_service_timer;
@@ -549,10 +548,10 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
       nickname = req_data.as_string();
     else
       for(const auto& r : req_data.as_object())
-       if(r.first == &"nickname")
-         nickname = r.second.as_string();
-       else if(r.first == &"username")
-         username = r.second.as_string();
+        if(r.first == &"nickname")
+          nickname = r.second.as_string();
+        else if(r.first == &"username")
+          username = r.second.as_string();
 
     ////////////////////////////////////////////////////////////
     //
@@ -624,7 +623,7 @@ do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
       nickname = req_data.as_string();
     else
       for(const auto& r : req_data.as_object())
-       if(r.first == &"nickname")
+        if(r.first == &"nickname")
           nickname = r.second.as_string();
 
     ////////////////////////////////////////////////////////////
@@ -666,7 +665,7 @@ do_service_user_kick(const shptr<Implementation>& impl,
       username = req_data.as_string();
     else
       for(const auto& r : req_data.as_object())
-       if(r.first == &"username")
+        if(r.first == &"username")
           username = r.second.as_string();
         else if(r.first == &"ws_status")
           ws_status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
@@ -828,8 +827,8 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Define default values here. The operation shall be atomic.
     ::asteria::V_array client_port_list;
-    int64_t client_port = 0;
-    int64_t client_rate_limit = 0, client_ping_interval = 0;
+    ::asteria::V_integer client_port = 0;
+    ::asteria::V_integer client_rate_limit = 0, client_ping_interval = 0;
 
     // `agent.client_port_list`
     auto conf_value = conf_file.query(&"agent.client_port_list");
@@ -837,7 +836,7 @@ reload(const ::poseidon::Config_File& conf_file)
       client_port_list = conf_value.as_array();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `agent.client_port_list`: expecting an `integer`, got `$1`",
+          "Invalid `agent.client_port_list`: expecting an `array`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
