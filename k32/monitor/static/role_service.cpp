@@ -82,80 +82,6 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
-  {
-    ::poseidon::MySQL_Table_Structure table;
-    table.name = &"role";
-    table.engine = ::poseidon::mysql_engine_innodb;
-
-    ::poseidon::MySQL_Table_Column column;
-    column.name = &"roid";
-    column.type = ::poseidon::mysql_column_int64;
-    column.nullable = false;
-    table.columns.emplace_back(column);
-
-    column.clear();
-    column.name = &"username";
-    column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
-    table.columns.emplace_back(column);
-
-    column.clear();
-    column.name = &"update_time";
-    column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = false;
-    table.columns.emplace_back(column);
-
-    column.clear();
-    column.name = &"nickname";
-    column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
-    table.columns.emplace_back(column);
-
-    column.clear();
-    column.name = &"avatar";
-    column.type = ::poseidon::mysql_column_blob;
-    column.nullable = true;
-    table.columns.emplace_back(column);
-
-    column.clear();
-    column.name = &"profile";
-    column.type = ::poseidon::mysql_column_blob;
-    column.nullable = true;
-    table.columns.emplace_back(column);
-
-    column.clear();
-    column.name = &"whole";
-    column.type = ::poseidon::mysql_column_blob;
-    column.nullable = true;
-    table.columns.emplace_back(column);
-
-    ::poseidon::MySQL_Table_Index index;
-    index.name = &"PRIMARY";
-    index.type = ::poseidon::mysql_index_unique;
-    index.columns.emplace_back(&"roid");
-    table.indexes.emplace_back(index);
-
-    index.clear();
-    index.name = &"username";
-    index.type = ::poseidon::mysql_index_multi;
-    index.columns.emplace_back(&"username");
-    table.indexes.emplace_back(index);
-
-    index.clear();
-    index.name = &"nickname";
-    index.type = ::poseidon::mysql_index_multi;
-    index.columns.emplace_back(&"nickname");
-    table.indexes.emplace_back(index);
-
-    // This is in the default database.
-    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector, table);
-    ::poseidon::task_scheduler.launch(task);
-    fiber.yield(task);
-    POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
-  }
-
-void
 do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
                                  ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
@@ -273,6 +199,80 @@ do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
     POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
 
     resp_data.open_object().try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
+  {
+    ::poseidon::MySQL_Table_Structure table;
+    table.name = &"role";
+    table.engine = ::poseidon::mysql_engine_innodb;
+
+    ::poseidon::MySQL_Table_Column column;
+    column.name = &"roid";
+    column.type = ::poseidon::mysql_column_int64;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"username";
+    column.type = ::poseidon::mysql_column_varchar;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"update_time";
+    column.type = ::poseidon::mysql_column_datetime;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"nickname";
+    column.type = ::poseidon::mysql_column_varchar;
+    column.nullable = false;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"avatar";
+    column.type = ::poseidon::mysql_column_blob;
+    column.nullable = true;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"profile";
+    column.type = ::poseidon::mysql_column_blob;
+    column.nullable = true;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"whole";
+    column.type = ::poseidon::mysql_column_blob;
+    column.nullable = true;
+    table.columns.emplace_back(column);
+
+    ::poseidon::MySQL_Table_Index index;
+    index.name = &"PRIMARY";
+    index.type = ::poseidon::mysql_index_unique;
+    index.columns.emplace_back(&"roid");
+    table.indexes.emplace_back(index);
+
+    index.clear();
+    index.name = &"username";
+    index.type = ::poseidon::mysql_index_multi;
+    index.columns.emplace_back(&"username");
+    table.indexes.emplace_back(index);
+
+    index.clear();
+    index.name = &"nickname";
+    index.type = ::poseidon::mysql_index_multi;
+    index.columns.emplace_back(&"nickname");
+    table.indexes.emplace_back(index);
+
+    // This is in the default database.
+    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector, table);
+    ::poseidon::task_scheduler.launch(task);
+    fiber.yield(task);
+    POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
   }
 
 void
