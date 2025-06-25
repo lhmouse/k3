@@ -1,11 +1,11 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_AGENT_DATA_ROLE_INFORMATION_
-#define K32_AGENT_DATA_ROLE_INFORMATION_
+#ifndef K32_MONITOR_DATA_ROLE_INFORMATION_
+#define K32_MONITOR_DATA_ROLE_INFORMATION_
 
 #include "../../fwd.hpp"
-namespace k32::agent {
+namespace k32::monitor {
 
 struct Role_Information
   {
@@ -16,6 +16,7 @@ struct Role_Information
     cow_string avatar;
     cow_string profile;
     cow_string whole;
+    ::poseidon::UUID monitor_service_uuid;
 
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     Role_Information() noexcept = default;
@@ -31,5 +32,5 @@ struct Role_Information
 
 extern const Role_Information& null_role_information;
 
-}  // namespace k32::agent
+}  // namespace k32::monitor
 #endif

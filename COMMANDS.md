@@ -1,12 +1,17 @@
 # Table of Contents
 
 1. [General Status Codes](#general-status-codes)
-2. [Agent Service Commands](#agent-service-commands)
+2. [Agent Commands](#agent-commands)
    1. [`/user/ban/set`](#userbanset)
    2. [`/user/ban/lift`](#userbanlift)
    3. [`/user/kick`](#userkick)
    4. [`/user/nickname/acquire`](#usernicknameacquire)
    5. [`/user/nickname/release`](#usernicknamerelease)
+3. [Monitor Commands](#monitor-commands)
+   1. [`/role/new`](#rolenew)
+   2. [`/role/load`](#roleload)
+   3. [`/role/unload`](#roleunload)
+   4. [`/role/flush`](#roleflush)
 
 ## General Status Codes
 
@@ -22,7 +27,7 @@ strings:
 |`gs_nickname_not_found`     |Nickname not found in database.                |
 |`gs_nickname_length_error`  |Nickname length out of range.                  |
 
-## Agent Service Commands
+## Agent Commands
 
 ### `/user/ban/set`
 
@@ -113,5 +118,78 @@ strings:
 * Description
 
   Releases ownership of a nickname so it can be re-acquired by others.
+
+[back to table of contents](#table-of-contents)
+
+## Monitor Commands
+
+### `/role/new`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Owner of role to create.
+  - `roid` <sub>integer</sub> : Unique ID of new role.
+  - `nickname` <sub>string</sub> : Nickname of new role.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Creates a new role in the _default_ database. By design， the caller should
+  call `/user/nickname/acquire` to acquire ownership of `nickname`, then pass
+  `serial` as `roid`. After a role is created, it will be loaded into Redis
+  automatically.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/load`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role to load.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Loads a role from the _default_ database into Redis. The monitor keeps track
+  of roles that have been loaded by itself, and periodically writes snapshots
+  from Redis back into the database.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/unload`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role to unload.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Writes a role back into the database and unloads it from Redis.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/flush`
+
+* Request Parameters
+
+  - <i>None</i>
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Writes all roles back into the database.
 
 [back to table of contents](#table-of-contents)

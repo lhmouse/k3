@@ -1,12 +1,12 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
 
-#ifndef K32_AGENT_STATIC_ROLE_SERVICE_
-#define K32_AGENT_STATIC_ROLE_SERVICE_
+#ifndef K32_MONITOR_STATIC_ROLE_SERVICE_
+#define K32_MONITOR_STATIC_ROLE_SERVICE_
 
 #include "../../fwd.hpp"
 #include "../data/role_information.hpp"
-namespace k32::agent {
+namespace k32::monitor {
 
 class Role_Service
   {
@@ -31,5 +31,5 @@ class Role_Service
     reload(const ::poseidon::Config_File& conf_file);
   };
 
-}  // namespace k32::agent
+}  // namespace k32::monitor
 #endif

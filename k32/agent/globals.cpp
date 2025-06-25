@@ -9,7 +9,6 @@ namespace k32::agent {
 Clock& clock = *new Clock;
 Service& service = *new Service;
 User_Service& user_service = *new User_Service;
-Role_Service& role_service = *new Role_Service;
 
 }  // namespace k32::agent
 
@@ -23,7 +22,6 @@ poseidon_module_main(void)
     conf_file.reload(&"k32.conf");
     service.reload(conf_file, &"agent");
     user_service.reload(conf_file);
-    role_service.reload(conf_file);
 
 /*TEST*/
 

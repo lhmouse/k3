@@ -13,7 +13,7 @@
 #include <poseidon/static/task_scheduler.hpp>
 #include <poseidon/fiber/mysql_query_future.hpp>
 #include <poseidon/static/mysql_connector.hpp>
-namespace k32::agent {
+namespace k32::monitor {
 namespace {
 
 struct Implementation
@@ -157,29 +157,29 @@ reload(const ::poseidon::Config_File& conf_file)
     ::asteria::V_array nickname_length_limits;
     ::asteria::V_integer nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
 
-    // `agent.max_number_of_roles_per_user`
-    auto conf_value = conf_file.query(&"agent.max_number_of_roles_per_user");
+    // `monitor.max_number_of_roles_per_user`
+    auto conf_value = conf_file.query(&"monitor.max_number_of_roles_per_user");
     if(conf_value.is_integer())
       max_number_of_roles_per_user = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `agent.max_number_of_roles_per_user`: expecting an `integer`, got `$1`",
+          "Invalid `monitor.max_number_of_roles_per_user`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     if((max_number_of_roles_per_user < 0) || (max_number_of_roles_per_user > 9999))
       POSEIDON_THROW((
-          "Invalid `agent.max_number_of_roles_per_user`: value `$1` out of range",
+          "Invalid `monitor.max_number_of_roles_per_user`: value `$1` out of range",
           "[in configuration file '$2']"),
           max_number_of_roles_per_user, conf_file.path());
 
-    // `agent.nickname_length_limits`
-    conf_value = conf_file.query(&"agent.nickname_length_limits");
+    // `monitor.nickname_length_limits`
+    conf_value = conf_file.query(&"monitor.nickname_length_limits");
     if(conf_value.is_array())
       nickname_length_limits = conf_value.as_array();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits`: expecting an `array`, got `$1`",
+          "Invalid `monitor.nickname_length_limits`: expecting an `array`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
@@ -189,20 +189,20 @@ reload(const ::poseidon::Config_File& conf_file)
     }
     catch(...) {
       POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits`: expecting an `array` of two `integer`s, got `$1`",
+          "Invalid `monitor.nickname_length_limits`: expecting an `array` of two `integer`s, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
     }
 
     if((nickname_length_limits_0 < 1) || (nickname_length_limits_0 > 255))
       POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits[0]`: value `$1` out of range",
+          "Invalid `monitor.nickname_length_limits[0]`: value `$1` out of range",
           "[in configuration file '$2']"),
           nickname_length_limits_0, conf_file.path());
 
     if((nickname_length_limits_1 < 1) || (nickname_length_limits_1 > 255))
       POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits[1]`: value `$1` out of range",
+          "Invalid `monitor.nickname_length_limits[1]`: value `$1` out of range",
           "[in configuration file '$2']"),
           nickname_length_limits_1, conf_file.path());
 
@@ -236,4 +236,4 @@ reload(const ::poseidon::Config_File& conf_file)
             }));
   }
 
-}  // namespace k32::agent
+}  // namespace k32::monitor
