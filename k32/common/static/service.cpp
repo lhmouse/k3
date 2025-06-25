@@ -825,6 +825,7 @@ launch(const shptr<Service_Future>& req)
     if(!this->m_impl)
       POSEIDON_THROW(("Service not initialized"));
 
+    // Collect target services.
     req->m_responses.clear();
     if(req->m_target_service_uuid == loopback_uuid) {
       // Add myself.
@@ -861,89 +862,82 @@ launch(const shptr<Service_Future>& req)
     }
 
     if(req->m_responses.size() == 0)
-      POSEIDON_LOG_ERROR((
-          "No service configured: service_uuid = `$1`, service_type = `$2`"),
-          req->m_target_service_uuid, req->m_target_service_type);
+      req->mf_abstract_future_complete();
+    else
+      for(size_t k = 0;  k != req->m_responses.size();  ++k) {
+        auto& resp = req->m_responses.mut(k);
+        resp.request_uuid = ::poseidon::UUID::random();
 
-    bool something_sent = false;
-    for(size_t k = 0;  k != req->m_responses.size();  ++k) {
-      auto& resp = req->m_responses.mut(k);
-      resp.request_uuid = ::poseidon::UUID::random();
+        if(resp.service_uuid == this->m_impl->service_uuid) {
+          // This is myself, so there's no need to send it over network.
+          auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req, resp.request_uuid,
+                                                    req->m_opcode, req->m_request_data);
+          ::poseidon::fiber_scheduler.launch(fiber3);
+        }
+        else {
+          // Send the request asynchronously.
+          const auto& srv = this->m_impl->remote_services_by_uuid.at(resp.service_uuid);
+          auto& conn = this->m_impl->remote_connections.open(srv.service_uuid);
+          auto session = conn.weak_session.lock();
+          if(!session) {
+            // Find an address to connect to. If the address is loopback, it shall
+            // only be accepted if the target service is on the same machine, and in
+            // this case it takes precedence over a private address.
+            const ::poseidon::IPv6_Address* use_addr = nullptr;
+            for(const auto& addr : srv.addresses)
+              if(addr.classify() != ::poseidon::ip_address_loopback)
+                use_addr = &addr;
+              else if(srv.hostname == ::poseidon::hostname) {
+                use_addr = &addr;
+                break;
+              }
 
-      if(resp.service_uuid == this->m_impl->service_uuid) {
-        // This is myself, so there's no need to send it over network.
-        auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req, resp.request_uuid,
-                                                  req->m_opcode, req->m_request_data);
-        ::poseidon::fiber_scheduler.launch(fiber3);
-      }
-      else {
-        // Send the request asynchronously.
-        const auto& srv = this->m_impl->remote_services_by_uuid.at(resp.service_uuid);
-        auto& conn = this->m_impl->remote_connections.open(srv.service_uuid);
-        auto session = conn.weak_session.lock();
-        if(!session) {
-          // Find an address to connect to. If the address is loopback, it shall
-          // only be accepted if the target service is on the same machine, and in
-          // this case it takes precedence over a private address.
-          const ::poseidon::IPv6_Address* use_addr = nullptr;
-          for(const auto& addr : srv.addresses)
-            if(addr.classify() != ::poseidon::ip_address_loopback)
-              use_addr = &addr;
-            else if(srv.hostname == ::poseidon::hostname) {
-              use_addr = &addr;
+            if(!use_addr) {
+              POSEIDON_LOG_ERROR(("No viable address to service `$1`"), srv.service_uuid);
+              resp.error = &"No viable address";
+              continue;
+            }
+
+            int64_t now = ::time(nullptr);
+            char auth_pw[33];
+            do_salt_password(auth_pw, srv.service_uuid, now, this->m_impl->application_password);
+
+            session = this->m_impl->private_client.connect(
+                 sformat("$1/?srv=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
+                 ::poseidon::Easy_WS_Client::callback_type(
+                    [weak_impl = wkptr<Implementation>(this->m_impl)]
+                       (const shptr<::poseidon::WS_Client_Session>& session2,
+                        ::poseidon::Abstract_Fiber& /*fiber*/,
+                        ::poseidon::Easy_WS_Event event, linear_buffer&& data)
+                      {
+                        if(const auto impl = weak_impl.lock())
+                          do_client_ws_callback(impl, session2, event, move(data));
+                      }));
+
+            session->mut_session_user_data() = srv.service_uuid.to_string();
+            conn.weak_session = session;
+            POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
+          }
+
+          // Add this future to the waiting list.
+          size_t index = SIZE_MAX;
+          for(size_t b = 0;  b != conn.weak_futures.size();  ++b)
+            if(conn.weak_futures[b].first.expired()) {
+              index = b;
               break;
             }
 
-          if(!use_addr) {
-            POSEIDON_LOG_ERROR(("No viable address to service `$1`"), srv.service_uuid);
-            resp.error = &"No viable address";
-            continue;
-          }
+          if(index == SIZE_MAX)
+            conn.weak_futures.emplace_back(req, resp.request_uuid);
+          else
+            conn.weak_futures.mut(index) = ::std::make_pair(req, resp.request_uuid);
 
-          int64_t now = ::time(nullptr);
-          char auth_pw[33];
-          do_salt_password(auth_pw, srv.service_uuid, now, this->m_impl->application_password);
-
-          session = this->m_impl->private_client.connect(
-               sformat("$1/?srv=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
-               ::poseidon::Easy_WS_Client::callback_type(
-                  [weak_impl = wkptr<Implementation>(this->m_impl)]
-                     (const shptr<::poseidon::WS_Client_Session>& session2,
-                      ::poseidon::Abstract_Fiber& /*fiber*/,
-                      ::poseidon::Easy_WS_Event event, linear_buffer&& data)
-                    {
-                      if(const auto impl = weak_impl.lock())
-                        do_client_ws_callback(impl, session2, event, move(data));
-                    }));
-
-          session->mut_session_user_data() = srv.service_uuid.to_string();
-          conn.weak_session = session;
-          POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
+          // Send and wait.
+          auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
+                                                   req->m_opcode, req->m_request_data);
+          ::poseidon::task_scheduler.launch(task2);
         }
-
-        // Add this future to the waiting list.
-        size_t index = SIZE_MAX;
-        for(size_t b = 0;  b != conn.weak_futures.size();  ++b)
-          if(conn.weak_futures[b].first.expired()) {
-            index = b;
-            break;
-          }
-
-        if(index == SIZE_MAX)
-          conn.weak_futures.emplace_back(req, resp.request_uuid);
-        else
-          conn.weak_futures.mut(index) = ::std::make_pair(req, resp.request_uuid);
-
-        auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
-                                                 req->m_opcode, req->m_request_data);
-        ::poseidon::task_scheduler.launch(task2);
       }
-
-      something_sent = true;
-    }
-
-    if(!something_sent)
-      req->mf_abstract_future_complete();
   }
 
 }  // namespace k32

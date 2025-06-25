@@ -177,18 +177,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
               if(pval && pval->is_string()) {
                 ::poseidon::UUID other_service_uuid(pval->as_string());
                 if(other_service_uuid != service.service_uuid()) {
-                  POSEIDON_LOG_INFO(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
-                  auto remote = service.find_remote_service(other_service_uuid);
-                  if(remote) {
-                    // Kick this user from the other service.
-                    ::taxon::V_object srv_args;
-                    srv_args.try_emplace(&"username", uinfo.username.rdstr());
-                    srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
+                  // Kick this user from the other service.
+                  ::taxon::V_object srv_args;
+                  srv_args.try_emplace(&"username", uinfo.username.rdstr());
+                  srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                    auto srv_q = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", srv_args);
-                    service.launch(srv_q);
-                    fiber.yield(srv_q);
-                  }
+                  auto srv_q = new_sh<Service_Future>(other_service_uuid, &"/user/kick", srv_args);
+                  service.launch(srv_q);
+                  fiber.yield(srv_q);
                 }
               }
             }
