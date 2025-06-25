@@ -41,10 +41,10 @@ struct Implementation
     cow_dictionary<Service::handler_type> handlers;
 
     ::taxon::Value service_data;
-    ::poseidon::Easy_WS_Server private_server;
-    ::poseidon::Easy_WS_Client private_client;
     ::poseidon::Easy_Timer publish_timer;
     ::poseidon::Easy_Timer subscribe_timer;
+    ::poseidon::Easy_WS_Server private_server;
+    ::poseidon::Easy_WS_Client private_client;
 
     // remote data from redis
     cow_uuid_dictionary<Service_Information> remote_services_by_uuid;

@@ -352,12 +352,12 @@ reload(const ::poseidon::Config_File& conf_file)
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->role_cache_ttl = seconds(role_cache_ttl);
 
-    // Restart the service.
-    this->m_impl->service_timer.start(300ms, 31001ms, bindw(this->m_impl, do_service_timer_callback));
-
     // Set up request handlers.
     service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_service_nickname_acquire));
     service.set_handler(&"/nickname/release", bindw(this->m_impl, do_service_nickname_release));
+
+    // Restart the service.
+    this->m_impl->service_timer.start(300ms, 31001ms, bindw(this->m_impl, do_service_timer_callback));
   }
 
 }  // namespace k32::monitor

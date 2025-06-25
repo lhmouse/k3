@@ -39,8 +39,8 @@ struct Implementation
     cow_dictionary<User_Service::ws_authenticator_type> ws_authenticators;
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
-    ::poseidon::Easy_HWS_Server user_server;
     ::poseidon::Easy_Timer service_timer;
+    ::poseidon::Easy_HWS_Server user_server;
 
     // connections from clients
     bool db_ready = false;
@@ -919,8 +919,8 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_service_user_ban_lift));
 
     // Restart the service.
-    this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
     this->m_impl->service_timer.start(1500ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
   }
 
 }  // namespace k32::agent
