@@ -276,8 +276,8 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_role_service_timer_callback(const shptr<Implementation>& impl,
-                               ::poseidon::Abstract_Fiber& fiber, steady_time now)
+do_service_timer_callback(const shptr<Implementation>& impl,
+                          ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
       // Check tables.
@@ -417,7 +417,7 @@ reload(const ::poseidon::Config_File& conf_file)
               ::poseidon::Abstract_Fiber& fiber, steady_time now)
             {
               if(const auto impl = weak_impl.lock())
-                do_role_service_timer_callback(impl, fiber, now);
+                do_service_timer_callback(impl, fiber, now);
             }));
   }
 
