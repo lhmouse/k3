@@ -21,7 +21,7 @@ struct Implementation
   {
     seconds role_cache_ttl;
 
-    ::poseidon::Easy_Timer role_service_timer;
+    ::poseidon::Easy_Timer service_timer;
 
     // remote data from mysql
     bool db_ready = false;
@@ -371,8 +371,8 @@ reload(const ::poseidon::Config_File& conf_file)
             }));
 
     // Restart the service.
-    this->m_impl->role_service_timer.start(
-        1100ms, 31001ms,
+    this->m_impl->service_timer.start(
+        300ms, 31001ms,
         ::poseidon::Easy_Timer::callback_type(
           [weak_impl = wkptr<Implementation>(this->m_impl)]
              (const shptr<::poseidon::Abstract_Timer>& /*timer*/,

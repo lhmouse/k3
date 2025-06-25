@@ -40,7 +40,7 @@ struct Implementation
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     ::poseidon::Easy_HWS_Server user_server;
-    ::poseidon::Easy_Timer user_service_timer;
+    ::poseidon::Easy_Timer service_timer;
 
     // connections from clients
     bool db_ready = false;
@@ -955,8 +955,8 @@ reload(const ::poseidon::Config_File& conf_file)
                 do_server_ws_callback(impl, session, fiber, event, move(data));
             }));
 
-    this->m_impl->user_service_timer.start(
-        1000ms, 7001ms,
+    this->m_impl->service_timer.start(
+        1500ms, 7001ms,
         ::poseidon::Easy_Timer::callback_type(
           [weak_impl = wkptr<Implementation>(this->m_impl)]
              (const shptr<::poseidon::Abstract_Timer>& /*timer*/,
