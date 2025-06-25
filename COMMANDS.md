@@ -33,12 +33,14 @@ strings:
 
 * Response Parameters
 
-  - `status` <sub>string</sub> : General status code.
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
 
 * Description
 
   Sets a ban on a user until a given time point. If the user is online, they are
   kicked with `reason`.
+
+[back to table of contents](#table-of-contents)
 
 ### `/user/ban/lift`
 
@@ -48,11 +50,13 @@ strings:
 
 * Response Parameters
 
-  - `status` <sub>string</sub> : General status code.
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
 
 * Description
 
   Lifts a ban on a user.
+
+[back to table of contents](#table-of-contents)
 
 ### `/user/kick`
 
@@ -64,13 +68,15 @@ strings:
 
 * Response Parameters
 
-  - `status` <sub>string</sub> : General status code.
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
 
 * Description
 
   Terminates the connection from a user, by sending a WebSocket closure
   notification of `ws_status` and `reason`. The default value for `ws_status` is
   `1008` (_Policy Violation_).
+
+[back to table of contents](#table-of-contents)
 
 ### `/user/nickname/acquire`
 
@@ -81,7 +87,7 @@ strings:
 
 * Response Parameters
 
-  - `status` <sub>string</sub> : General status code.
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
   - `serial` <sub>integer, optional</sub> : Serial number of new nickname.
 
 * Description
@@ -92,6 +98,8 @@ strings:
   number is returned. If the nickname already exists under a different username,
   no serial number is returned.
 
+[back to table of contents](#table-of-contents)
+
 ### `/user/nickname/release`
 
 * Request Parameters
@@ -100,8 +108,10 @@ strings:
 
 * Response Parameters
 
-  - `status` <sub>string</sub> : General status code.
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
 
 * Description
 
   Releases ownership of a nickname so it can be re-acquired by others.
+
+[back to table of contents](#table-of-contents)
