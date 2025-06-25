@@ -31,7 +31,7 @@ strings:
 
 * Response Parameters
 
-  - _None_
+  - `status` <sub>string</sub> : General status code.
 
 * Description
 
