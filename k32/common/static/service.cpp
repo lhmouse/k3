@@ -99,6 +99,9 @@ void
 do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::UUID& request_uuid,
                        const ::taxon::Value& response_data, const cow_string& error)
   {
+    if(error != "")
+      POSEIDON_LOG_ERROR(("Received service error: $1"), error);
+
     auto req = weak_req.lock();
     if(!req)
       return;
