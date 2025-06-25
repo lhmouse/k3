@@ -170,10 +170,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           if(task2->result().is_string()) {
             // Parse previous data on Redis. If it is not my service UUID, then
             // kick the user on that service.
-            ::taxon::Parser_Context pctx;
-            redis_uinfo.parse_with(pctx, task2->result().as_string());
-            if(pctx.error || !redis_uinfo.is_object())
-              POSEIDON_LOG_WARN(("Could not parse user information from Redis: $1"), pctx.error);
+            if(!redis_uinfo.parse(task2->result().as_string()) || !redis_uinfo.is_object())
+              POSEIDON_LOG_FATAL(("Could not parse user information: $1"), task2->result().as_string());
             else {
               auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
               if(pval && pval->is_string()) {
@@ -230,11 +228,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
 
           tinybuf_ln buf(move(data));
-          ::taxon::Parser_Context pctx;
           ::taxon::Value root;
-          root.parse_with(pctx, buf, ::taxon::option_json_mode);
-          if(pctx.error || !root.is_object()) {
-            POSEIDON_LOG_ERROR(("Invalid JSON object from `$1`"), session->remote_address());
+          if(!root.parse(buf) || !root.is_object()) {
+            POSEIDON_LOG_WARN(("Invalid JSON object from `$1`"), session->remote_address());
             session->ws_shut_down(::poseidon::ws_status_not_acceptable);
             return;
           }
