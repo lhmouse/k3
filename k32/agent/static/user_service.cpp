@@ -202,7 +202,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           // Find my roles.
           static constexpr char select_avatar_from_role[] =
               R"!!!(
-                SELECT `avatar`
+                SELECT `roid`,
+                       `avatar`
                   FROM `role`
                   WHERE `username` = ?
               )!!!";
@@ -216,11 +217,10 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           fiber.yield(task1);
 
           ::taxon::V_array avatar_list;
-          for(const auto& row : task1->result_rows())
-            if(!avatar_list.emplace_back().parse(row.at(0).as_blob()))
-              POSEIDON_THROW(("Could not parse role avatar: $1"), row.at(0));
-
-          uinfo.number_of_roles = static_cast<uint32_t>(avatar_list.size());
+          for(const auto& row : task1->result_rows()) {
+            uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`,
+            POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        `avatar`
+          }
 
           // Send server and role information to client.
           ::taxon::V_object welcome;
