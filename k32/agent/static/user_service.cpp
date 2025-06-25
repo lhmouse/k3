@@ -448,7 +448,7 @@ do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
 
     // This is in the user database.
     auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
-                           ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
+                              ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
     ::poseidon::task_scheduler.launch(task);
     fiber.yield(task);
     POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
@@ -500,7 +500,7 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
 
     // This is in the user database.
     auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
-                           ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
+                              ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
     ::poseidon::task_scheduler.launch(task);
     fiber.yield(task);
     POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);

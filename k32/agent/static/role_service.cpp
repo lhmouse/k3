@@ -96,8 +96,7 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
     table.indexes.emplace_back(index);
 
     // This is in the default database.
-    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
-                                                             table);
+    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector, table);
     ::poseidon::task_scheduler.launch(task);
     fiber.yield(task);
     POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
