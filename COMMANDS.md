@@ -5,13 +5,13 @@
    1. [`/user/ban/set`](#userbanset)
    2. [`/user/ban/lift`](#userbanlift)
    3. [`/user/kick`](#userkick)
-   4. [`/user/nickname/acquire`](#usernicknameacquire)
-   5. [`/user/nickname/release`](#usernicknamerelease)
 3. [Monitor Commands](#monitor-commands)
-   1. [`/role/new`](#rolenew)
-   2. [`/role/load`](#roleload)
-   3. [`/role/unload`](#roleunload)
-   4. [`/role/flush`](#roleflush)
+   1. [`/nickname/acquire`](#nicknameacquire)
+   2. [`/nickname/release`](#nicknamerelease)
+   3. [`/role/new`](#rolenew)
+   4. [`/role/load`](#roleload)
+   5. [`/role/unload`](#roleunload)
+   6. [`/role/flush`](#roleflush)
 
 ## General Status Codes
 
@@ -83,7 +83,9 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/user/nickname/acquire`
+## Monitor Commands
+
+### `/nickname/acquire`
 
 * Request Parameters
 
@@ -105,7 +107,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/user/nickname/release`
+### `/nickname/release`
 
 * Request Parameters
 
@@ -120,8 +122,6 @@ strings:
   Releases ownership of a nickname so it can be re-acquired by others.
 
 [back to table of contents](#table-of-contents)
-
-## Monitor Commands
 
 ### `/role/new`
 
