@@ -837,7 +837,11 @@ launch(const shptr<Service_Future>& req)
       POSEIDON_THROW(("Service not initialized"));
 
     req->m_responses.clear();
-    if(req->m_target_service_uuid == multicast_uuid) {
+    if(req->m_target_service_uuid == loopback_uuid) {
+      // Add myself.
+      req->m_responses.emplace_back().service_uuid = this->m_impl->service_uuid;
+    }
+    else if(req->m_target_service_uuid == multicast_uuid) {
       // Add all matching services.
       auto psv = this->m_impl->remote_services_by_type.ptr(req->m_target_service_type);
       if(psv && !psv->empty()) {

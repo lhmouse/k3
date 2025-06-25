@@ -85,6 +85,7 @@ class Service_Future
 extern const ::poseidon::UUID multicast_uuid;
 extern const ::poseidon::UUID randomcast_uuid;
 extern const ::poseidon::UUID broadcast_uuid;
+extern const ::poseidon::UUID loopback_uuid;
 
 inline
 Service_Future::multicast_selector_t
@@ -104,20 +105,6 @@ randomcast(const cow_string& target_service_type)
     selector.target_service_uuid = randomcast_uuid;
     selector.target_service_type = target_service_type;
     return selector;
-  }
-
-inline
-const ::poseidon::UUID&
-unicast(const ::poseidon::UUID& target_service_uuid) noexcept
-  {
-    return target_service_uuid;
-  }
-
-inline
-const ::poseidon::UUID&
-broadcast() noexcept
-  {
-    return broadcast_uuid;
   }
 
 }  // namespace k32

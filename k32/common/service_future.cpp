@@ -6,9 +6,10 @@
 #include "service_future.hpp"
 namespace k32 {
 
-constexpr ::poseidon::UUID multicast_uuid = POSEIDON_UUID(c8585663,4c4f,11f0,b169,5254005015d2);
-constexpr ::poseidon::UUID randomcast_uuid = POSEIDON_UUID(c8585775,4c4f,11f0,9b95,5254005015d2);
-constexpr ::poseidon::UUID broadcast_uuid = POSEIDON_UUID(c85857a5,4c4f,11f0,b5da,5254005015d2);
+constexpr ::poseidon::UUID multicast_uuid   = POSEIDON_UUID(b2b697c4,23d2,43f2,9704,5a086fbae5f2);
+constexpr ::poseidon::UUID randomcast_uuid  = POSEIDON_UUID(e958b64a,9481,4ccd,a04b,9618db2f0ce0);
+constexpr ::poseidon::UUID broadcast_uuid   = POSEIDON_UUID(9223dadc,db13,4862,9f05,cd24c201a54e);
+constexpr ::poseidon::UUID loopback_uuid    = POSEIDON_UUID(19e9f082,d46d,48e7,a2f7,760c1ed5c8fe);
 
 Service_Future::
 Service_Future(multicast_selector_t&& selector, const phcow_string& opcode,
