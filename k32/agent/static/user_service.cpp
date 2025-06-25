@@ -204,27 +204,32 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
 
           // Find my roles.
-          auto srv_q = new_sh<Service_Future>(loopback_uuid, &"/role/db_list_by_user", uinfo.username.rdstr());
-          service.launch(srv_q);
-          fiber.yield(srv_q);
+          static constexpr char select_from_role[] =
+              R"!!!(
+                SELECT `avatar`
+                  FROM `role`
+                  WHERE `username` = ?
+              )!!!";
+
+          sql_args.clear();
+          sql_args.emplace_back(uinfo.username.rdstr());       // WHERE `username` = ?
+
+          task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                         &select_from_role, sql_args);
+          ::poseidon::task_scheduler.launch(task1);
+          fiber.yield(task1);
+
+          ::taxon::V_array avatar_list;
+          for(const auto& row : task1->result_rows())
+            if(!avatar_list.emplace_back().parse(row.at(0).as_blob()))
+              POSEIDON_THROW(("Could not parse role avatar: $1"), row.at(0));
+
+          uinfo.number_of_roles = static_cast<uint32_t>(avatar_list.size());
 
           // Send server and role information to client.
           ::taxon::V_object welcome;
-          welcome.open(&"avatar_list").open_array();
-          for(const auto& resp : srv_q->responses()) {
-            auto avatar_list = resp.response_data.as_object().at(&"avatar_list").as_array();
-            uinfo.number_of_roles = static_cast<uint32_t>(avatar_list.size());
-
-            ::taxon::Value avatar;
-            for(const auto& avatar_blob : avatar_list)
-              if(!avatar.parse(avatar_blob.as_string()) || !avatar.is_object())
-                POSEIDON_LOG_FATAL(("Could not parse role avatar: $1"), avatar_blob);
-              else
-                welcome.open(&"avatar_list").open_array().emplace_back(avatar);
-          }
-
-          welcome.try_emplace(&"virtual_time",
-              time_point_cast<duration<double>>(clock.get_system_time()).time_since_epoch().count());
+          welcome.try_emplace(&"virtual_time", clock.get_double_time_t());
+          welcome.try_emplace(&"avatar_list", avatar_list);
 
           tinybuf_ln buf;
           ::taxon::Value(welcome).print_to(buf, ::taxon::option_json_mode);

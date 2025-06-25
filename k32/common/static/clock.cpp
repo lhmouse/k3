@@ -33,26 +33,34 @@ get_time_t() const noexcept
     return ts.tv_sec + this->m_offset.count();
   }
 
+double
+Clock::
+get_double_time_t() const noexcept
+  {
+    struct timespec ts;
+    ::clock_gettime(CLOCK_REALTIME, &ts);
+    return static_cast<double>(ts.tv_sec + this->m_offset.count())
+           + static_cast<double>(ts.tv_nsec) * 1.0e-9;
+  }
+
 system_time
 Clock::
 get_system_time() const noexcept
   {
     struct timespec ts;
     ::clock_gettime(CLOCK_REALTIME, &ts);
-    auto t0 = system_clock::from_time_t(ts.tv_sec) + nanoseconds(ts.tv_nsec);
-    return t0 + this->m_offset;
+    return system_clock::from_time_t(ts.tv_sec) + this->m_offset
+           + nanoseconds(ts.tv_nsec);
   }
 
 ::poseidon::DateTime
 Clock::
 get_date_time() const noexcept
   {
-    ::poseidon::DateTime dt;
     struct timespec ts;
     ::clock_gettime(CLOCK_REALTIME, &ts);
-    auto t0 = system_clock::from_time_t(ts.tv_sec) + nanoseconds(ts.tv_nsec);
-    dt.set_system_time(t0 + this->m_offset);
-    return dt;
+    return system_clock::from_time_t(ts.tv_sec) + this->m_offset
+           + nanoseconds(ts.tv_nsec);
   }
 
 Clock::system_time_fields

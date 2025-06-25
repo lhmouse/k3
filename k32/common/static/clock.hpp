@@ -52,6 +52,9 @@ class Clock
     ::time_t
     get_time_t() const noexcept;
 
+    double
+    get_double_time_t() const noexcept;
+
     system_time
     get_system_time() const noexcept;
 

@@ -117,44 +117,6 @@ do_role_service_timer_callback(const shptr<Implementation>& impl,
 ////////////////////////??
   }
 
-void
-do_service_role_db_list_by_user(::poseidon::Abstract_Fiber& fiber,
-                                ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-  {
-    phcow_string username;
-
-    if(req_data.is_string())
-      username = req_data.as_string();
-    else
-      for(const auto& r : req_data.as_object())
-        if(r.first == &"username")
-          username = r.second.as_string();
-
-    ////////////////////////////////////////////////////////////
-    //
-    static constexpr char select_from_role[] =
-        R"!!!(
-          SELECT `avatar`
-            FROM `role`
-            WHERE `username` = ?
-        )!!!";
-
-    cow_vector<::poseidon::MySQL_Value> sql_args;
-    sql_args.emplace_back(username.rdstr());       // WHERE `username` = ?
-
-    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                        &select_from_role, sql_args);
-    ::poseidon::task_scheduler.launch(task1);
-    fiber.yield(task1);
-
-    ::taxon::V_array avatar_list;
-    for(const auto& row : task1->result_rows())
-      avatar_list.emplace_back(row.at(0).as_blob());
-
-    resp_data.open_object().try_emplace(&"avatar_list", avatar_list);
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
-  }
-
 }  // namespace
 
 POSEIDON_HIDDEN_X_STRUCT(Role_Service,
@@ -251,16 +213,16 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
-    service.set_handler(&"/role/db_list_by_user",
-        Service::handler_type(
-          [weak_impl = wkptr<Implementation>(this->m_impl)]
-             (::poseidon::Abstract_Fiber& fiber,
-              const ::poseidon::UUID& /*req_service_uuid*/,
-              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
-            {
-              if(const auto impl = weak_impl.lock())
-                do_service_role_db_list_by_user(fiber, resp_data, move(req_data));
-            }));
+//    service.set_handler(&"/role/db_list_by_user",
+//        Service::handler_type(
+//          [weak_impl = wkptr<Implementation>(this->m_impl)]
+//             (::poseidon::Abstract_Fiber& fiber,
+//              const ::poseidon::UUID& /*req_service_uuid*/,
+//              ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+//            {
+//              if(const auto impl = weak_impl.lock())
+//                do_service_role_db_list_by_user(fiber, resp_data, move(req_data));
+//            }));
 
     // Restart the service.
     this->m_impl->role_service_timer.start(
