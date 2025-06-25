@@ -82,8 +82,8 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
-                                 ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+do_service_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
+                            ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
     phcow_string username;
@@ -160,8 +160,8 @@ do_service_user_nickname_acquire(::poseidon::Abstract_Fiber& fiber,
   }
 
 void
-do_service_user_nickname_release(::poseidon::Abstract_Fiber& fiber,
-                                 ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+do_service_nickname_release(::poseidon::Abstract_Fiber& fiber,
+                            ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
 
@@ -386,7 +386,7 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
-    service.set_handler(&"/user/nickname/acquire",
+    service.set_handler(&"/nickname/acquire",
         Service::handler_type(
           [weak_impl = wkptr<Implementation>(this->m_impl)]
              (::poseidon::Abstract_Fiber& fiber,
@@ -394,10 +394,10 @@ reload(const ::poseidon::Config_File& conf_file)
               ::taxon::Value& resp_data, ::taxon::Value&& req_data)
             {
               if(const auto impl = weak_impl.lock())
-                do_service_user_nickname_acquire(fiber, resp_data, move(req_data));
+                do_service_nickname_acquire(fiber, resp_data, move(req_data));
             }));
 
-    service.set_handler(&"/user/nickname/release",
+    service.set_handler(&"/nickname/release",
         Service::handler_type(
           [weak_impl = wkptr<Implementation>(this->m_impl)]
              (::poseidon::Abstract_Fiber& fiber,
@@ -405,7 +405,7 @@ reload(const ::poseidon::Config_File& conf_file)
               ::taxon::Value& resp_data, ::taxon::Value&& req_data)
             {
               if(const auto impl = weak_impl.lock())
-                do_service_user_nickname_release(fiber, resp_data, move(req_data));
+                do_service_nickname_release(fiber, resp_data, move(req_data));
             }));
 
     // Restart the service.
