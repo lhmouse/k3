@@ -204,7 +204,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           }
 
           // Find my roles.
-          static constexpr char select_from_role[] =
+          static constexpr char select_avatar_from_role[] =
               R"!!!(
                 SELECT `avatar`
                   FROM `role`
@@ -215,7 +215,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           sql_args.emplace_back(uinfo.username.rdstr());       // WHERE `username` = ?
 
           task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                         &select_from_role, sql_args);
+                                                         &select_avatar_from_role, sql_args);
           ::poseidon::task_scheduler.launch(task1);
           fiber.yield(task1);
 
