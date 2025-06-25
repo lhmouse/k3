@@ -185,9 +185,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
                     srv_args.try_emplace(&"username", uinfo.username.rdstr());
                     srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                    auto srv_req = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", srv_args);
-                    service.launch(srv_req);
-                    fiber.yield(srv_req);
+                    auto srv_q = new_sh<Service_Future>(remote.service_uuid, &"/user/kick", srv_args);
+                    service.launch(srv_q);
+                    fiber.yield(srv_q);
                   }
                 }
               }
@@ -202,6 +202,33 @@ do_server_ws_callback(const shptr<Implementation>& impl,
               other_session->ws_shut_down(user_ws_status_login_conflict);
             }
           }
+
+          // Find my roles.
+          auto srv_q = new_sh<Service_Future>(loopback_uuid, &"/role/db_list_by_user", uinfo.username.rdstr());
+          service.launch(srv_q);
+          fiber.yield(srv_q);
+
+          // Send server and role information to client.
+          ::taxon::V_object welcome;
+          welcome.open(&"avatar_list").open_array();
+          for(const auto& resp : srv_q->responses()) {
+            auto avatar_list = resp.response_data.as_object().at(&"avatar_list").as_array();
+            uinfo.number_of_roles = static_cast<uint32_t>(avatar_list.size());
+
+            ::taxon::Value avatar;
+            for(const auto& avatar_blob : avatar_list)
+              if(!avatar.parse(avatar_blob.as_string()) || !avatar.is_object())
+                POSEIDON_LOG_FATAL(("Could not parse role avatar: $1"), avatar_blob);
+              else
+                welcome.open(&"avatar_list").open_array().emplace_back(avatar);
+          }
+
+          welcome.try_emplace(&"virtual_time",
+              time_point_cast<duration<double>>(clock.get_system_time()).time_since_epoch().count());
+
+          tinybuf_ln buf;
+          ::taxon::Value(welcome).print_to(buf, ::taxon::option_json_mode);
+          session->ws_send(::poseidon::ws_TEXT, buf);
 
           // Set up connection.
           User_Connection_Information uconn;
@@ -279,7 +306,6 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           buf.clear_buffer();
           root.print_to(buf, ::taxon::option_json_mode);
-
           session->ws_send(::poseidon::ws_TEXT, buf);
           break;
         }
@@ -976,7 +1002,6 @@ notify_one(const phcow_string& username, const cow_string& opcode,
 
     tinybuf_ln buf;
     root.print_to(buf, ::taxon::option_json_mode);
-
     session->ws_send(::poseidon::ws_TEXT, buf);
   }
 
@@ -1005,7 +1030,6 @@ notify_some(const cow_vector<phcow_string>& username_list, const cow_string& opc
 
     tinybuf_ln buf;
     root.print_to(buf, ::taxon::option_json_mode);
-
     for(const auto& r : session_map)
       r.second->ws_send(::poseidon::ws_TEXT, buf);
   }
@@ -1028,9 +1052,8 @@ notify_all(const cow_string& opcode, const ::taxon::Value& notification_data)
 
     tinybuf_ln buf;
     root.print_to(buf, ::taxon::option_json_mode);
-
-    for(const auto& r : this->m_impl->connections)
-      if(auto session = r.second.weak_session.lock())
+    for(const auto& target_conn : this->m_impl->connections)
+      if(auto session = target_conn.second.weak_session.lock())
         session->ws_send(::poseidon::ws_TEXT, buf);
   }
 

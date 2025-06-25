@@ -5,6 +5,7 @@
    1. [`/user/kick`](#userkick)
    2. [`/user/nickname/acquire`](#usernicknameacquire)
    3. [`/user/nickname/release`](#usernicknamerelease)
+   4. [`/role/db_list_by_user`](#roledb_list_by_user)
 
 ## General Status Codes
 
@@ -17,6 +18,7 @@ strings:
 |`gs_user_not_online`        |User is not online.                            |
 |`gs_nickname_exists`        |Nickname already exists in database.           |
 |`gs_nickname_not_found`     |Nickname not found in database.                |
+|`gs_nickname_length_error`  |Nickname length out of range.                  |
 
 ## Agent Service Commands
 
@@ -71,3 +73,19 @@ strings:
 * Description
 
   Releases ownership of a nickname so it can be re-acquired by others.
+
+### `/role/db_list_by_user`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Name of owner of roles.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : General status code.
+  - `avatar_list` <sub>array</sub> : List of avatar data of roles.
+
+* Description
+
+  Searches the _default_ database for all roles owned by `username`, and returns
+  a list of avatars of such roles. The result is not cached.

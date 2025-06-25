@@ -14,6 +14,7 @@ struct User_Information
     system_time creation_time;
     system_time login_time;
     system_time logout_time;
+    uint32_t number_of_roles = 0;
 
 #ifdef K32_FRIENDS_FC7DDE3B_4A8E_11F0_BB68_5254005015D2_
     User_Information() noexcept = default;
