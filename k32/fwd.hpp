@@ -144,11 +144,24 @@ using ::asteria::sformat;
 
 using ::poseidon::chars_view;
 using ::poseidon::opt;
+using ::poseidon::vfn;
 using ::poseidon::uniptr;
-using ::poseidon::new_uni;
 using ::poseidon::shptr;
 using ::poseidon::wkptr;
+using ::poseidon::new_uni;
 using ::poseidon::new_sh;
+
+template<typename xSelf, typename xOther, typename... xArgs>
+ROCKET_ALWAYS_INLINE
+shared_function<void (xArgs...)>
+bindw(const shptr<xSelf>& obj, vfn<const shptr<xOther>&, xArgs...>* pfunc)
+  {
+    return shared_function<void (xArgs...)>(
+        [w = wkptr<xSelf>(obj), pfunc] (xArgs&&... args) {
+          if(const auto obj2 = w.lock())
+            ::std::invoke(*pfunc, obj2, forward<xArgs>(args)...);
+        });
+  }
 
 // Private WebSocket status codes to clients
 enum User_WS_Status : uint16_t

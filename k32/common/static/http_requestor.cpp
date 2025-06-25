@@ -65,6 +65,54 @@ do_remove_connection(const shptr<Implementation>& impl, const cow_string& defaul
     }
   }
 
+void
+do_client_http_callback(const shptr<Implementation>& impl,
+                        const shptr<::poseidon::HTTP_Client_Session>& session,
+                        ::poseidon::Abstract_Fiber& /*fiber*/,
+                        ::poseidon::Easy_HTTP_Event event,
+                        ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
+  {
+    switch(event)
+      {
+      case ::poseidon::easy_http_open:
+        POSEIDON_LOG_INFO(("Connected to `http://$1`"), session->http_default_host());
+        break;
+
+      case ::poseidon::easy_http_message:
+        do_set_single_response(impl, session->http_default_host(), move(ht_resp), move(data));
+        break;
+
+      case ::poseidon::easy_http_close:
+        do_remove_connection(impl, session->http_default_host());
+        POSEIDON_LOG_INFO(("Disconnected from `http://$1`"), session->http_default_host());
+        break;
+      }
+  }
+
+void
+do_client_https_callback(const shptr<Implementation>& impl,
+                         const shptr<::poseidon::HTTPS_Client_Session>& session,
+                         ::poseidon::Abstract_Fiber& /*fiber*/,
+                         ::poseidon::Easy_HTTP_Event event,
+                         ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
+  {
+    switch(event)
+      {
+      case ::poseidon::easy_http_open:
+        POSEIDON_LOG_INFO(("Connected to `https://$1`"), session->https_default_host());
+        break;
+
+      case ::poseidon::easy_http_message:
+        do_set_single_response(impl, session->https_default_host(), move(ht_resp), move(data));
+        break;
+
+      case ::poseidon::easy_http_close:
+        do_remove_connection(impl, session->https_default_host());
+        POSEIDON_LOG_INFO(("Disconnected from `https://$1`"), session->https_default_host());
+        break;
+      }
+  }
+
 }  // namespace
 
 POSEIDON_HIDDEN_X_STRUCT(HTTP_Requestor,
@@ -82,7 +130,7 @@ HTTP_Requestor::
 
 void
 HTTP_Requestor::
-enqueue(const shptr<HTTP_Future>& req)
+enqueue_weak(const shptr<HTTP_Future>& req)
   {
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
@@ -119,33 +167,8 @@ enqueue(const shptr<HTTP_Future>& req)
     if(default_port == 80) {
       http_session = conn.weak_http_session.lock();
       if(!http_session) {
-        http_session = this->m_impl->http_client.connect(
-           default_host,
-           ::poseidon::Easy_HTTP_Client::callback_type(
-            [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::HTTP_Client_Session>& session2,
-                ::poseidon::Abstract_Fiber& /*fiber*/,
-                ::poseidon::Easy_HTTP_Event event,
-                ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
-              {
-                if(const auto impl = weak_impl.lock())
-                  switch(event)
-                    {
-                    case ::poseidon::easy_http_open:
-                      POSEIDON_LOG_INFO(("Connected to `http://$1`"), session2->http_default_host());
-                      break;
-
-                    case ::poseidon::easy_http_message:
-                      do_set_single_response(impl, session2->http_default_host(), move(ht_resp), move(data));
-                      break;
-
-                    case ::poseidon::easy_http_close:
-                      do_remove_connection(impl, session2->http_default_host());
-                      POSEIDON_LOG_INFO(("Disconnected from `http://$1`"), session2->http_default_host());
-                      break;
-                    }
-              }));
-
+        http_session = this->m_impl->http_client.connect(default_host,
+                              bindw(this->m_impl, do_client_http_callback));
         conn.weak_http_session = http_session;
         POSEIDON_LOG_INFO(("Connecting to `http://$1`"), http_session->http_default_host());
       }
@@ -153,33 +176,8 @@ enqueue(const shptr<HTTP_Future>& req)
     else {
       https_session = conn.weak_https_session.lock();
       if(!https_session) {
-        https_session = this->m_impl->https_client.connect(
-           default_host,
-           ::poseidon::Easy_HTTPS_Client::callback_type(
-              [weak_impl = wkptr<Implementation>(this->m_impl)]
-               (const shptr<::poseidon::HTTPS_Client_Session>& session2,
-                ::poseidon::Abstract_Fiber& /*fiber*/,
-                ::poseidon::Easy_HTTP_Event event,
-                ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
-              {
-                if(const auto impl = weak_impl.lock())
-                  switch(event)
-                    {
-                    case ::poseidon::easy_http_open:
-                      POSEIDON_LOG_INFO(("Connected to `https://$1`"), session2->https_default_host());
-                      break;
-
-                    case ::poseidon::easy_http_message:
-                      do_set_single_response(impl, session2->https_default_host(), move(ht_resp), move(data));
-                      break;
-
-                    case ::poseidon::easy_http_close:
-                      do_remove_connection(impl, session2->https_default_host());
-                      POSEIDON_LOG_INFO(("Disconnected from `https://$1`"), session2->https_default_host());
-                      break;
-                    }
-              }));
-
+        https_session = this->m_impl->https_client.connect(default_host,
+                               bindw(this->m_impl, do_client_https_callback));
         conn.weak_https_session = https_session;
         POSEIDON_LOG_INFO(("Connecting to `https://$1`"), https_session->https_default_host());
       }

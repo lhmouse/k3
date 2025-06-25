@@ -23,10 +23,11 @@ class HTTP_Requestor
     ~HTTP_Requestor();
 
     // Enqueues an HTTP request. After this function returns, the caller shall
-    // wait on the future. If this function fails, an exception is thrown, and
-    // there is no effect.
+    // wait on the future; if the source `shptr` goes out of scope before a
+    // request is initiated, then it is silently discarded. If this function
+    // fails, an exception is thrown, and there is no effect.
     void
-    enqueue(const shptr<HTTP_Future>& req);
+    enqueue_weak(const shptr<HTTP_Future>& req);
   };
 
 }  // namespace k32
