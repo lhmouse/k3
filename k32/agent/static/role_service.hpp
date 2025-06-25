@@ -5,7 +5,7 @@
 #define K32_AGENT_STATIC_ROLE_SERVICE_
 
 #include "../../fwd.hpp"
-#include "../data/role_snapshot.hpp"
+#include "../data/role_information.hpp"
 namespace k32::agent {
 
 class Role_Service

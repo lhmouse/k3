@@ -3,13 +3,13 @@
 
 #include "../../xprecompiled.hpp"
 #define K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
-#include "role_snapshot.hpp"
+#include "role_information.hpp"
 namespace k32::agent {
 
-const Role_Snapshot& null_role_snapshot = *new Role_Snapshot();
+const Role_Information& null_role_information = *new Role_Information();
 
-Role_Snapshot::
-~Role_Snapshot()
+Role_Information::
+~Role_Information()
   {
   }
 
