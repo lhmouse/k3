@@ -19,7 +19,7 @@ namespace {
 
 struct Implementation
   {
-    seconds role_cache_ttl;
+    seconds redis_role_ttl;
 
     ::poseidon::Easy_Timer service_timer;
 
@@ -331,26 +331,26 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    ::asteria::V_integer role_cache_ttl = 300;
+    ::asteria::V_integer redis_role_ttl = 300;
 
-    // `monitor.role_cache_ttl`
-    auto conf_value = conf_file.query(&"monitor.role_cache_ttl");
+    // `monitor.redis_role_ttl`
+    auto conf_value = conf_file.query(&"monitor.redis_role_ttl");
     if(conf_value.is_integer())
-      role_cache_ttl = conf_value.as_integer();
+      redis_role_ttl = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `monitor.role_cache_ttl`: expecting an `integer`, got `$1`",
+          "Invalid `monitor.redis_role_ttl`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
-    if((role_cache_ttl < 0) || (role_cache_ttl > 99999999))
+    if((redis_role_ttl < 60) || (redis_role_ttl > 999999999))
       POSEIDON_THROW((
-          "Invalid `monitor.role_cache_ttl`: value `$1` out of range",
+          "Invalid `monitor.redis_role_ttl`: value `$1` out of range",
           "[in configuration file '$2']"),
-          role_cache_ttl, conf_file.path());
+          redis_role_ttl, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
-    this->m_impl->role_cache_ttl = seconds(role_cache_ttl);
+    this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
 
     // Set up request handlers.
     service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_slash_nickname_acquire));
