@@ -38,26 +38,22 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
     ::poseidon::MySQL_Table_Column column;
     column.name = &"nickname";
     column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"serial";
     column.type = ::poseidon::mysql_column_auto_increment;
-    column.nullable = false;
     column.default_value = 15743;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"username";
     column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"creation_time";
     column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     ::poseidon::MySQL_Table_Index index;
@@ -207,43 +203,36 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
     ::poseidon::MySQL_Table_Column column;
     column.name = &"roid";
     column.type = ::poseidon::mysql_column_int64;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"username";
     column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"nickname";
     column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"update_time";
     column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"avatar";
     column.type = ::poseidon::mysql_column_blob;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"profile";
     column.type = ::poseidon::mysql_column_blob;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"whole";
     column.type = ::poseidon::mysql_column_blob;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     ::poseidon::MySQL_Table_Index index;

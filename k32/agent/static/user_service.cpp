@@ -152,8 +152,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           for(const auto& row : task1->result_rows()) {
             uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`
             uinfo.logout_time = row.at(1).as_system_time();     //        , `logout_time`
-            if(row.at(2).is_datetime())
-              uinfo.banned_until = row.at(2).as_system_time();  //        , `banned_until`
+            uinfo.banned_until = row.at(2).as_system_time();    //        , `banned_until`
           }
 
           if(uinfo.login_time < uinfo.banned_until) {
@@ -423,37 +422,31 @@ do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
     ::poseidon::MySQL_Table_Column column;
     column.name = &"username";
     column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"creation_time";
     column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"login_address";
     column.type = ::poseidon::mysql_column_varchar;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"login_time";
     column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"logout_time";
     column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"banned_until";
     column.type = ::poseidon::mysql_column_datetime;
-    column.nullable = true;
     table.columns.emplace_back(column);
 
     ::poseidon::MySQL_Table_Index index;
