@@ -182,7 +182,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             // Parse previous data on Redis. If it is not my service UUID, then
             // kick the user on that service.
             if(!redis_uinfo.parse(task2->result().as_string()) || !redis_uinfo.is_object())
-              POSEIDON_LOG_FATAL(("Could not parse user information: $1"), task2->result().as_string());
+              POSEIDON_LOG_FATAL(("Could not parse user information: $1"), task2->result());
             else {
               auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
               if(pval && pval->is_string()) {
