@@ -90,7 +90,7 @@ strings:
 * Request Parameters
 
   - `nickname` <sub>string</sub> : Nickname to acquire.
-  - `username` <sub>string</sub> : Name of new owner.
+  - `username` <sub>string</sub> : Owner of new nickname.
 
 * Response Parameters
 

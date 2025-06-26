@@ -84,21 +84,19 @@ void
 do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
                           ::poseidon::Abstract_Fiber& fiber,
                           const ::poseidon::UUID& /*req_service_uuid*/,
-                          ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+                          ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     cow_string nickname;
     phcow_string username;
 
-    if(req_data.is_string())
-      nickname = req_data.as_string();
-    else
-      for(const auto& r : req_data.as_object())
-        if(r.first == &"nickname")
-          nickname = r.second.as_string();
-        else if(r.first == &"username")
-          username = r.second.as_string();
+    for(const auto& r : request_data.as_object())
+      if(r.first == &"nickname")
+        nickname = r.second.as_string();
+      else if(r.first == &"username")
+        username = r.second.as_string();
 
     POSEIDON_CHECK(nickname != "");
+    POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
     //
@@ -120,11 +118,6 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
                             &insert_into_nickname, sql_args);
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
-
-    if((task1->match_count() == 0) && username.empty()) {
-      resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
-      return;
-    }
 
     if(task1->match_count() == 0) {
       // In this case, we still want to return a serial if the nickname belongs
@@ -148,30 +141,30 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
       fiber.yield(task1);
 
       for(const auto& row : task1->result_rows())
-        resp_data.open_object().try_emplace(&"serial", row.at(0).as_integer());  // SELECT `serial`
+        response_data.open_object().try_emplace(&"serial", row.at(0).as_integer());  // SELECT `serial`
 
-      resp_data.open_object().try_emplace(&"status", &"gs_nickname_exists");
+      response_data.open_object().try_emplace(&"status", &"gs_nickname_conflict");
       return;
     }
 
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
 
-    resp_data.open_object().try_emplace(&"serial", static_cast<int64_t>(task1->insert_id()));
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.open_object().try_emplace(&"serial", static_cast<int64_t>(task1->insert_id()));
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
                           ::poseidon::Abstract_Fiber& fiber,
                           const ::poseidon::UUID& /*req_service_uuid*/,
-                          ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+                          ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     cow_string nickname;
 
-    if(req_data.is_string())
-      nickname = req_data.as_string();
+    if(request_data.is_string())
+      nickname = request_data.as_string();
     else
-      for(const auto& r : req_data.as_object())
+      for(const auto& r : request_data.as_object())
         if(r.first == &"nickname")
           nickname = r.second.as_string();
 
@@ -195,13 +188,13 @@ do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
     fiber.yield(task1);
 
     if(task1->match_count() == 0) {
-      resp_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
+      response_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
       return;
     }
 
     POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
 
-    resp_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -224,14 +217,14 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
     table.columns.emplace_back(column);
 
     column.clear();
-    column.name = &"update_time";
-    column.type = ::poseidon::mysql_column_datetime;
+    column.name = &"nickname";
+    column.type = ::poseidon::mysql_column_varchar;
     column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
-    column.name = &"nickname";
-    column.type = ::poseidon::mysql_column_varchar;
+    column.name = &"update_time";
+    column.type = ::poseidon::mysql_column_datetime;
     column.nullable = false;
     table.columns.emplace_back(column);
 
