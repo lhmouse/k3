@@ -575,6 +575,8 @@ do_slash_user_ban_set(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
+    ROCKET_ASSERT(impl->db_ready);
+
     static constexpr char update_user_banned_until[] =
         R"!!!(
           UPDATE `user`
@@ -626,6 +628,8 @@ do_slash_user_ban_lift(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
+    ROCKET_ASSERT(impl->db_ready);
+
     static constexpr char update_user_banned_until[] =
         R"!!!(
           UPDATE `user`
