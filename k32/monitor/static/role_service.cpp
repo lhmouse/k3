@@ -105,15 +105,15 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
     static constexpr char insert_into_nickname[] =
         R"!!!(
           INSERT IGNORE INTO `nickname`
-            SET `nickname` = ?,
-                `username` = ?,
-                `creation_time` = ?
+            SET `nickname` = ?
+                , `username` = ?
+                , `creation_time` = ?
         )!!!";
 
     cow_vector<::poseidon::MySQL_Value> sql_args;
-    sql_args.emplace_back(nickname);               // SET `nickname` = ?,
-    sql_args.emplace_back(username.rdstr());       //     `username` = ?,
-    sql_args.emplace_back(system_clock::now());    //     `login_time` = ?
+    sql_args.emplace_back(nickname);               // SET `nickname` = ?
+    sql_args.emplace_back(username.rdstr());       //     , `username` = ?
+    sql_args.emplace_back(system_clock::now());    //     , `creation_time` = ?
 
     auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                             ::poseidon::mysql_connector.allocate_tertiary_connection(),

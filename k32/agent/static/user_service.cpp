@@ -106,24 +106,24 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           static constexpr char insert_into_user[] =
               R"!!!(
                 INSERT INTO `user`
-                  SET `username` = ?,
-                      `login_address` = ?,
-                      `creation_time` = ?,
-                      `login_time` = ?,
-                      `logout_time` = ?
+                  SET `username` = ?
+                      , `login_address` = ?
+                      , `creation_time` = ?
+                      , `login_time` = ?
+                      , `logout_time` = ?
                   ON DUPLICATE KEY
-                  UPDATE `login_address` = ?,
-                         `login_time` = ?
+                  UPDATE `login_address` = ?
+                         , `login_time` = ?
               )!!!";
 
           cow_vector<::poseidon::MySQL_Value> sql_args;
-          sql_args.emplace_back(uinfo.username.rdstr());            // SET `username` = ?,
-          sql_args.emplace_back(uinfo.login_address.to_string());   //     `login_address` = ?,
-          sql_args.emplace_back(uinfo.login_time);                  //     `creation_time` = ?,
-          sql_args.emplace_back(uinfo.login_time);                  //     `login_time` = ?,
-          sql_args.emplace_back(uinfo.login_time);                  //     `logout_time` = ?
-          sql_args.emplace_back(uinfo.login_address.to_string());   // UPDATE `login_address` = ?,
-          sql_args.emplace_back(uinfo.login_time);                  //        `login_time` = ?
+          sql_args.emplace_back(uinfo.username.rdstr());            // SET `username` = ?
+          sql_args.emplace_back(uinfo.login_address.to_string());   //     , `login_address` = ?
+          sql_args.emplace_back(uinfo.login_time);                  //     , `creation_time` = ?
+          sql_args.emplace_back(uinfo.login_time);                  //     , `login_time` = ?
+          sql_args.emplace_back(uinfo.login_time);                  //     , `logout_time` = ?
+          sql_args.emplace_back(uinfo.login_address.to_string());   // UPDATE `login_address` = ?
+          sql_args.emplace_back(uinfo.login_time);                  //        , `login_time` = ?
 
           auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
                                       ::poseidon::mysql_connector.allocate_tertiary_connection(),
