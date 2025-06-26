@@ -274,6 +274,7 @@ do_format_role_information_to_string(const Role_Information& roinfo)
 
     root.open_object().try_emplace(&"@home_host", roinfo.home_host);
     root.open_object().try_emplace(&"@home_db", roinfo.home_db);
+    root.open_object().try_emplace(&"@home_srv", service.service_uuid().to_string());
 
     return root.to_string();
   }
@@ -404,7 +405,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    if(task2->result().is_string())
+    if(!task2->result().is_null())
       do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
@@ -489,7 +490,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    if(task2->result().is_string())
+    if(!task2->result().is_null())
       do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
@@ -538,7 +539,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     Role_Information roinfo;
     roinfo.roid = roid;
 
-    while(task2->result().is_string()) {
+    while(!task2->result().is_null()) {
       // Write role information to MySQL. This is a slow operation, and data may
       // change when it is being executed. Therefore we will have to verify that
       // the value on Redis is unchanged before deleting it safely.
@@ -576,6 +577,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
                                                           move(mysql_conn), &update_role, sql_args);
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
+
       POSEIDON_LOG_DEBUG(("Saved role `$1` (`$2`) to MySQL"), roinfo.roid, roinfo.nickname);
 
       static constexpr char redis_delete_if_unchanged[] =
@@ -647,46 +649,43 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     Role_Information roinfo;
     roinfo.roid = roid;
 
-    if(task2->result().is_string()) {
-      // Write a snapshot of role information to MySQL.
-      do_parse_role_information_from_string(roinfo, task2->result().as_string());
+    // Write a snapshot of role information to MySQL.
+    do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
-      auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
-      if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
-        ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
-        response_data.open_object().try_emplace(&"status", &"gs_role_foreign");
-        return;
-      }
-
-      impl->roles.insert_or_assign(roinfo.roid, roinfo);
-
-      static constexpr char update_role[] =
-          R"!!!(
-            UPDATE `role`
-              SET `username` = ?
-                  , `nickname` = ?
-                  , `update_time` = ?
-                  , `avatar` = ?
-                  , `profile` = ?
-                  , `whole` = ?
-              WHERE `roid` = ?
-          )!!!";
-
-      cow_vector<::poseidon::MySQL_Value> sql_args;
-      sql_args.emplace_back(roinfo.username.rdstr());   // SET `username` = ?
-      sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
-      sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
-      sql_args.emplace_back(roinfo.avatar);             //     , `avatar` = ?
-      sql_args.emplace_back(roinfo.profile);            //     , `profile` = ?
-      sql_args.emplace_back(roinfo.whole);              //     , `whole` = ?
-      sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
-
-      auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                          move(mysql_conn), &update_role, sql_args);
-      ::poseidon::task_scheduler.launch(task1);
-      fiber.yield(task1);
-      POSEIDON_LOG_DEBUG(("Saved role `$1` (`$2`) to MySQL"), roinfo.roid, roinfo.nickname);
+    auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
+    if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
+      ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
+      response_data.open_object().try_emplace(&"status", &"gs_role_foreign");
+      return;
     }
+
+    impl->roles.insert_or_assign(roinfo.roid, roinfo);
+
+    static constexpr char update_role[] =
+        R"!!!(
+          UPDATE `role`
+            SET `username` = ?
+                , `nickname` = ?
+                , `update_time` = ?
+                , `avatar` = ?
+                , `profile` = ?
+                , `whole` = ?
+            WHERE `roid` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(roinfo.username.rdstr());   // SET `username` = ?
+    sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
+    sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
+    sql_args.emplace_back(roinfo.avatar);             //     , `avatar` = ?
+    sql_args.emplace_back(roinfo.profile);            //     , `profile` = ?
+    sql_args.emplace_back(roinfo.whole);              //     , `whole` = ?
+    sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                        move(mysql_conn), &update_role, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
 
     POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
@@ -776,7 +775,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/role/flush", bindw(this->m_impl, do_slash_role_flush));
 
     // Restart the service.
-    this->m_impl->service_timer.start(100ms, 31001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->service_timer.start(100ms, 59001ms, bindw(this->m_impl, do_service_timer_callback));
   }
 
 }  // namespace k32::monitor
