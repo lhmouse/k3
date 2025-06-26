@@ -228,11 +228,13 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           fiber.yield(task1);
 
           ::taxon::V_array avatar_list;
-          for(const auto& row : task1->result_rows())
-            if(!row.at(1).is_null()) {
-              uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`
-              POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        , `avatar`
-            }
+          for(const auto& row : task1->result_rows()) {
+            if(row.at(1).as_blob_size() == 0)
+              continue;
+
+            uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`
+            POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        , `avatar`
+          }
 
           // Send server and role information to client.
           ::taxon::V_object welcome;

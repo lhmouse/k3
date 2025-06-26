@@ -238,19 +238,19 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
     column.clear();
     column.name = &"avatar";
     column.type = ::poseidon::mysql_column_blob;
-    column.nullable = true;
+    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"profile";
     column.type = ::poseidon::mysql_column_blob;
-    column.nullable = true;
+    column.nullable = false;
     table.columns.emplace_back(column);
 
     column.clear();
     column.name = &"whole";
     column.type = ::poseidon::mysql_column_blob;
-    column.nullable = true;
+    column.nullable = false;
     table.columns.emplace_back(column);
 
     ::poseidon::MySQL_Table_Index index;
