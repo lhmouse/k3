@@ -25,7 +25,7 @@ struct Implementation
 
     // remote data from mysql
     bool db_ready = false;
-    cow_uint64_dictionary<Role_Information> roles;
+    cow_int64_dictionary<Role_Information> roles;
   };
 
 void

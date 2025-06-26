@@ -104,8 +104,8 @@ using ::rocket::shared_function;
 
 POSEIDON_USING cow_bivector = cow_vector<pair<Ts...>>;
 POSEIDON_USING cow_dictionary = cow_hashmap<phcow_string, Ts..., phcow_string::hash>;
-POSEIDON_USING cow_uint32_dictionary = cow_hashmap<uint32_t, Ts..., ::std::hash<uint32_t>>;
-POSEIDON_USING cow_uint64_dictionary = cow_hashmap<uint64_t, Ts..., ::std::hash<uint64_t>>;
+POSEIDON_USING cow_int32_dictionary = cow_hashmap<int32_t, Ts..., ::std::hash<uint32_t>>;
+POSEIDON_USING cow_int64_dictionary = cow_hashmap<int64_t, Ts..., ::std::hash<uint64_t>>;
 POSEIDON_USING cow_uuid_dictionary = cow_hashmap<::poseidon::UUID, Ts..., ::poseidon::UUID::hash>;
 
 using ::std::static_pointer_cast;
