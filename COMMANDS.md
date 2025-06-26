@@ -186,7 +186,7 @@ strings:
 
 * Request Parameters
 
-  - <i>None</i>
+  - `roid` <sub>integer</sub> : ID of role to flush.
 
 * Response Parameters
 
@@ -194,6 +194,6 @@ strings:
 
 * Description
 
-  Writes all roles back into the database.
+  Writes a role back into the database.
 
 [back to table of contents](#table-of-contents)
