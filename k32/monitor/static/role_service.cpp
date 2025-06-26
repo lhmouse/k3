@@ -260,25 +260,6 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
     POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
   }
 
-cow_string
-do_format_role_information_to_string(const Role_Information& roinfo)
-  {
-    ::taxon::Value root;
-
-    root.open_object().try_emplace(&"username", roinfo.username.rdstr());
-    root.open_object().try_emplace(&"nickname", roinfo.nickname);
-    root.open_object().try_emplace(&"update_time", roinfo.update_time);
-    root.open_object().try_emplace(&"avatar", roinfo.avatar);  // JSON as string
-    root.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
-    root.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
-
-    root.open_object().try_emplace(&"@home_host", roinfo.home_host);
-    root.open_object().try_emplace(&"@home_db", roinfo.home_db);
-    root.open_object().try_emplace(&"@home_srv", service.service_uuid().to_string());
-
-    return root.to_string();
-  }
-
 void
 do_parse_role_information_from_string(Role_Information& roinfo, const cow_string& str)
   {
@@ -296,6 +277,41 @@ do_parse_role_information_from_string(Role_Information& roinfo, const cow_string
 
     roinfo.home_host = root.as_object().at(&"@home_host").as_string();
     roinfo.home_db = root.as_object().at(&"@home_db").as_string();
+  }
+
+void
+do_store_role_information_into_redis(const shptr<Implementation>& impl,
+                                     ::poseidon::Abstract_Fiber& fiber,
+                                     Role_Information& roinfo)
+  {
+    ::taxon::Value root;
+    root.open_object().try_emplace(&"@home_srv", service.service_uuid().to_string());
+
+    root.open_object().try_emplace(&"username", roinfo.username.rdstr());
+    root.open_object().try_emplace(&"nickname", roinfo.nickname);
+    root.open_object().try_emplace(&"update_time", roinfo.update_time);
+    root.open_object().try_emplace(&"avatar", roinfo.avatar);  // JSON as string
+    root.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
+    root.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
+
+    root.open_object().try_emplace(&"@home_host", roinfo.home_host);
+    root.open_object().try_emplace(&"@home_db", roinfo.home_db);
+
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"SET");
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+    redis_cmd.emplace_back(root.to_string());
+    redis_cmd.emplace_back(&"NX");  // no replace
+    redis_cmd.emplace_back(&"GET");
+    redis_cmd.emplace_back(&"EX");
+    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(!task2->result().is_null())
+      do_parse_role_information_from_string(roinfo, task2->result().as_string());
   }
 
 void
@@ -390,24 +406,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
       roinfo.whole = task1->result_rows().front().at(4).as_blob();               //        , `whole`
     }
 
-    // Store role information into Redis. If a conflict happens, re-initialize
-    // role information from Redis.
-    cow_vector<cow_string> redis_cmd;
-    redis_cmd.emplace_back(&"SET");
-    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(do_format_role_information_to_string(roinfo));
-    redis_cmd.emplace_back(&"NX");  // no replace
-    redis_cmd.emplace_back(&"GET");
-    redis_cmd.emplace_back(&"EX");
-    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
-
-    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
-    ::poseidon::task_scheduler.launch(task2);
-    fiber.yield(task2);
-
-    if(!task2->result().is_null())
-      do_parse_role_information_from_string(roinfo, task2->result().as_string());
-
+    do_store_role_information_into_redis(impl, fiber, roinfo);
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
 
     POSEIDON_LOG_INFO(("Created role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
@@ -475,24 +474,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     roinfo.profile = task1->result_rows().front().at(4).as_blob();             //        , `profile`
     roinfo.whole = task1->result_rows().front().at(5).as_blob();               //        , `whole`
 
-    // Store role information into Redis. If a conflict happens, re-initialize
-    // role information from Redis.
-    cow_vector<cow_string> redis_cmd;
-    redis_cmd.emplace_back(&"SET");
-    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(do_format_role_information_to_string(roinfo));
-    redis_cmd.emplace_back(&"NX");  // no replace
-    redis_cmd.emplace_back(&"GET");
-    redis_cmd.emplace_back(&"EX");
-    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
-
-    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
-    ::poseidon::task_scheduler.launch(task2);
-    fiber.yield(task2);
-
-    if(!task2->result().is_null())
-      do_parse_role_information_from_string(roinfo, task2->result().as_string());
-
+    do_store_role_information_into_redis(impl, fiber, roinfo);
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
 
     POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
