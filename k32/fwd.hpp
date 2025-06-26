@@ -157,7 +157,7 @@ shared_function<void (xArgs...)>
 bindw(const shptr<xSelf>& self, vfn<const shptr<xOther>&, xArgs...>* pfunc)
   {
     return shared_function<void (xArgs...)>(
-        [w = wkptr<xSelf>(self), pfunc] (xArgs&&... args) {
+        [w = wkptr<xOther>(self), pfunc] (xArgs&&... args) {
           if(const auto other = w.lock())
             ::std::invoke(*pfunc, other, forward<xArgs>(args)...);
         });
