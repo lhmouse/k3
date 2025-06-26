@@ -159,8 +159,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         }
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
-          do_set_single_response(this->m_weak_req, this->m_request_uuid, ::taxon::null,
-                                 sformat("$1", stdex));
+          do_set_single_response(this->m_weak_req, this->m_request_uuid, ::taxon::null, sformat("$1", stdex));
           return;
         }
 
@@ -331,8 +330,7 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         }
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
-          do_send_remote_response(session, this->m_request_uuid, ::taxon::null,
-                                  sformat("$1", stdex));
+          do_send_remote_response(session, this->m_request_uuid, ::taxon::null, sformat("$1", stdex));
           return;
         }
 
@@ -518,7 +516,8 @@ do_subscribe_services(const shptr<Implementation>& impl,
         remote_services_by_type.open(remote.service_type).emplace_back(remote);
       }
       catch(exception& stdex) {
-        POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, r.second, stdex);
+        POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, stdex);
+        continue;
       }
 
     for(const auto& r : impl->remote_services_by_uuid)
