@@ -384,15 +384,15 @@ do_slash_role_create(const shptr<Implementation>& impl,
         return;
       }
 
-      for(const auto& row : task1->result_rows()) {
-        roinfo.nickname = row.at(0).as_blob();            // SELECT `nickname`
-        roinfo.update_time = row.at(1).as_system_time();  //        , `update_time`
-        roinfo.avatar = row.at(2).as_blob();              //        , `avatar`
-        roinfo.profile = row.at(3).as_blob();             //        , `profile`
-        roinfo.whole = row.at(4).as_blob();               //        , `whole`
-      }
+      roinfo.nickname = task1->result_rows().front().at(0).as_blob();            // SELECT `nickname`
+      roinfo.update_time = task1->result_rows().front().at(1).as_system_time();  //        , `update_time`
+      roinfo.avatar = task1->result_rows().front().at(2).as_blob();              //        , `avatar`
+      roinfo.profile = task1->result_rows().front().at(3).as_blob();             //        , `profile`
+      roinfo.whole = task1->result_rows().front().at(4).as_blob();               //        , `whole`
     }
 
+    // Store role information into Redis. If a conflict happens, re-initialize
+    // role information from Redis.
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
@@ -463,15 +463,15 @@ do_slash_role_load(const shptr<Implementation>& impl,
       return;
     }
 
-    for(const auto& row : task1->result_rows()) {
-      roinfo.username = row.at(0).as_blob();            // SELECT `username`
-      roinfo.nickname = row.at(1).as_blob();            //        , `nickname`
-      roinfo.update_time = row.at(2).as_system_time();  //        , `update_time`
-      roinfo.avatar = row.at(3).as_blob();              //        , `avatar`
-      roinfo.profile = row.at(4).as_blob();             //        , `profile`
-      roinfo.whole = row.at(5).as_blob();               //        , `whole`
-    }
+    roinfo.username = task1->result_rows().front().at(0).as_blob();            // SELECT `username`
+    roinfo.nickname = task1->result_rows().front().at(1).as_blob();            //        , `nickname`
+    roinfo.update_time = task1->result_rows().front().at(2).as_system_time();  //        , `update_time`
+    roinfo.avatar = task1->result_rows().front().at(3).as_blob();              //        , `avatar`
+    roinfo.profile = task1->result_rows().front().at(4).as_blob();             //        , `profile`
+    roinfo.whole = task1->result_rows().front().at(5).as_blob();               //        , `whole`
 
+    // Store role information into Redis. If a conflict happens, re-initialize
+    // role information from Redis.
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
