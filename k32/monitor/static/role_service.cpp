@@ -541,6 +541,8 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     }
 
     Role_Information roinfo;
+    roinfo.roid = roid;
+
     while(task2->result().is_string()) {
       // Write role information to MySQL. This is a slow operation, and data may
       // change when it is being executed. Therefore we will have to verify that
@@ -581,6 +583,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
                                                           move(mysql_conn), &update_role, sql_args);
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
+      POSEIDON_LOG_DEBUG(("Saved role `$1` (`$2`) to MySQL"), roinfo.roid, roinfo.nickname);
 
       static constexpr char redis_delete_if_unchanged[] =
           R"!!!(
