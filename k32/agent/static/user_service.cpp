@@ -133,9 +133,9 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           static constexpr char select_from_user[] =
               R"!!!(
-                SELECT `creation_time`,
-                       `logout_time`,
-                       `banned_until`
+                SELECT `creation_time`
+                       , `logout_time`
+                       , `banned_until`
                   FROM `user`
                   WHERE `username` = ?
               )!!!";
@@ -150,10 +150,10 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           fiber.yield(task1);
 
           for(const auto& row : task1->result_rows()) {
-            uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`,
-            uinfo.logout_time = row.at(1).as_system_time();     //        `logout_time`,
+            uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`
+            uinfo.logout_time = row.at(1).as_system_time();     //        , `logout_time`
             if(row.at(2).is_datetime())
-              uinfo.banned_until = row.at(2).as_system_time();  //        `banned_until`
+              uinfo.banned_until = row.at(2).as_system_time();  //        , `banned_until`
           }
 
           if(uinfo.login_time < uinfo.banned_until) {
@@ -213,8 +213,8 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           // Find my roles.
           static constexpr char select_avatar_from_role[] =
               R"!!!(
-                SELECT `roid`,
-                       `avatar`
+                SELECT `roid`
+                       , `avatar`
                   FROM `role`
                   WHERE `username` = ?
               )!!!";
@@ -230,8 +230,8 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::taxon::V_array avatar_list;
           for(const auto& row : task1->result_rows())
             if(row.at(1).is_blob()) {
-              uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`,
-              POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        `avatar`
+              uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`
+              POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        , `avatar`
             }
 
           // Send server and role information to client.

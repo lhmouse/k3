@@ -128,7 +128,7 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
 
     if(task1->match_count() == 0) {
       // In this case, we still want to return a serial if the nickname belongs
-      // to the same user.
+      // to the same user. This makes the operation retryable.
       static constexpr char select_from_nickname[] =
           R"!!!(
             SELECT `serial`
