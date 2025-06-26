@@ -527,10 +527,10 @@ do_service_timer_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_service_user_kick(const shptr<Implementation>& impl,
-                     ::poseidon::Abstract_Fiber& /*fiber*/,
-                     const ::poseidon::UUID& /*request_service_uuid*/,
-                     ::taxon::Value& response_data, ::taxon::Value&& request_data)
+do_slash_user_kick(const shptr<Implementation>& impl,
+                   ::poseidon::Abstract_Fiber& /*fiber*/,
+                   const ::poseidon::UUID& /*request_service_uuid*/,
+                   ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     phcow_string username;
     int ws_status = 1008;
@@ -568,10 +568,10 @@ do_service_user_kick(const shptr<Implementation>& impl,
   }
 
 void
-do_service_user_ban_set(const shptr<Implementation>& impl,
-                        ::poseidon::Abstract_Fiber& fiber,
-                        const ::poseidon::UUID& /*request_service_uuid*/,
-                        ::taxon::Value& response_data, ::taxon::Value&& request_data)
+do_slash_user_ban_set(const shptr<Implementation>& impl,
+                      ::poseidon::Abstract_Fiber& fiber,
+                      const ::poseidon::UUID& /*request_service_uuid*/,
+                      ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     constexpr time_point<system_clock, seconds> _2000_01_01(946684800s);
     phcow_string username;
@@ -624,10 +624,10 @@ do_service_user_ban_set(const shptr<Implementation>& impl,
   }
 
 void
-do_service_user_ban_lift(const shptr<Implementation>& impl,
-                         ::poseidon::Abstract_Fiber& fiber,
-                         const ::poseidon::UUID& /*request_service_uuid*/,
-                         ::taxon::Value& response_data, ::taxon::Value&& request_data)
+do_slash_user_ban_lift(const shptr<Implementation>& impl,
+                       ::poseidon::Abstract_Fiber& fiber,
+                       const ::poseidon::UUID& /*request_service_uuid*/,
+                       ::taxon::Value& response_data, ::taxon::Value&& request_data)
   {
     phcow_string username;
 
@@ -914,9 +914,9 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
-    service.set_handler(&"/user/kick", bindw(this->m_impl, do_service_user_kick));
-    service.set_handler(&"/user/ban/set", bindw(this->m_impl, do_service_user_ban_set));
-    service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_service_user_ban_lift));
+    service.set_handler(&"/user/kick", bindw(this->m_impl, do_slash_user_kick));
+    service.set_handler(&"/user/ban/set", bindw(this->m_impl, do_slash_user_ban_set));
+    service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_slash_user_ban_lift));
 
     // Restart the service.
     this->m_impl->service_timer.start(1500ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));

@@ -81,10 +81,10 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_service_nickname_acquire(const shptr<Implementation>& /*impl*/,
-                            ::poseidon::Abstract_Fiber& fiber,
-                            const ::poseidon::UUID& /*req_service_uuid*/,
-                            ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
+                          ::poseidon::Abstract_Fiber& fiber,
+                          const ::poseidon::UUID& /*req_service_uuid*/,
+                          ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
     phcow_string username;
@@ -161,10 +161,10 @@ do_service_nickname_acquire(const shptr<Implementation>& /*impl*/,
   }
 
 void
-do_service_nickname_release(const shptr<Implementation>& /*impl*/,
-                            ::poseidon::Abstract_Fiber& fiber,
-                            const ::poseidon::UUID& /*req_service_uuid*/,
-                            ::taxon::Value& resp_data, ::taxon::Value&& req_data)
+do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
+                          ::poseidon::Abstract_Fiber& fiber,
+                          const ::poseidon::UUID& /*req_service_uuid*/,
+                          ::taxon::Value& resp_data, ::taxon::Value&& req_data)
   {
     cow_string nickname;
 
@@ -353,8 +353,8 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->role_cache_ttl = seconds(role_cache_ttl);
 
     // Set up request handlers.
-    service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_service_nickname_acquire));
-    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_service_nickname_release));
+    service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_slash_nickname_acquire));
+    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
 
     // Restart the service.
     this->m_impl->service_timer.start(300ms, 31001ms, bindw(this->m_impl, do_service_timer_callback));
