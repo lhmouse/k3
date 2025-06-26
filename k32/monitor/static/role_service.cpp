@@ -483,6 +483,39 @@ do_slash_role_load(const shptr<Implementation>& impl,
   }
 
 void
+do_store_role_information_into_mysql(const shptr<Implementation>& impl,
+                                     ::poseidon::Abstract_Fiber& fiber,
+                                     uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
+                                     Role_Information& roinfo)
+  {
+    static constexpr char update_role[] =
+        R"!!!(
+          UPDATE `role`
+            SET `username` = ?
+                , `nickname` = ?
+                , `update_time` = ?
+                , `avatar` = ?
+                , `profile` = ?
+                , `whole` = ?
+            WHERE `roid` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(roinfo.username.rdstr());   // SET `username` = ?
+    sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
+    sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
+    sql_args.emplace_back(roinfo.avatar);             //     , `avatar` = ?
+    sql_args.emplace_back(roinfo.profile);            //     , `profile` = ?
+    sql_args.emplace_back(roinfo.whole);              //     , `whole` = ?
+    sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                        move(mysql_conn_opt), &update_role, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+  }
+
+void
 do_slash_role_unload(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*req_service_uuid*/,
@@ -534,33 +567,8 @@ do_slash_role_unload(const shptr<Implementation>& impl,
         return;
       }
 
-      static constexpr char update_role[] =
-          R"!!!(
-            UPDATE `role`
-              SET `username` = ?
-                  , `nickname` = ?
-                  , `update_time` = ?
-                  , `avatar` = ?
-                  , `profile` = ?
-                  , `whole` = ?
-              WHERE `roid` = ?
-          )!!!";
-
-      cow_vector<::poseidon::MySQL_Value> sql_args;
-      sql_args.emplace_back(roinfo.username.rdstr());   // SET `username` = ?
-      sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
-      sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
-      sql_args.emplace_back(roinfo.avatar);             //     , `avatar` = ?
-      sql_args.emplace_back(roinfo.profile);            //     , `profile` = ?
-      sql_args.emplace_back(roinfo.whole);              //     , `whole` = ?
-      sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
-
-      auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                          move(mysql_conn), &update_role, sql_args);
-      ::poseidon::task_scheduler.launch(task1);
-      fiber.yield(task1);
-
-      POSEIDON_LOG_DEBUG(("Saved role `$1` (`$2`) to MySQL"), roinfo.roid, roinfo.nickname);
+      do_store_role_information_into_mysql(impl, fiber, move(mysql_conn), roinfo);
+      POSEIDON_LOG_DEBUG(("Stored role `$1` (`$2`) into MySQL"), roinfo.roid, roinfo.nickname);
 
       static constexpr char redis_delete_if_unchanged[] =
           R"!!!(
@@ -642,32 +650,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     }
 
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
-
-    static constexpr char update_role[] =
-        R"!!!(
-          UPDATE `role`
-            SET `username` = ?
-                , `nickname` = ?
-                , `update_time` = ?
-                , `avatar` = ?
-                , `profile` = ?
-                , `whole` = ?
-            WHERE `roid` = ?
-        )!!!";
-
-    cow_vector<::poseidon::MySQL_Value> sql_args;
-    sql_args.emplace_back(roinfo.username.rdstr());   // SET `username` = ?
-    sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
-    sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
-    sql_args.emplace_back(roinfo.avatar);             //     , `avatar` = ?
-    sql_args.emplace_back(roinfo.profile);            //     , `profile` = ?
-    sql_args.emplace_back(roinfo.whole);              //     , `whole` = ?
-    sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
-
-    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                        move(mysql_conn), &update_role, sql_args);
-    ::poseidon::task_scheduler.launch(task1);
-    fiber.yield(task1);
+    do_store_role_information_into_mysql(impl, fiber, move(mysql_conn), roinfo);
 
     POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
