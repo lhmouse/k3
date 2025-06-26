@@ -919,7 +919,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_slash_user_ban_lift));
 
     // Restart the service.
-    this->m_impl->service_timer.start(1500ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->service_timer.start(150ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
     this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
   }
 
