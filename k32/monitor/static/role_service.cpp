@@ -395,12 +395,9 @@ do_slash_role_create(const shptr<Implementation>& impl,
       for(const auto& row : task1->result_rows()) {
         roinfo.nickname = row.at(0).as_blob();            // SELECT `nickname`
         roinfo.update_time = row.at(1).as_system_time();  //        , `update_time`
-        if(!row.at(2).is_null())                          //        , `avatar`
-          roinfo.avatar = row.at(2).as_blob();
-        if(!row.at(3).is_null())                          //        , `profile`
-          roinfo.profile = row.at(3).as_blob();
-        if(!row.at(4).is_null())                          //        , `whole`
-          roinfo.whole = row.at(4).as_blob();
+        roinfo.avatar = row.at(2).as_blob();              //        , `avatar`
+        roinfo.profile = row.at(3).as_blob();             //        , `profile`
+        roinfo.whole = row.at(4).as_blob();               //        , `whole`
       }
     }
 
@@ -460,12 +457,9 @@ do_slash_role_load(const shptr<Implementation>& impl,
       roinfo.username = row.at(0).as_blob();            // SELECT `username`
       roinfo.nickname = row.at(1).as_blob();            //        , `nickname`
       roinfo.update_time = row.at(2).as_system_time();  //        , `update_time`
-      if(!row.at(3).is_null())                          //        , `avatar`
-        roinfo.avatar = row.at(3).as_blob();
-      if(!row.at(4).is_null())                          //        , `profile`
-        roinfo.profile = row.at(4).as_blob();
-      if(!row.at(5).is_null())                          //        , `whole`
-        roinfo.whole = row.at(5).as_blob();
+      roinfo.avatar = row.at(3).as_blob();              //        , `avatar`
+      roinfo.profile = row.at(4).as_blob();             //        , `profile`
+      roinfo.whole = row.at(5).as_blob();               //        , `whole`
     }
 
     if(roinfo.roid == 0) {
