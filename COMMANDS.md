@@ -29,6 +29,7 @@ strings:
 |`gs_roid_conflict`          |Role ID already exists in database.            |
 |`gs_roid_not_found`         |Role ID not found in database.                 |
 |`gs_role_not_online`        |Role not online.                               |
+|`gs_role_foreign`           |Role belongs to another server.                |
 
 ## Agent Commands
 

@@ -110,8 +110,8 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
     sql_args.emplace_back(system_clock::now());    //     , `creation_time` = ?
 
     auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                            ::poseidon::mysql_connector.allocate_tertiary_connection(),
-                            &insert_into_nickname, sql_args);
+                               ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                               &insert_into_nickname, sql_args);
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
@@ -131,8 +131,8 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
       sql_args.emplace_back(username.rdstr());  //       AND `username` = ?
 
       task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                            ::poseidon::mysql_connector.allocate_tertiary_connection(),
-                            &select_from_nickname, sql_args);
+                               ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                               &select_from_nickname, sql_args);
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
 
@@ -178,8 +178,8 @@ do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
     sql_args.emplace_back(nickname);               // WHERE `nickname` = ?
 
     auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                            ::poseidon::mysql_connector.allocate_tertiary_connection(),
-                            &delete_from_nickname, sql_args);
+                               ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                               &delete_from_nickname, sql_args);
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
@@ -261,10 +261,9 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
   }
 
 cow_string
-do_serialize_role_information_to_string(const Role_Information& roinfo)
+do_format_role_information_to_string(const Role_Information& roinfo)
   {
     ::taxon::Value root;
-    root.open_object().try_emplace(&"@origin", service.service_uuid().to_string());
 
     root.open_object().try_emplace(&"username", roinfo.username.rdstr());
     root.open_object().try_emplace(&"nickname", roinfo.nickname);
@@ -273,20 +272,22 @@ do_serialize_role_information_to_string(const Role_Information& roinfo)
     root.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
     root.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
 
+    root.open_object().try_emplace(&"@home_host", roinfo.home_host);
+    root.open_object().try_emplace(&"@home_db", roinfo.home_db);
+
     return root.to_string();
   }
 
 bool
-do_parse_role_information_from_string(Role_Information& roinfo, int64_t roid, const cow_string& str)
+do_parse_role_information_from_string(Role_Information& roinfo, const cow_string& str)
   try {
+    ROCKET_ASSERT(roinfo.roid != 0);
+
     ::taxon::Parser_Context ctx;
     ::taxon::Value root;
     root.parse_with(ctx, str);
-    if(ctx.error)
-      POSEIDON_THROW(("Could not parse role data: $1"), ctx.error);
-
-    if(::poseidon::UUID(root.as_object().at(&"@origin").as_string()) != service.service_uuid()) {
-      POSEIDON_LOG_DEBUG(("Refused to load foreign role `$1`"), roid);
+    if(ctx.error) {
+      POSEIDON_LOG_FATAL(("Could not parse role data: $1"), ctx.error);
       return false;
     }
 
@@ -297,11 +298,13 @@ do_parse_role_information_from_string(Role_Information& roinfo, int64_t roid, co
     roinfo.profile = root.as_object().at(&"profile").as_string();   // JSON as string
     roinfo.whole = root.as_object().at(&"whole").as_string();   // JSON as string
 
-    roinfo.roid = roid;
+    roinfo.home_host = root.as_object().at(&"@home_host").as_string();
+    roinfo.home_db = root.as_object().at(&"@home_db").as_string();
+
     return true;
   }
   catch(exception& stdex) {
-    POSEIDON_LOG_FATAL(("Invalid role `$1` from Redis: $2"), roid, stdex);
+    POSEIDON_LOG_FATAL(("Invalid role `$1` from Redis: $2"), roinfo.roid, stdex);
     return false;
   }
 
@@ -335,6 +338,10 @@ do_slash_role_create(const shptr<Implementation>& impl,
     roinfo.nickname = nickname;
     roinfo.update_time = system_clock::now();
 
+    auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
+    roinfo.home_host = ::poseidon::hostname;
+    roinfo.home_db = mysql_conn->service_uri();
+
     static constexpr char insert_into_role[] =
         R"!!!(
           INSERT IGNORE INTO `role`
@@ -351,7 +358,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
     sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
 
     auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                        &insert_into_role, sql_args);
+                                               move(mysql_conn), &insert_into_role, sql_args);
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
@@ -396,7 +403,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(do_serialize_role_information_to_string(roinfo));
+    redis_cmd.emplace_back(do_format_role_information_to_string(roinfo));
     redis_cmd.emplace_back(&"NX");  // no replace
     redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(&"EX");
@@ -407,7 +414,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->result().is_string())
-      do_parse_role_information_from_string(roinfo, roinfo.roid, task2->result().as_string());
+      do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
 
@@ -438,6 +445,10 @@ do_slash_role_load(const shptr<Implementation>& impl,
     Role_Information roinfo;
     roinfo.roid = roid;
 
+    auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
+    roinfo.home_host = ::poseidon::hostname;
+    roinfo.home_db = mysql_conn->service_uri();
+
     static constexpr char select_from_role[] =
         R"!!!(
           SELECT `username`
@@ -454,7 +465,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     sql_args.emplace_back(roinfo.roid);    // WHERE `roid` = ?
 
     auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                        &select_from_role, sql_args);
+                                               move(mysql_conn), &select_from_role, sql_args);
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
@@ -475,7 +486,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(do_serialize_role_information_to_string(roinfo));
+    redis_cmd.emplace_back(do_format_role_information_to_string(roinfo));
     redis_cmd.emplace_back(&"NX");  // no replace
     redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(&"EX");
@@ -486,7 +497,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->result().is_string())
-      do_parse_role_information_from_string(roinfo, roinfo.roid, task2->result().as_string());
+      do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
 
@@ -514,30 +525,36 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
-    Role_Information roinfo;
-    roinfo.roid = roid;
+    impl->roles.erase(roid);
 
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"GET");
-    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roid));
 
     auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
     if(task2->result().is_null()) {
-      impl->roles.erase(roid);
       response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
       return;
     }
 
+    Role_Information roinfo;
     while(task2->result().is_string()) {
       // Write role information to MySQL. This is a slow operation, and data may
       // change when it is being executed. Therefore we will have to verify that
       // the value on Redis is unchanged before deleting it safely.
       cow_string current_redis_value = task2->result().as_string();
-      if(!do_parse_role_information_from_string(roinfo, roid, current_redis_value))
+      if(!do_parse_role_information_from_string(roinfo, current_redis_value))
         break;
+
+      auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
+      if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
+        ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
+        response_data.open_object().try_emplace(&"status", &"gs_role_foreign");
+        return;
+      }
 
       static constexpr char update_role[] =
           R"!!!(
@@ -561,7 +578,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
 
       auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-                                                          &update_role, sql_args);
+                                                          move(mysql_conn), &update_role, sql_args);
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
 
@@ -588,7 +605,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       fiber.yield(task2);
     }
 
-    impl->roles.erase(roinfo.roid);
+    impl->roles.erase(roid);
 
     POSEIDON_LOG_INFO(("Unloaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 

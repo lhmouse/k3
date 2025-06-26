@@ -17,6 +17,9 @@ struct Role_Information
     cow_string profile;
     cow_string whole;
 
+    cow_string home_host;
+    cow_string home_db;
+
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     Role_Information() noexcept = default;
 #endif
