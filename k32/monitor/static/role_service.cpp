@@ -451,11 +451,6 @@ do_slash_role_load(const shptr<Implementation>& impl,
       roinfo.whole = row.at(5).as_blob();               //        , `whole`
     }
 
-    if(roinfo.roid == 0) {
-      response_data.open_object().try_emplace(&"status", &"gs_role_not_found");
-      return;
-    }
-
     do_use_role_information_from_mysql(impl, fiber, roinfo);
 
     response_data.open_object().try_emplace(&"status", &"gs_ok");
