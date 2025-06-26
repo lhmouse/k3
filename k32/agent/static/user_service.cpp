@@ -266,11 +266,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           tinybuf_ln buf(move(data));
           ::taxon::Value root;
-          if(!root.parse(buf) || !root.is_object()) {
-            POSEIDON_LOG_WARN(("Invalid JSON object from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::ws_status_not_acceptable);
-            return;
-          }
+          POSEIDON_CHECK(root.parse(buf, ::taxon::option_json_mode) && root.is_object());
 
           phcow_string opcode;
           ::taxon::Value request_data;

@@ -188,11 +188,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 
           tinybuf_ln buf(move(data));
           ::taxon::Value root;
-          if(!root.parse(buf) || !root.is_object()) {
-            POSEIDON_LOG_FATAL(("Invalid TAXON object from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::ws_status_not_acceptable);
-            return;
-          }
+          POSEIDON_CHECK(root.parse(buf) && root.is_object());
 
           ::poseidon::UUID request_uuid;
           ::taxon::Value response_data;
@@ -401,11 +397,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
           tinybuf_ln buf(move(data));
           ::taxon::Value root;
-          if(!root.parse(buf) || !root.is_object()) {
-            POSEIDON_LOG_FATAL(("Invalid TAXON object from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::ws_status_not_acceptable);
-            return;
-          }
+          POSEIDON_CHECK(root.parse(buf) && root.is_object());
 
           phcow_string opcode;
           ::taxon::Value request_data;
@@ -489,18 +481,22 @@ do_subscribe_services(const shptr<Implementation>& impl,
 
     for(const auto& r : task2->result())
       try {
+        if(r.first.size() != pattern.size() + 35)  // note `*` in pattern
+          continue;
+
         Service_Information remote;
-        if((r.first.size() != pattern.size() + 35)  // note `*` in pattern
-            || (remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) != 36))
+        if(remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) != 36)
           continue;
 
         ::taxon::Value root;
-        if(!root.parse(r.second) || !root.is_object()
-            || (root.as_object().at(&"application_name").as_string() != impl->application_name))
+        if(!root.parse(r.second))
+          continue;
+
+        if(root.as_object().at(&"application_name").as_string() != impl->application_name)
           continue;
 
         remote.service_type = root.as_object().at(&"service_type").as_string();
-        remote.service_index = static_cast<uint32_t>(root.as_object().at(&"service_index").as_integer());
+        remote.service_index = static_cast<int>(root.as_object().at(&"service_index").as_integer());
 
         if(auto hostname = root.as_object().ptr(&"hostname"))
           remote.hostname = hostname->as_string();
@@ -677,17 +673,14 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
-uint32_t
+int
 Service::
 service_index() const noexcept
   {
     if(!this->m_impl)
       return 0;
 
-    if(this->m_impl->appointment.index() == -1)
-      return 0;
-
-    return static_cast<uint32_t>(this->m_impl->appointment.index());
+    return this->m_impl->appointment.index();
   }
 
 const cow_string&

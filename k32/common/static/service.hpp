@@ -54,8 +54,8 @@ class Service
 
     // Returns the 0-based index of the active service. This value is unique in
     // all instances sharing the same configuration file. If there is no active
-    // service, 0 is returned.
-    uint32_t
+    // service, -1 is returned.
+    int
     service_index() const noexcept;
 
     // Returns the application name of the active service. If there is no active
