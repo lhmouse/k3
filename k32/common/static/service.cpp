@@ -378,14 +378,14 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
             int64_t now = ::time(nullptr);
             POSEIDON_CHECK((req_ts >= now - 60) && (req_ts <= now + 60));
-            POSEIDON_CHECK(!request_service_uuid.is_nil());
+            POSEIDON_CHECK(request_service_uuid != ::poseidon::UUID::min());
 
             char auth_pw[33];
             do_salt_password(auth_pw, request_service_uuid, req_ts, impl->application_password);
             POSEIDON_CHECK(req_pw == auth_pw);
           }
           catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
+            POSEIDON_LOG_ERROR(("Authentication error from `$1`: $2"), session->remote_address(), stdex);
             session->ws_shut_down(::poseidon::ws_status_unauthorized);
             return;
           }
@@ -874,12 +874,12 @@ launch(const shptr<Service_Future>& req)
               continue;
             }
 
-            int64_t ts = ::time(nullptr);
+            int64_t now = ::time(nullptr);
             char auth_pw[33];
-            do_salt_password(auth_pw, this->m_impl->service_uuid, ts, this->m_impl->application_password);
+            do_salt_password(auth_pw, this->m_impl->service_uuid, now, this->m_impl->application_password);
 
             session = this->m_impl->private_client.connect(
-                  sformat("$1/?s=$2&t=$3&pw=$4", *use_addr, this->m_impl->service_uuid, ts, auth_pw),
+                  sformat("$1/?s=$2&ts=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
                   bindw(this->m_impl, do_client_ws_callback));
 
             session->mut_session_user_data() = srv.service_uuid.to_string();
