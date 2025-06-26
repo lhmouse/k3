@@ -301,7 +301,7 @@ do_parse_role_information_from_string(Role_Information& roinfo, int64_t roid, co
     return true;
   }
   catch(exception& stdex) {
-    POSEIDON_LOG_WARN(("Invalid role `$1`: $2"), roid, stdex);
+    POSEIDON_LOG_FATAL(("Invalid role `$1` from Redis: $2"), roid, stdex);
     return false;
   }
 
@@ -496,7 +496,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_unload(const shptr<Implementation>& /*impl*/,
+do_slash_role_unload(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*req_service_uuid*/,
                      ::taxon::Value& response_data, ::taxon::Value&& request_data)
@@ -514,6 +514,85 @@ do_slash_role_unload(const shptr<Implementation>& /*impl*/,
 
     ////////////////////////////////////////////////////////////
     //
+    Role_Information roinfo;
+    roinfo.roid = roid;
+
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"GET");
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(task2->result().is_null()) {
+      impl->roles.erase(roid);
+      response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
+      return;
+    }
+
+    while(task2->result().is_string()) {
+      // Write role information to MySQL. This is a slow operation, and data may
+      // change when it is being executed. Therefore we will have to verify that
+      // the value on Redis is unchanged before deleting it safely.
+      cow_string current_redis_value = task2->result().as_string();
+      if(!do_parse_role_information_from_string(roinfo, roid, current_redis_value))
+        break;
+
+      static constexpr char update_role[] =
+          R"!!!(
+            UPDATE `role`
+              SET `username` = ?
+                  , `nickname` = ?
+                  , `update_time` = ?
+                  , `avatar` = ?
+                  , `profile` = ?
+                  , `whole` = ?
+              WHERE `roid` = ?
+          )!!!";
+
+      cow_vector<::poseidon::MySQL_Value> sql_args;
+      sql_args.emplace_back(roinfo.username.rdstr());   // SET `username` = ?
+      sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
+      sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
+      sql_args.emplace_back(roinfo.avatar);             //     , `avatar` = ?
+      sql_args.emplace_back(roinfo.profile);            //     , `profile` = ?
+      sql_args.emplace_back(roinfo.whole);              //     , `whole` = ?
+      sql_args.emplace_back(roinfo.roid);               // WHERE `roid` = ?
+
+      auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                          &update_role, sql_args);
+      ::poseidon::task_scheduler.launch(task1);
+      fiber.yield(task1);
+
+      static constexpr char redis_delete_if_unchanged[] =
+          R"!!!(
+            local value = redis.call('GET', KEYS[1])
+            if value == ARGV[1] then
+              redis.call('DEL', KEYS[1])
+              return nil
+            else
+              return value
+            end
+          )!!!";
+
+      redis_cmd.clear();
+      redis_cmd.emplace_back(&"EVAL");
+      redis_cmd.emplace_back(&redis_delete_if_unchanged);
+      redis_cmd.emplace_back(&"1");   // one key
+      redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));  // KEYS[1]
+      redis_cmd.emplace_back(current_redis_value);  // ARGV[1]
+
+      task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+      ::poseidon::task_scheduler.launch(task2);
+      fiber.yield(task2);
+    }
+
+    impl->roles.erase(roinfo.roid);
+
+    POSEIDON_LOG_INFO(("Unloaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
+
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
 void

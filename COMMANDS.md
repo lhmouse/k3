@@ -28,6 +28,7 @@ strings:
 |`gs_nickname_length_error`  |Nickname length out of range.                  |
 |`gs_roid_conflict`          |Role ID already exists in database.            |
 |`gs_roid_not_found`         |Role ID not found in database.                 |
+|`gs_role_not_online`        |Role not online.                               |
 
 ## Agent Commands
 

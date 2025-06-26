@@ -33,7 +33,24 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", 509);
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", 505);
+      service.launch(req1);
+      fiber.yield(req1);
+
+      response_content_type = &"text/plain";
+      response_data = req1->responses().at(0).response_data.to_string();
+      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
+    });
+
+user_service.add_http_handler(
+  &"/22",
+  +[](::poseidon::Abstract_Fiber& fiber,
+      cow_string& response_content_type, cow_string& response_data,
+      cow_string&& request_raw_query)
+    {
+      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
+
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/unload", 505);
       service.launch(req1);
       fiber.yield(req1);
 
