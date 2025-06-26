@@ -212,6 +212,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
                        , `avatar`
                   FROM `role`
                   WHERE `username` = ?
+                        AND `avatar` != ''
               )!!!";
 
           sql_args.clear();
@@ -224,9 +225,6 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           ::taxon::V_array avatar_list;
           for(const auto& row : task1->result_rows()) {
-            if(row.at(1).as_blob_size() == 0)
-              continue;
-
             uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`
             POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        , `avatar`
           }
