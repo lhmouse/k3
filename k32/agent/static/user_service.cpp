@@ -46,7 +46,7 @@ struct Implementation
     bool db_ready = false;
     cow_dictionary<User_Information> users;
     cow_dictionary<User_Connection_Information> connections;
-    ::std::vector<phcow_string> expired_connections;
+    vector<phcow_string> expired_connections;
   };
 
 void
