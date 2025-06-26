@@ -8,7 +8,7 @@
 3. [Monitor Commands](#monitor-commands)
    1. [`/nickname/acquire`](#nicknameacquire)
    2. [`/nickname/release`](#nicknamerelease)
-   3. [`/role/new`](#rolenew)
+   3. [`/role/create`](#rolecreate)
    4. [`/role/load`](#roleload)
    5. [`/role/unload`](#roleunload)
    6. [`/role/flush`](#roleflush)
@@ -23,9 +23,11 @@ strings:
 |`gs_ok`                     |Operation completed successfully.              |
 |`gs_user_not_online`        |User not online.                               |
 |`gs_user_not_found`         |User not found in database.                    |
-|`gs_nickname_exists`        |Nickname already exists in database.           |
+|`gs_nickname_conflict`      |Nickname already exists in database.           |
 |`gs_nickname_not_found`     |Nickname not found in database.                |
 |`gs_nickname_length_error`  |Nickname length out of range.                  |
+|`gs_roid_conflict`          |Role ID already exists in database.            |
+|`gs_roid_not_found`         |Role ID not found in database.                 |
 
 ## Agent Commands
 
@@ -123,7 +125,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/new`
+### `/role/create`
 
 * Request Parameters
 
