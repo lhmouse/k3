@@ -272,6 +272,243 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
+do_use_role_information_from_mysql(const shptr<Implementation>& impl,
+                                   ::poseidon::Abstract_Fiber& fiber,
+                                   Role_Information& roinfo)
+  {
+    ::taxon::Value redis_roinfo;
+    redis_roinfo.open_object().try_emplace(&"username", roinfo.username.rdstr());
+    redis_roinfo.open_object().try_emplace(&"nickname", roinfo.nickname);
+    redis_roinfo.open_object().try_emplace(&"update_time", roinfo.update_time);
+    redis_roinfo.open_object().try_emplace(&"avatar", roinfo.avatar);  // JSON as string
+    redis_roinfo.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
+    redis_roinfo.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
+    redis_roinfo.open_object().try_emplace(&"monitor_service_uuid", service.service_uuid().to_string());
+
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"SET");
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+    redis_cmd.emplace_back(redis_roinfo.to_string());
+    redis_cmd.emplace_back(&"NX");  // no replace
+    redis_cmd.emplace_back(&"GET");
+    redis_cmd.emplace_back(&"EX");
+    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(task2->result().is_string() && redis_roinfo.parse(task2->result().as_string())) {
+      // This is a store conflict. The old value has been returned. In this case
+      // `roinfo` shall be re-initialized with data from Redis.
+      roinfo.username = redis_roinfo.as_object().at(&"username").as_string();
+      roinfo.nickname = redis_roinfo.as_object().at(&"nickname").as_string();
+      roinfo.update_time = redis_roinfo.as_object().at(&"update_time").as_time();
+      roinfo.avatar = redis_roinfo.as_object().at(&"avatar").as_string();   // JSON as string
+      roinfo.profile = redis_roinfo.as_object().at(&"profile").as_string();   // JSON as string
+      roinfo.whole = redis_roinfo.as_object().at(&"whole").as_string();   // JSON as string
+    }
+
+    impl->roles.insert_or_assign(roinfo.roid, roinfo);
+    POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`) into Redis"), roinfo.roid, roinfo.nickname);
+  }
+
+void
+do_slash_role_create(const shptr<Implementation>& impl,
+                     ::poseidon::Abstract_Fiber& fiber,
+                     const ::poseidon::UUID& /*req_service_uuid*/,
+                     ::taxon::Value& response_data, ::taxon::Value&& request_data)
+  {
+    int64_t roid = -1;
+    cow_string nickname;
+    phcow_string username;
+
+    for(const auto& r : request_data.as_object())
+      if(r.first == &"roid")
+        roid = r.second.as_integer();
+      else if(r.first == &"nickname")
+        nickname = r.second.as_string();
+      else if(r.first == &"username")
+        username = r.second.as_string();
+
+    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+    POSEIDON_CHECK(nickname != "");
+    POSEIDON_CHECK(username != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    Role_Information roinfo;
+    roinfo.roid = roid;
+    roinfo.username = username;
+    roinfo.nickname = nickname;
+    roinfo.update_time = system_clock::now();
+
+    static constexpr char insert_into_role[] =
+        R"!!!(
+          INSERT IGNORE INTO `role`
+            SET `roid` = ?
+                , `username` = ?
+                , `nickname` = ?
+                , `update_time` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(roinfo.roid);               // SET `roid` = ?
+    sql_args.emplace_back(roinfo.username.rdstr());   //     , `username` = ?
+    sql_args.emplace_back(roinfo.nickname);           //     , `nickname` = ?
+    sql_args.emplace_back(roinfo.update_time);        //     , `update_time` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                        &insert_into_role, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    if(task1->match_count() == 0) {
+      // In this case, we still want to load a role if it belongs to the same
+      // user. This makes the operation retryable.
+      static constexpr char select_from_role[] =
+          R"!!!(
+            SELECT `nickname`
+                   , `update_time`
+                   , `avatar`
+                   , `profile`
+                   , `whole`
+              FROM `role`
+              WHERE `roid` = ?
+                    AND `username` = ?
+          )!!!";
+
+      sql_args.clear();
+      sql_args.emplace_back(roid);                // WHERE `roid` = ?
+      sql_args.emplace_back(username.rdstr());    //       AND `username` = ?
+
+      task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                     &select_from_role, sql_args);
+      ::poseidon::task_scheduler.launch(task1);
+      fiber.yield(task1);
+
+      if(task1->result_rows().size() == 0) {
+        response_data.open_object().try_emplace(&"status", &"gs_roid_conflict");
+        return;
+      }
+
+      for(const auto& row : task1->result_rows()) {
+        roinfo.nickname = row.at(0).as_blob();            // SELECT `nickname`
+        roinfo.update_time = row.at(1).as_system_time();  //        , `update_time`
+        if(!row.at(2).is_null())                          //        , `avatar`
+          roinfo.avatar = row.at(2).as_blob();
+        if(!row.at(3).is_null())                          //        , `profile`
+          roinfo.profile = row.at(3).as_blob();
+        if(!row.at(4).is_null())                          //        , `whole`
+          roinfo.whole = row.at(4).as_blob();
+      }
+    }
+
+    do_use_role_information_from_mysql(impl, fiber, roinfo);
+
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_slash_role_load(const shptr<Implementation>& impl,
+                   ::poseidon::Abstract_Fiber& fiber,
+                   const ::poseidon::UUID& /*req_service_uuid*/,
+                   ::taxon::Value& response_data, ::taxon::Value&& request_data)
+  {
+    int64_t roid = -1;
+
+    if(request_data.is_integer())
+      roid = request_data.as_integer();
+    else
+      for(const auto& r : request_data.as_object())
+        if(r.first == &"roid")
+          roid = r.second.as_integer();
+
+    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+
+    ////////////////////////////////////////////////////////////
+    //
+    Role_Information roinfo;
+    roinfo.roid = roid;
+
+    static constexpr char select_from_role[] =
+        R"!!!(
+          SELECT `username`
+                 , `nickname`
+                 , `update_time`
+                 , `avatar`
+                 , `profile`
+                 , `whole`
+            FROM `role`
+            WHERE `roid` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(roinfo.roid);    // WHERE `roid` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                        &select_from_role, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    if(task1->result_rows().size() == 0) {
+      response_data.open_object().try_emplace(&"status", &"gs_roid_not_found");
+      return;
+    }
+
+    for(const auto& row : task1->result_rows()) {
+      roinfo.username = row.at(0).as_blob();            // SELECT `username`
+      roinfo.nickname = row.at(1).as_blob();            //        , `nickname`
+      roinfo.update_time = row.at(2).as_system_time();  //        , `update_time`
+      if(!row.at(3).is_null())                          //        , `avatar`
+        roinfo.avatar = row.at(3).as_blob();
+      if(!row.at(4).is_null())                          //        , `profile`
+        roinfo.profile = row.at(4).as_blob();
+      if(!row.at(5).is_null())                          //        , `whole`
+        roinfo.whole = row.at(5).as_blob();
+    }
+
+    if(roinfo.roid == 0) {
+      response_data.open_object().try_emplace(&"status", &"gs_role_not_found");
+      return;
+    }
+
+    do_use_role_information_from_mysql(impl, fiber, roinfo);
+
+    response_data.open_object().try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_slash_role_unload(const shptr<Implementation>& /*impl*/,
+                     ::poseidon::Abstract_Fiber& fiber,
+                     const ::poseidon::UUID& /*req_service_uuid*/,
+                     ::taxon::Value& response_data, ::taxon::Value&& request_data)
+  {
+    int64_t roid = -1;
+
+    if(request_data.is_integer())
+      roid = request_data.as_integer();
+    else
+      for(const auto& r : request_data.as_object())
+        if(r.first == &"roid")
+          roid = r.second.as_integer();
+
+    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+
+    ////////////////////////////////////////////////////////////
+    //
+  }
+
+void
+do_slash_role_flush(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    const ::poseidon::UUID& /*req_service_uuid*/,
+                    ::taxon::Value& response_data, ::taxon::Value&& /*request_data*/)
+  {
+
+  }
+
+void
 do_service_timer_callback(const shptr<Implementation>& impl,
                           const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                           ::poseidon::Abstract_Fiber& fiber, steady_time now)
@@ -348,6 +585,10 @@ reload(const ::poseidon::Config_File& conf_file)
     // Set up request handlers.
     service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_slash_nickname_acquire));
     service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
+    service.set_handler(&"/role/create", bindw(this->m_impl, do_slash_role_create));
+    service.set_handler(&"/role/load", bindw(this->m_impl, do_slash_role_load));
+    service.set_handler(&"/role/unload", bindw(this->m_impl, do_slash_role_unload));
+    service.set_handler(&"/role/flush", bindw(this->m_impl, do_slash_role_flush));
 
     // Restart the service.
     this->m_impl->service_timer.start(100ms, 31001ms, bindw(this->m_impl, do_service_timer_callback));
