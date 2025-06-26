@@ -260,46 +260,49 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
     POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
   }
 
-void
-do_use_role_information_from_mysql(const shptr<Implementation>& impl,
-                                   ::poseidon::Abstract_Fiber& fiber,
-                                   Role_Information& roinfo)
+cow_string
+do_serialize_role_information_to_string(const Role_Information& roinfo)
   {
-    ::taxon::Value redis_roinfo;
-    redis_roinfo.open_object().try_emplace(&"username", roinfo.username.rdstr());
-    redis_roinfo.open_object().try_emplace(&"nickname", roinfo.nickname);
-    redis_roinfo.open_object().try_emplace(&"update_time", roinfo.update_time);
-    redis_roinfo.open_object().try_emplace(&"avatar", roinfo.avatar);  // JSON as string
-    redis_roinfo.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
-    redis_roinfo.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
-    redis_roinfo.open_object().try_emplace(&"monitor_service_uuid", service.service_uuid().to_string());
+    ::taxon::Value root;
+    root.open_object().try_emplace(&"@origin", service.service_uuid().to_string());
 
-    cow_vector<cow_string> redis_cmd;
-    redis_cmd.emplace_back(&"SET");
-    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(redis_roinfo.to_string());
-    redis_cmd.emplace_back(&"NX");  // no replace
-    redis_cmd.emplace_back(&"GET");
-    redis_cmd.emplace_back(&"EX");
-    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+    root.open_object().try_emplace(&"username", roinfo.username.rdstr());
+    root.open_object().try_emplace(&"nickname", roinfo.nickname);
+    root.open_object().try_emplace(&"update_time", roinfo.update_time);
+    root.open_object().try_emplace(&"avatar", roinfo.avatar);  // JSON as string
+    root.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
+    root.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
 
-    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
-    ::poseidon::task_scheduler.launch(task2);
-    fiber.yield(task2);
+    return root.to_string();
+  }
 
-    if(task2->result().is_string() && redis_roinfo.parse(task2->result().as_string())) {
-      // This is a store conflict. The old value has been returned. In this case
-      // `roinfo` shall be re-initialized with data from Redis.
-      roinfo.username = redis_roinfo.as_object().at(&"username").as_string();
-      roinfo.nickname = redis_roinfo.as_object().at(&"nickname").as_string();
-      roinfo.update_time = redis_roinfo.as_object().at(&"update_time").as_time();
-      roinfo.avatar = redis_roinfo.as_object().at(&"avatar").as_string();   // JSON as string
-      roinfo.profile = redis_roinfo.as_object().at(&"profile").as_string();   // JSON as string
-      roinfo.whole = redis_roinfo.as_object().at(&"whole").as_string();   // JSON as string
+bool
+do_parse_role_information_from_string(Role_Information& roinfo, int64_t roid, const cow_string& str)
+  try {
+    ::taxon::Parser_Context ctx;
+    ::taxon::Value root;
+    root.parse_with(ctx, str);
+    if(ctx.error)
+      POSEIDON_THROW(("Could not parse role data: $1"), ctx.error);
+
+    if(::poseidon::UUID(root.as_object().at(&"@origin").as_string()) != service.service_uuid()) {
+      POSEIDON_LOG_DEBUG(("Refused to load foreign role `$1`"), roid);
+      return false;
     }
 
-    impl->roles.insert_or_assign(roinfo.roid, roinfo);
-    POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`) into Redis"), roinfo.roid, roinfo.nickname);
+    roinfo.username = root.as_object().at(&"username").as_string();
+    roinfo.nickname = root.as_object().at(&"nickname").as_string();
+    roinfo.update_time = root.as_object().at(&"update_time").as_time();
+    roinfo.avatar = root.as_object().at(&"avatar").as_string();   // JSON as string
+    roinfo.profile = root.as_object().at(&"profile").as_string();   // JSON as string
+    roinfo.whole = root.as_object().at(&"whole").as_string();   // JSON as string
+
+    roinfo.roid = roid;
+    return true;
+  }
+  catch(exception& stdex) {
+    POSEIDON_LOG_WARN(("Invalid role `$1`: $2"), roid, stdex);
+    return false;
   }
 
 void
@@ -390,7 +393,25 @@ do_slash_role_create(const shptr<Implementation>& impl,
       }
     }
 
-    do_use_role_information_from_mysql(impl, fiber, roinfo);
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"SET");
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+    redis_cmd.emplace_back(do_serialize_role_information_to_string(roinfo));
+    redis_cmd.emplace_back(&"NX");  // no replace
+    redis_cmd.emplace_back(&"GET");
+    redis_cmd.emplace_back(&"EX");
+    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(task2->result().is_string())
+      do_parse_role_information_from_string(roinfo, roinfo.roid, task2->result().as_string());
+
+    impl->roles.insert_or_assign(roinfo.roid, roinfo);
+
+    POSEIDON_LOG_INFO(("Created role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
     response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
@@ -451,7 +472,25 @@ do_slash_role_load(const shptr<Implementation>& impl,
       roinfo.whole = row.at(5).as_blob();               //        , `whole`
     }
 
-    do_use_role_information_from_mysql(impl, fiber, roinfo);
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"SET");
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+    redis_cmd.emplace_back(do_serialize_role_information_to_string(roinfo));
+    redis_cmd.emplace_back(&"NX");  // no replace
+    redis_cmd.emplace_back(&"GET");
+    redis_cmd.emplace_back(&"EX");
+    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(task2->result().is_string())
+      do_parse_role_information_from_string(roinfo, roinfo.roid, task2->result().as_string());
+
+    impl->roles.insert_or_assign(roinfo.roid, roinfo);
+
+    POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
     response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
