@@ -178,25 +178,21 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::poseidon::task_scheduler.launch(task2);
           fiber.yield(task2);
 
-          if(task2->result().is_string()) {
+          if(task2->result().is_string() && redis_uinfo.parse(task2->result().as_string())) {
             // Parse previous data on Redis. If it is not my service UUID, then
             // kick the user on that service.
-            if(!redis_uinfo.parse(task2->result().as_string()) || !redis_uinfo.is_object())
-              POSEIDON_LOG_FATAL(("Could not parse user information: $1"), task2->result());
-            else {
-              auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
-              if(pval && pval->is_string()) {
-                ::poseidon::UUID other_service_uuid(pval->as_string());
-                if(other_service_uuid != service.service_uuid()) {
-                  // Kick this user from the other service.
-                  ::taxon::V_object srv_args;
-                  srv_args.try_emplace(&"username", uinfo.username.rdstr());
-                  srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
+            auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
+            if(pval && pval->is_string()) {
+              ::poseidon::UUID other_service_uuid(pval->as_string());
+              if(other_service_uuid != service.service_uuid()) {
+                // Kick this user from the other service.
+                ::taxon::V_object srv_args;
+                srv_args.try_emplace(&"username", uinfo.username.rdstr());
+                srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                  auto srv_q = new_sh<Service_Future>(other_service_uuid, &"/user/kick", srv_args);
-                  service.launch(srv_q);
-                  fiber.yield(srv_q);
-                }
+                auto srv_q = new_sh<Service_Future>(other_service_uuid, &"/user/kick", srv_args);
+                service.launch(srv_q);
+                fiber.yield(srv_q);
               }
             }
           }
