@@ -633,7 +633,7 @@ do_slash_user_ban_lift(const shptr<Implementation>& impl,
     static constexpr char update_user_banned_until[] =
         R"!!!(
           UPDATE `user`
-            SET `banned_until` = NULL
+            SET `banned_until` = '1999-01-01'
             WHERE `username` = ?
         )!!!";
 
