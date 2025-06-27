@@ -116,7 +116,10 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    if(task1->match_count() == 0) {
+    int64_t serial = -1;
+    if(task1->match_count() != 0)
+      serial = static_cast<int64_t>(task1->insert_id());
+    else {
       // In this case, we still want to return a serial if the nickname belongs
       // to the same user. This makes the operation retryable.
       static constexpr char select_from_nickname[] =
@@ -137,16 +140,17 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
 
-      for(const auto& row : task1->result_rows())
-        response_data.open_object().try_emplace(&"serial", row.at(0).as_integer());  // SELECT `serial`
+      if(task1->result_rows().size() == 0) {
+        response_data.open_object().try_emplace(&"status", &"gs_nickname_conflict");
+        return;
+      }
 
-      response_data.open_object().try_emplace(&"status", &"gs_nickname_conflict");
-      return;
+      serial = task1->result_rows().front().at(0).as_integer();
     }
 
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
 
-    response_data.open_object().try_emplace(&"serial", static_cast<int64_t>(task1->insert_id()));
+    response_data.open_object().try_emplace(&"serial", serial);
     response_data.open_object().try_emplace(&"status", &"gs_ok");
   }
 
