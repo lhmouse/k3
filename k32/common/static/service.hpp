@@ -6,7 +6,7 @@
 
 #include "../../fwd.hpp"
 #include "../data/service_information.hpp"
-#include "../service_future.hpp"
+#include "../fiber/service_future.hpp"
 namespace k32 {
 
 class Service

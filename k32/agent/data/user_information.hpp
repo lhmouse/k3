@@ -15,7 +15,10 @@ struct User_Information
     system_time login_time;
     system_time logout_time;
     system_time banned_until;
-    cow_vector<int64_t> roid_list;
+
+    cow_vector<int64_t> available_roid_list;
+    int64_t current_roid = 0;
+    ::poseidon::UUID current_logic_service_uuid;
 
 #ifdef K32_FRIENDS_FC7DDE3B_4A8E_11F0_BB68_5254005015D2_
     User_Information() noexcept = default;
