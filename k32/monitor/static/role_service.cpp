@@ -309,7 +309,7 @@ do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    if(!task2->result().is_null())
+    if(!task2->result().is_nil())
       do_parse_role_information_from_string(roinfo, task2->result().as_string());
   }
 
@@ -544,7 +544,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 
     impl->roles.erase(roid);
 
-    if(task2->result().is_null()) {
+    if(task2->result().is_nil()) {
       response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
       return;
     }
@@ -552,7 +552,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     Role_Information roinfo;
     roinfo.roid = roid;
 
-    while(!task2->result().is_null()) {
+    while(!task2->result().is_nil()) {
       // Write role information to MySQL. This is a slow operation, and data may
       // change when it is being executed. Therefore we will have to verify that
       // the value on Redis is unchanged before deleting it safely.
@@ -629,7 +629,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    if(task2->result().is_null()) {
+    if(task2->result().is_nil()) {
       response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
       return;
     }
