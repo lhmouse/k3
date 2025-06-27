@@ -343,8 +343,16 @@ do_server_ws_callback(const shptr<Implementation>& impl,
         {
           ::poseidon::Network_Reference uri;
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
+          cow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
-          if(uri.path != "/") {
+          if(path.size() != 37) {
+            session->ws_shut_down(::poseidon::ws_status_forbidden);
+            return;
+          }
+
+          path.erase(0, 1);
+          ::poseidon::UUID uuid_in_path;
+          if((uuid_in_path.parse(path) != 36) || (uuid_in_path != impl->service_uuid)) {
             session->ws_shut_down(::poseidon::ws_status_forbidden);
             return;
           }
@@ -352,12 +360,11 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           // Check authentication.
           ::poseidon::UUID request_service_uuid;
           try {
-            ::poseidon::HTTP_Query_Parser parser;
-            parser.reload(cow_string(uri.query));
-
             cow_string req_pw;
             int64_t req_ts = 0;
 
+            ::poseidon::HTTP_Query_Parser parser;
+            parser.reload(cow_string(uri.query));
             while(parser.next_element())
               if(parser.current_name() == "s")
                 request_service_uuid = ::poseidon::UUID(parser.current_value().as_string());
@@ -366,10 +373,9 @@ do_server_ws_callback(const shptr<Implementation>& impl,
               else if(parser.current_name() == "pw")
                 req_pw = parser.current_value().as_string();
 
+            POSEIDON_CHECK(request_service_uuid != ::poseidon::UUID::min());
             int64_t now = ::time(nullptr);
             POSEIDON_CHECK((req_ts >= now - 60) && (req_ts <= now + 60));
-            POSEIDON_CHECK(request_service_uuid != ::poseidon::UUID::min());
-
             char auth_pw[33];
             do_salt_password(auth_pw, request_service_uuid, req_ts, impl->application_password);
             POSEIDON_CHECK(req_pw == auth_pw);
@@ -862,13 +868,16 @@ launch(const shptr<Service_Future>& req)
               continue;
             }
 
+            tinyfmt_str saddr_fmt;
+            format(saddr_fmt, "$1/$2?s=$3", *use_addr, srv.service_uuid, this->m_impl->service_uuid);
             int64_t now = ::time(nullptr);
+            format(saddr_fmt, "&ts=$1", now);
             char auth_pw[33];
             do_salt_password(auth_pw, this->m_impl->service_uuid, now, this->m_impl->application_password);
+            format(saddr_fmt, "&pw=$1", auth_pw);
 
-            session = this->m_impl->private_client.connect(
-                  sformat("$1/?s=$2&ts=$3&pw=$4", *use_addr, this->m_impl->service_uuid, now, auth_pw),
-                  bindw(this->m_impl, do_client_ws_callback));
+            cow_string saddr = saddr_fmt.get_string();
+            session = this->m_impl->private_client.connect(saddr, bindw(this->m_impl, do_client_ws_callback));
 
             session->mut_session_user_data() = srv.service_uuid.to_string();
             conn.weak_session = session;

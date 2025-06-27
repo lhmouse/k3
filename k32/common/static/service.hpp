@@ -25,7 +25,7 @@ class Service
 
     // This callback is invoked when a service request message is received.
     // `request_data` is the same field as in the source `Service_Future`.
-    using handler_type = ::rocket::shared_function<
+    using handler_type = shared_function<
             void (
               ::poseidon::Abstract_Fiber& fiber,
               const ::poseidon::UUID& request_service_uuid,

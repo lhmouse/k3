@@ -26,7 +26,7 @@ struct Implementation
     // remote data from mysql
     bool db_ready = false;
     cow_int64_dictionary<Role_Information> roles;
-    list<static_vector<int64_t, 255>> save_buckets;
+    ::std::list<static_vector<int64_t, 255>> save_buckets;
   };
 
 void
