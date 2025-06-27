@@ -751,7 +751,7 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    ::asteria::V_integer redis_role_ttl = 300;
+    ::asteria::V_integer redis_role_ttl = 600;
 
     // `monitor.redis_role_ttl`
     auto conf_value = conf_file.query(&"monitor.redis_role_ttl");
