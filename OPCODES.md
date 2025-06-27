@@ -5,13 +5,13 @@
    1. [`/user/ban/set`](#userbanset)
    2. [`/user/ban/lift`](#userbanlift)
    3. [`/user/kick`](#userkick)
+   4. [`/nickname/acquire`](#nicknameacquire)
+   5. [`/nickname/release`](#nicknamerelease)
 3. [Monitor Service Opcodes](#monitor-service-opcodes)
-   1. [`/nickname/acquire`](#nicknameacquire)
-   2. [`/nickname/release`](#nicknamerelease)
-   3. [`/role/create`](#rolecreate)
-   4. [`/role/load`](#roleload)
-   5. [`/role/unload`](#roleunload)
-   6. [`/role/flush`](#roleflush)
+   1. [`/role/create`](#rolecreate)
+   2. [`/role/load`](#roleload)
+   3. [`/role/unload`](#roleunload)
+   4. [`/role/flush`](#roleflush)
 
 ## General Status Codes
 
@@ -87,8 +87,6 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-## Monitor Service Opcodes
-
 ### `/nickname/acquire`
 
 * Request Parameters
@@ -126,6 +124,8 @@ strings:
   Releases ownership of a nickname so it can be re-acquired by others.
 
 [back to table of contents](#table-of-contents)
+
+## Monitor Service Opcodes
 
 ### `/role/create`
 

@@ -451,6 +451,172 @@ do_mysql_check_table_user(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
+do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
+  {
+    ::poseidon::MySQL_Table_Structure table;
+    table.name = &"nickname";
+    table.engine = ::poseidon::mysql_engine_innodb;
+
+    ::poseidon::MySQL_Table_Column column;
+    column.name = &"nickname";
+    column.type = ::poseidon::mysql_column_varchar;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"serial";
+    column.type = ::poseidon::mysql_column_auto_increment;
+    column.default_value = 15743;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"username";
+    column.type = ::poseidon::mysql_column_varchar;
+    table.columns.emplace_back(column);
+
+    column.clear();
+    column.name = &"creation_time";
+    column.type = ::poseidon::mysql_column_datetime;
+    table.columns.emplace_back(column);
+
+    ::poseidon::MySQL_Table_Index index;
+    index.name = &"PRIMARY";
+    index.type = ::poseidon::mysql_index_unique;
+    index.columns.emplace_back(&"nickname");
+    table.indexes.emplace_back(index);
+
+    index.clear();
+    index.name = &"serial";
+    index.type = ::poseidon::mysql_index_unique;
+    index.columns.emplace_back(&"serial");
+    table.indexes.emplace_back(index);
+
+    // This is in the user database.
+    auto task = new_sh<::poseidon::MySQL_Check_Table_Future>(::poseidon::mysql_connector,
+                              ::poseidon::mysql_connector.allocate_tertiary_connection(), table);
+    ::poseidon::task_scheduler.launch(task);
+    fiber.yield(task);
+    POSEIDON_LOG_INFO(("Finished verification of MySQL table `$1`"), table.name);
+  }
+
+void
+do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
+                          ::poseidon::Abstract_Fiber& fiber,
+                          const ::poseidon::UUID& /*req_service_uuid*/,
+                          ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    cow_string nickname;
+    phcow_string username;
+
+    for(const auto& r : request_data)
+      if(r.first == &"nickname")
+        nickname = r.second.as_string();
+      else if(r.first == &"username")
+        username = r.second.as_string();
+
+    POSEIDON_CHECK(nickname != "");
+    POSEIDON_CHECK(username != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    static constexpr char insert_into_nickname[] =
+        R"!!!(
+          INSERT IGNORE INTO `nickname`
+            SET `nickname` = ?
+                , `username` = ?
+                , `creation_time` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(nickname);               // SET `nickname` = ?
+    sql_args.emplace_back(username.rdstr());       //     , `username` = ?
+    sql_args.emplace_back(system_clock::now());    //     , `creation_time` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                               ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                               &insert_into_nickname, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    int64_t serial = -1;
+    if(task1->match_count() != 0)
+      serial = static_cast<int64_t>(task1->insert_id());
+    else {
+      // In this case, we still want to return a serial if the nickname belongs
+      // to the same user. This makes the operation retryable.
+      static constexpr char select_from_nickname[] =
+          R"!!!(
+            SELECT `serial`
+              FROM `nickname`
+              WHERE `nickname` = ?
+                    AND `username` = ?
+          )!!!";
+
+      sql_args.clear();
+      sql_args.emplace_back(nickname);          // WHERE `nickname` = ?
+      sql_args.emplace_back(username.rdstr());  //       AND `username` = ?
+
+      task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                               ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                               &select_from_nickname, sql_args);
+      ::poseidon::task_scheduler.launch(task1);
+      fiber.yield(task1);
+
+      if(task1->result_rows().size() == 0) {
+        response_data.try_emplace(&"status", &"gs_nickname_conflict");
+        return;
+      }
+
+      serial = task1->result_rows().front().at(0).as_integer();
+    }
+
+    POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
+
+    response_data.try_emplace(&"serial", serial);
+    response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
+                          ::poseidon::Abstract_Fiber& fiber,
+                          const ::poseidon::UUID& /*req_service_uuid*/,
+                          ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    cow_string nickname;
+
+    for(const auto& r : request_data)
+      if(r.first == &"nickname")
+        nickname = r.second.as_string();
+
+    POSEIDON_CHECK(nickname != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    static constexpr char delete_from_nickname[] =
+        R"!!!(
+          DELETE FROM `nickname`
+            WHERE `nickname` = ?
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(nickname);               // WHERE `nickname` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                               ::poseidon::mysql_connector.allocate_tertiary_connection(),
+                               &delete_from_nickname, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    if(task1->match_count() == 0) {
+      response_data.try_emplace(&"status", &"gs_nickname_not_found");
+      return;
+    }
+
+    POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
+
+    response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
 do_service_timer_callback(const shptr<Implementation>& impl,
                           const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                           ::poseidon::Abstract_Fiber& fiber, steady_time now)
@@ -458,6 +624,7 @@ do_service_timer_callback(const shptr<Implementation>& impl,
     if(impl->db_ready == false) {
       // Check tables.
       do_mysql_check_table_user(fiber);
+      do_mysql_check_table_nickname(fiber);
       impl->db_ready = true;
     }
 
@@ -896,6 +1063,8 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/user/kick", bindw(this->m_impl, do_slash_user_kick));
     service.set_handler(&"/user/ban/set", bindw(this->m_impl, do_slash_user_ban_set));
     service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_slash_user_ban_lift));
+    service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_slash_nickname_acquire));
+    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
 
     // Restart the service.
     this->m_impl->service_timer.start(150ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
