@@ -543,9 +543,8 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    impl->roles.erase(roid);
-
     if(task2->result().is_nil()) {
+      impl->roles.erase(roid);
       response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
       return;
     }
@@ -591,7 +590,6 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       fiber.yield(task2);
     }
     while(!task2->result().is_nil());
-
     impl->roles.erase(roid);
 
     POSEIDON_LOG_INFO(("Unloaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
@@ -629,6 +627,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->result().is_nil()) {
+      impl->roles.erase(roid);
       response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
       return;
     }
@@ -698,8 +697,10 @@ do_service_timer_callback(const shptr<Implementation>& impl,
       ::poseidon::task_scheduler.launch(task2);
       fiber.yield(task2);
 
-      if(task2->result().is_nil())
+      if(task2->result().is_nil()) {
+        impl->roles.erase(roid);
         continue;
+      }
 
       // Write a snapshot of role information to MySQL.
       Role_Information roinfo;
