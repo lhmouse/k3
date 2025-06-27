@@ -79,8 +79,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             }
             catch(exception& stdex) {
               POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-              session->ws_shut_down(::poseidon::ws_status_forbidden);
-              return;
+              uinfo.username.clear();
             }
 
           if(uinfo.username.size() < 3) {
