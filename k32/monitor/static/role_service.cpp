@@ -175,7 +175,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
-    ROCKET_ASSERT(impl->db_ready);
+    POSEIDON_CHECK(impl->db_ready);
 
     Role_Information roinfo;
     roinfo.roid = roid;
@@ -267,7 +267,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
-    ROCKET_ASSERT(impl->db_ready);
+    POSEIDON_CHECK(impl->db_ready);
 
     Role_Information roinfo;
     roinfo.roid = roid;
@@ -364,7 +364,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
-    ROCKET_ASSERT(impl->db_ready);
+    POSEIDON_CHECK(impl->db_ready);
 
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"GET");
@@ -444,7 +444,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
-    ROCKET_ASSERT(impl->db_ready);
+    POSEIDON_CHECK(impl->db_ready);
 
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"GETEX");
