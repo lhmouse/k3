@@ -73,7 +73,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           // Search for an authenticator handler.
           auto authenticator = impl->ws_authenticators.ptr(path);
           if(!authenticator) {
-            POSEIDON_LOG_DEBUG(("No WebSocket authenticator for `$1`"), path);
+            POSEIDON_LOG_DEBUG(("No WS authenticator for `$1`"), path);
             session->ws_shut_down(::poseidon::ws_status_forbidden);
             return;
           }
@@ -263,42 +263,43 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
 
           tinybuf_ln buf(move(data));
-          ::taxon::Value root;
-          POSEIDON_CHECK(root.parse(buf, ::taxon::option_json_mode) && root.is_object());
+          ::taxon::Value temp_value;
+          POSEIDON_CHECK(temp_value.parse(buf, ::taxon::option_json_mode));
+          ::taxon::V_object root = temp_value.as_object();
+          temp_value.clear();
 
           phcow_string opcode;
-          ::taxon::Value request_data;
+          ::taxon::V_object request_data;
           ::taxon::Value serial;
 
-          for(const auto& r : root.as_object())
+          for(const auto& r : root)
             if(r.first == &"opcode")
               opcode = r.second.as_string();
             else if(r.first == &"data")
-              request_data = r.second;
+              request_data = r.second.as_object();
             else if(r.first == &"serial")
               serial = r.second;
 
-          // Search for a handler.
-          static_vector<User_Service::ws_handler_type, 1> handler;
-          if(auto ptr = impl->ws_handlers.ptr(opcode))
-            handler.emplace_back(*ptr);
-
-          if(handler.empty()) {
-            POSEIDON_LOG_WARN(("Unknown opcode `$1` from user `$2`"), opcode, username);
-            session->ws_shut_down(user_ws_status_unknown_opcode);
-            return;
-          }
-
           // Call the user-defined handler to get response data.
-          ::taxon::Value response_data;
+          ::taxon::V_object response_data;
+          int ws_status = 0;
           try {
-            uconn->rate_counter ++;
-            handler.at(0) (fiber, username, response_data, move(request_data));
-            uconn->pong_time = steady_clock::now();
+            if(auto ptr = impl->ws_handlers.ptr(opcode)) {
+              // Copy the handler, in case of fiber context switches.
+              uconn->rate_counter ++;
+              auto saved_handler = *ptr;
+              saved_handler(fiber, username, response_data, move(request_data));
+              uconn->pong_time = steady_clock::now();
+            } else
+              ws_status = user_ws_status_unknown_opcode;
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
-            session->ws_shut_down(::poseidon::ws_status_unexpected_error);
+            ws_status = ::poseidon::ws_status_unexpected_error;
+          }
+
+          if(ws_status != 0) {
+            session->ws_shut_down(ws_status);
             return;
           }
 
@@ -306,13 +307,14 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             break;
 
           // The client expects a response, so send it.
-          root.open_object().clear();
-          root.open_object().try_emplace(&"serial", serial);
-          if(!response_data.is_null())
-            root.open_object().try_emplace(&"data", response_data);
+          root.clear();
+          root.try_emplace(&"serial", serial);
+          if(!response_data.empty())
+            root.try_emplace(&"data", response_data);
 
           buf.clear_buffer();
-          root.print_to(buf, ::taxon::option_json_mode);
+          temp_value = root;
+          temp_value.print_to(buf, ::taxon::option_json_mode);
           session->ws_send(::poseidon::ws_TEXT, buf);
           break;
         }
@@ -374,28 +376,29 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           POSEIDON_CHECK(::poseidon::parse_network_reference(uri, data) == data.size());
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
-          // Search for a handler.
-          static_vector<User_Service::http_handler_type, 1> handler;
-          if(auto ptr = impl->http_handlers.ptr(path))
-            handler.emplace_back(*ptr);
-
-          if(handler.empty()) {
-            POSEIDON_LOG_DEBUG(("No HTTP handler for `$1`"), path);
-            session->http_shut_down(::poseidon::http_status_not_found);
-            return;
-          }
-
           // Call the user-defined handler to get response data.
-          cow_string response_content_type = &"application/octet-stream";
-          cow_string response_data;
+          cow_string response_content_type, response_data;
+          int http_status = 0;
           try {
-            handler.at(0) (fiber, response_content_type, response_data, cow_string(uri.query));
+            if(auto ptr = impl->http_handlers.ptr(path)) {
+              // Copy the handler, in case of fiber context switches.
+              auto saved_handler = *ptr;
+              saved_handler(fiber, response_content_type, response_data, cow_string(uri.query));
+            } else
+              http_status = ::poseidon::http_status_not_found;
           }
           catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), data, stdex);
-            session->http_shut_down(::poseidon::http_status_internal_server_error);
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), path, stdex);
+            http_status = ::poseidon::http_status_bad_request;
+          }
+
+          if(http_status != 0) {
+            session->http_shut_down(http_status);
             return;
           }
+
+          if(response_content_type.empty() && !response_data.empty())
+            response_content_type = &"text/plain";
 
           // Make an HTTP response.
           ::poseidon::HTTP_S_Headers resp;
@@ -521,22 +524,19 @@ void
 do_slash_user_kick(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& /*fiber*/,
                    const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username;
     int ws_status = 1008;
     cow_string reason;
 
-    if(request_data.is_string())
-      username = request_data.as_string();
-    else
-      for(const auto& r : request_data.as_object())
-        if(r.first == &"username")
-          username = r.second.as_string();
-        else if(r.first == &"ws_status")
-          ws_status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
-        else if(r.first == &"reason")
-          reason = r.second.as_string();
+    for(const auto& r : request_data)
+      if(r.first == &"username")
+        username = r.second.as_string();
+      else if(r.first == &"ws_status")
+        ws_status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
+      else if(r.first == &"reason")
+        reason = r.second.as_string();
 
     POSEIDON_CHECK(username != "");
 
@@ -547,7 +547,7 @@ do_slash_user_kick(const shptr<Implementation>& impl,
       session = uconn->weak_session.lock();
 
     if(session == nullptr) {
-      response_data.open_object().try_emplace(&"status", &"gs_user_not_online");
+      response_data.try_emplace(&"status", &"gs_user_not_online");
       return;
     }
 
@@ -555,20 +555,20 @@ do_slash_user_kick(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_slash_user_ban_set(const shptr<Implementation>& impl,
                       ::poseidon::Abstract_Fiber& fiber,
                       const ::poseidon::UUID& /*request_service_uuid*/,
-                      ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     constexpr time_point<system_clock, seconds> _2000_01_01(946684800s);
     phcow_string username;
     system_time until;
 
-    for(const auto& r : request_data.as_object())
+    for(const auto& r : request_data)
       if(r.first == &"username")
         username = r.second.as_string();
       else if(r.first == &"until")
@@ -599,7 +599,7 @@ do_slash_user_ban_set(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->match_count() == 0) {
-      response_data.open_object().try_emplace(&"status", &"gs_user_not_found");
+      response_data.try_emplace(&"status", &"gs_user_not_found");
       return;
     }
 
@@ -613,18 +613,18 @@ do_slash_user_ban_set(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Set ban on `$1` until `$2`"), username, until);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_slash_user_ban_lift(const shptr<Implementation>& impl,
                        ::poseidon::Abstract_Fiber& fiber,
                        const ::poseidon::UUID& /*request_service_uuid*/,
-                       ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                       ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username;
 
-    for(const auto& r : request_data.as_object())
+    for(const auto& r : request_data)
       if(r.first == &"username")
         username = r.second.as_string();
 
@@ -651,7 +651,7 @@ do_slash_user_ban_lift(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->match_count() == 0) {
-      response_data.open_object().try_emplace(&"status", &"gs_user_not_found");
+      response_data.try_emplace(&"status", &"gs_user_not_found");
       return;
     }
 
@@ -661,7 +661,7 @@ do_slash_user_ban_lift(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Lift ban on `$1`"), username);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 }  // namespace

@@ -11,7 +11,7 @@ struct Service_Response
   {
     ::poseidon::UUID service_uuid;
     ::poseidon::UUID request_uuid;
-    ::taxon::Value response_data;
+    ::taxon::V_object response_data;
     cow_string error;
     bool complete = false;
 

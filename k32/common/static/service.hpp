@@ -29,8 +29,8 @@ class Service
             void (
               ::poseidon::Abstract_Fiber& fiber,
               const ::poseidon::UUID& request_service_uuid,
-              ::taxon::Value& response_data,  // output parameter
-              ::taxon::Value&& request_data)>;
+              ::taxon::V_object& response_data,  // output parameter
+              ::taxon::V_object&& request_data)>;
 
     // Adds a new handler for requests from other servers. If a new handler
     // already exists, an exception is thrown.

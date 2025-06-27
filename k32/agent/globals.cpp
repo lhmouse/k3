@@ -33,12 +33,15 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", 505);
+      ::taxon::V_object req_data;
+      req_data.try_emplace(&"roid", 505);
+
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
       response_content_type = &"text/plain";
-      response_data = req1->responses().at(0).response_data.to_string();
+      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
       POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
     });
 
@@ -50,12 +53,15 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", 475);
+      ::taxon::V_object req_data;
+      req_data.try_emplace(&"roid", 475);
+
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
       response_content_type = &"text/plain";
-      response_data = req1->responses().at(0).response_data.to_string();
+      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
       POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
     });
 
@@ -67,12 +73,15 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", 405);
+      ::taxon::V_object req_data;
+      req_data.try_emplace(&"roid", 405);
+
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
       response_content_type = &"text/plain";
-      response_data = req1->responses().at(0).response_data.to_string();
+      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
       POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
     });
 
@@ -84,12 +93,15 @@ user_service.add_http_handler(
     {
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/flush", 505);
+      ::taxon::V_object req_data;
+      req_data.try_emplace(&"roid", 505);
+
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/flush", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
       response_content_type = &"text/plain";
-      response_data = req1->responses().at(0).response_data.to_string();
+      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
       POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
     });
 

@@ -81,12 +81,12 @@ void
 do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
                           ::poseidon::Abstract_Fiber& fiber,
                           const ::poseidon::UUID& /*req_service_uuid*/,
-                          ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                          ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     cow_string nickname;
     phcow_string username;
 
-    for(const auto& r : request_data.as_object())
+    for(const auto& r : request_data)
       if(r.first == &"nickname")
         nickname = r.second.as_string();
       else if(r.first == &"username")
@@ -141,7 +141,7 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
       fiber.yield(task1);
 
       if(task1->result_rows().size() == 0) {
-        response_data.open_object().try_emplace(&"status", &"gs_nickname_conflict");
+        response_data.try_emplace(&"status", &"gs_nickname_conflict");
         return;
       }
 
@@ -150,24 +150,21 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
 
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
 
-    response_data.open_object().try_emplace(&"serial", serial);
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"serial", serial);
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
                           ::poseidon::Abstract_Fiber& fiber,
                           const ::poseidon::UUID& /*req_service_uuid*/,
-                          ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                          ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     cow_string nickname;
 
-    if(request_data.is_string())
-      nickname = request_data.as_string();
-    else
-      for(const auto& r : request_data.as_object())
-        if(r.first == &"nickname")
-          nickname = r.second.as_string();
+    for(const auto& r : request_data)
+      if(r.first == &"nickname")
+        nickname = r.second.as_string();
 
     POSEIDON_CHECK(nickname != "");
 
@@ -189,13 +186,13 @@ do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
     fiber.yield(task1);
 
     if(task1->match_count() == 0) {
-      response_data.open_object().try_emplace(&"status", &"gs_nickname_not_found");
+      response_data.try_emplace(&"status", &"gs_nickname_not_found");
       return;
     }
 
     POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -270,41 +267,43 @@ do_parse_role_information_from_string(Role_Information& roinfo, const cow_string
   {
     ROCKET_ASSERT(roinfo.roid != 0);
 
-    ::taxon::Value root;
-    POSEIDON_CHECK(root.parse(str) && root.is_object());
+    ::taxon::Value temp_value;
+    POSEIDON_CHECK(temp_value.parse(str));
+    ::taxon::V_object root = temp_value.as_object();
+    temp_value.clear();
 
-    roinfo.username = root.as_object().at(&"username").as_string();
-    roinfo.nickname = root.as_object().at(&"nickname").as_string();
-    roinfo.update_time = root.as_object().at(&"update_time").as_time();
-    roinfo.avatar = root.as_object().at(&"avatar").as_string();   // JSON as string
-    roinfo.profile = root.as_object().at(&"profile").as_string();   // JSON as string
-    roinfo.whole = root.as_object().at(&"whole").as_string();   // JSON as string
+    roinfo.username = root.at(&"username").as_string();
+    roinfo.nickname = root.at(&"nickname").as_string();
+    roinfo.update_time = root.at(&"update_time").as_time();
+    roinfo.avatar = root.at(&"avatar").as_string();   // JSON as string
+    roinfo.profile = root.at(&"profile").as_string();   // JSON as string
+    roinfo.whole = root.at(&"whole").as_string();   // JSON as string
 
-    roinfo.home_host = root.as_object().at(&"@home_host").as_string();
-    roinfo.home_db = root.as_object().at(&"@home_db").as_string();
+    roinfo.home_host = root.at(&"@home_host").as_string();
+    roinfo.home_db = root.at(&"@home_db").as_string();
   }
 
 void
 do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
                                      Role_Information& roinfo, seconds ttl)
   {
-    ::taxon::Value root;
-    root.open_object().try_emplace(&"@home_srv", service.service_uuid().to_string());
+    ::taxon::V_object root;
+    root.try_emplace(&"@home_srv", service.service_uuid().to_string());
 
-    root.open_object().try_emplace(&"username", roinfo.username.rdstr());
-    root.open_object().try_emplace(&"nickname", roinfo.nickname);
-    root.open_object().try_emplace(&"update_time", roinfo.update_time);
-    root.open_object().try_emplace(&"avatar", roinfo.avatar);  // JSON as string
-    root.open_object().try_emplace(&"profile", roinfo.profile);  // JSON as string
-    root.open_object().try_emplace(&"whole", roinfo.whole);  // JSON as string
+    root.try_emplace(&"username", roinfo.username.rdstr());
+    root.try_emplace(&"nickname", roinfo.nickname);
+    root.try_emplace(&"update_time", roinfo.update_time);
+    root.try_emplace(&"avatar", roinfo.avatar);  // JSON as string
+    root.try_emplace(&"profile", roinfo.profile);  // JSON as string
+    root.try_emplace(&"whole", roinfo.whole);  // JSON as string
 
-    root.open_object().try_emplace(&"@home_host", roinfo.home_host);
-    root.open_object().try_emplace(&"@home_db", roinfo.home_db);
+    root.try_emplace(&"@home_host", roinfo.home_host);
+    root.try_emplace(&"@home_db", roinfo.home_db);
 
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(root.to_string());
+    redis_cmd.emplace_back(::taxon::Value(root).to_string());
     redis_cmd.emplace_back(&"NX");  // no replace
     redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(&"EX");
@@ -322,13 +321,13 @@ void
 do_slash_role_create(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*req_service_uuid*/,
-                     ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = -1;
     cow_string nickname;
     phcow_string username;
 
-    for(const auto& r : request_data.as_object())
+    for(const auto& r : request_data)
       if(r.first == &"roid")
         roid = r.second.as_integer();
       else if(r.first == &"nickname")
@@ -399,7 +398,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
       fiber.yield(task1);
 
       if(task1->result_rows().size() == 0) {
-        response_data.open_object().try_emplace(&"status", &"gs_roid_conflict");
+        response_data.try_emplace(&"status", &"gs_roid_conflict");
         return;
       }
 
@@ -415,23 +414,20 @@ do_slash_role_create(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Created role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_slash_role_load(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber,
                    const ::poseidon::UUID& /*req_service_uuid*/,
-                   ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = -1;
 
-    if(request_data.is_integer())
-      roid = request_data.as_integer();
-    else
-      for(const auto& r : request_data.as_object())
-        if(r.first == &"roid")
-          roid = r.second.as_integer();
+    for(const auto& r : request_data)
+      if(r.first == &"roid")
+        roid = r.second.as_integer();
 
     POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
 
@@ -467,7 +463,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     fiber.yield(task1);
 
     if(task1->result_rows().size() == 0) {
-      response_data.open_object().try_emplace(&"status", &"gs_roid_not_found");
+      response_data.try_emplace(&"status", &"gs_roid_not_found");
       return;
     }
 
@@ -483,7 +479,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -522,16 +518,13 @@ void
 do_slash_role_unload(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*req_service_uuid*/,
-                     ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = -1;
 
-    if(request_data.is_integer())
-      roid = request_data.as_integer();
-    else
-      for(const auto& r : request_data.as_object())
-        if(r.first == &"roid")
-          roid = r.second.as_integer();
+    for(const auto& r : request_data)
+      if(r.first == &"roid")
+        roid = r.second.as_integer();
 
     POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
 
@@ -549,7 +542,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 
     if(task2->result().is_nil()) {
       impl->roles.erase(roid);
-      response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
+      response_data.try_emplace(&"status", &"gs_role_not_online");
       return;
     }
 
@@ -564,7 +557,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
       if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
         ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
-        response_data.open_object().try_emplace(&"status", &"gs_role_foreign");
+        response_data.try_emplace(&"status", &"gs_role_foreign");
         return;
       }
 
@@ -598,23 +591,20 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Unloaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_slash_role_flush(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
                     const ::poseidon::UUID& /*req_service_uuid*/,
-                    ::taxon::Value& response_data, ::taxon::Value&& request_data)
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = -1;
 
-    if(request_data.is_integer())
-      roid = request_data.as_integer();
-    else
-      for(const auto& r : request_data.as_object())
-        if(r.first == &"roid")
-          roid = r.second.as_integer();
+    for(const auto& r : request_data)
+      if(r.first == &"roid")
+        roid = r.second.as_integer();
 
     POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
 
@@ -634,7 +624,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
 
     if(task2->result().is_nil()) {
       impl->roles.erase(roid);
-      response_data.open_object().try_emplace(&"status", &"gs_role_not_online");
+      response_data.try_emplace(&"status", &"gs_role_not_online");
       return;
     }
 
@@ -646,7 +636,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
       ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
-      response_data.open_object().try_emplace(&"status", &"gs_role_foreign");
+      response_data.try_emplace(&"status", &"gs_role_foreign");
       return;
     }
 
@@ -655,7 +645,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.open_object().try_emplace(&"status", &"gs_ok");
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void
