@@ -70,24 +70,18 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          // Search for an authenticator handler.
-          auto authenticator = impl->ws_authenticators.ptr(path);
-          if(!authenticator) {
-            POSEIDON_LOG_DEBUG(("No WS authenticator for `$1`"), path);
-            session->ws_shut_down(::poseidon::ws_status_forbidden);
-            return;
-          }
-
-          // Call the user-defined handler to get the username.
+          // Call the user-defined authenticator to get the username.
           User_Information uinfo;
-          try {
-            (*authenticator) (fiber, uinfo.username, cow_string(uri.query));
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-            session->ws_shut_down(::poseidon::ws_status_forbidden);
-            return;
-          }
+          if(auto ptr = impl->ws_authenticators.ptr(path))
+            try {
+              auto authenticator = *ptr;
+              authenticator(fiber, uinfo.username, cow_string(uri.query));
+            }
+            catch(exception& stdex) {
+              POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
+              session->ws_shut_down(::poseidon::ws_status_forbidden);
+              return;
+            }
 
           if(uinfo.username.size() < 3) {
             POSEIDON_LOG_DEBUG(("Authenticated for `$1`"), path);
@@ -281,22 +275,20 @@ do_server_hws_callback(const shptr<Implementation>& impl,
               serial = r.second;
 
           // Call the user-defined handler to get response data.
+          int ws_status = user_ws_status_unknown_opcode;
           ::taxon::V_object response_data;
-          int ws_status = 0;
-          try {
-            if(auto ptr = impl->ws_handlers.ptr(opcode)) {
-              // Copy the handler, in case of fiber context switches.
+          if(auto ptr = impl->ws_handlers.ptr(opcode))
+            try {
               uconn->rate_counter ++;
               auto saved_handler = *ptr;
               saved_handler(fiber, username, response_data, move(request_data));
               uconn->pong_time = steady_clock::now();
-            } else
-              ws_status = user_ws_status_unknown_opcode;
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
-            ws_status = ::poseidon::ws_status_unexpected_error;
-          }
+              ws_status = 0;
+            }
+            catch(exception& stdex) {
+              POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), opcode, stdex);
+              ws_status = ::poseidon::ws_status_unexpected_error;
+            }
 
           if(ws_status != 0) {
             session->ws_shut_down(ws_status);
@@ -377,39 +369,31 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
           // Call the user-defined handler to get response data.
-          cow_string response_content_type, response_data;
-          int http_status = 0;
-          try {
-            if(auto ptr = impl->http_handlers.ptr(path)) {
-              // Copy the handler, in case of fiber context switches.
+          int http_status = ::poseidon::http_status_not_found;
+          cow_string response_content_type = &"application/octet-stream";
+          cow_string response_payload;
+          if(auto ptr = impl->http_handlers.ptr(path))
+            try {
               auto saved_handler = *ptr;
-              saved_handler(fiber, response_content_type, response_data, cow_string(uri.query));
-            } else
-              http_status = ::poseidon::http_status_not_found;
-          }
-          catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), path, stdex);
-            http_status = ::poseidon::http_status_bad_request;
-          }
+              saved_handler(fiber, response_content_type, response_payload, cow_string(uri.query));
+              http_status = 0;
+            }
+            catch(exception& stdex) {
+              POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), path, stdex);
+              http_status = ::poseidon::http_status_bad_request;
+            }
 
           if(http_status != 0) {
             session->http_shut_down(http_status);
             return;
           }
 
-          if(response_content_type.empty() && !response_data.empty())
-            response_content_type = &"text/plain";
-
           // Make an HTTP response.
           ::poseidon::HTTP_S_Headers resp;
           resp.status = ::poseidon::http_status_ok;
-          resp.headers.emplace_back(&"Content-Type", response_content_type);
           resp.headers.emplace_back(&"Cache-Control", &"no-cache");
-          if(event == ::poseidon::easy_hws_head) {
-            resp.headers.emplace_back(&"Content-Length", response_data.ssize());
-            session->http_response_headers_only(move(resp));
-          } else
-            session->http_response(move(resp), response_data);
+          resp.headers.emplace_back(&"Content-Type", response_content_type);
+          session->http_response(event == ::poseidon::easy_hws_head, move(resp), response_payload);
           break;
         }
       }
