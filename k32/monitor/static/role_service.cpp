@@ -280,9 +280,8 @@ do_parse_role_information_from_string(Role_Information& roinfo, const cow_string
   }
 
 void
-do_store_role_information_into_redis(const shptr<Implementation>& impl,
-                                     ::poseidon::Abstract_Fiber& fiber,
-                                     Role_Information& roinfo)
+do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
+                                     Role_Information& roinfo, seconds ttl)
   {
     ::taxon::Value root;
     root.open_object().try_emplace(&"@home_srv", service.service_uuid().to_string());
@@ -304,7 +303,7 @@ do_store_role_information_into_redis(const shptr<Implementation>& impl,
     redis_cmd.emplace_back(&"NX");  // no replace
     redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(&"EX");
-    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+    redis_cmd.emplace_back(sformat("$1", ttl.count()));
 
     auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
     ::poseidon::task_scheduler.launch(task2);
@@ -406,7 +405,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
       roinfo.whole = task1->result_rows().front().at(4).as_blob();               //        , `whole`
     }
 
-    do_store_role_information_into_redis(impl, fiber, roinfo);
+    do_store_role_information_into_redis(fiber, roinfo, impl->redis_role_ttl);
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
 
     POSEIDON_LOG_INFO(("Created role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
@@ -474,7 +473,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     roinfo.profile = task1->result_rows().front().at(4).as_blob();             //        , `profile`
     roinfo.whole = task1->result_rows().front().at(5).as_blob();               //        , `whole`
 
-    do_store_role_information_into_redis(impl, fiber, roinfo);
+    do_store_role_information_into_redis(fiber, roinfo, impl->redis_role_ttl);
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
 
     POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
@@ -483,8 +482,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
   }
 
 void
-do_store_role_information_into_mysql(const shptr<Implementation>& impl,
-                                     ::poseidon::Abstract_Fiber& fiber,
+do_store_role_information_into_mysql(::poseidon::Abstract_Fiber& fiber,
                                      uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
                                      Role_Information& roinfo)
   {
@@ -567,7 +565,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
         return;
       }
 
-      do_store_role_information_into_mysql(impl, fiber, move(mysql_conn), roinfo);
+      do_store_role_information_into_mysql(fiber, move(mysql_conn), roinfo);
       POSEIDON_LOG_DEBUG(("Stored role `$1` (`$2`) into MySQL"), roinfo.roid, roinfo.nickname);
 
       static constexpr char redis_delete_if_unchanged[] =
@@ -650,7 +648,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     }
 
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
-    do_store_role_information_into_mysql(impl, fiber, move(mysql_conn), roinfo);
+    do_store_role_information_into_mysql(fiber, move(mysql_conn), roinfo);
 
     POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
