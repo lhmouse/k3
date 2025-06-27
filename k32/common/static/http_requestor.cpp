@@ -13,7 +13,7 @@ struct Connection_to_Host
   {
     wkptr<::poseidon::HTTP_Client_Session> weak_http_session;
     wkptr<::poseidon::HTTPS_Client_Session> weak_https_session;
-    deque<wkptr<HTTP_Future>> request_queue;
+    ::std::deque<wkptr<HTTP_Future>> request_queue;
   };
 
 struct Implementation

@@ -52,7 +52,7 @@ struct Implementation
 
     // connections
     cow_uuid_dictionary<Remote_Service_Connection_Information> remote_connections;
-    vector<::poseidon::UUID> expired_service_uuids;
+    ::std::vector<::poseidon::UUID> expired_service_uuids;
   };
 
 void
