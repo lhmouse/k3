@@ -966,7 +966,7 @@ reload(const ::poseidon::Config_File& conf_file)
           "[in configuration file '$2']"),
           conf_value, conf_file.path(), service.service_index());
 
-    if((client_port < 1) || (client_port > 65535))
+    if((client_port < 1) || (client_port > 32767))
       POSEIDON_THROW((
           "Invalid `agent.client_port_list[$3]`: value `$1` out of range",
           "[in configuration file '$2']"),
