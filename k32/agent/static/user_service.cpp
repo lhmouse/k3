@@ -279,8 +279,11 @@ do_server_hws_callback(const shptr<Implementation>& impl,
               serial = r.second;
 
           // Search for a handler.
-          auto handler = impl->ws_handlers.ptr(opcode);
-          if(!handler) {
+          static_vector<User_Service::ws_handler_type, 1> handler;
+          if(auto ptr = impl->ws_handlers.ptr(opcode))
+            handler.emplace_back(*ptr);
+
+          if(handler.empty()) {
             POSEIDON_LOG_WARN(("Unknown opcode `$1` from user `$2`"), opcode, username);
             session->ws_shut_down(user_ws_status_unknown_opcode);
             return;
@@ -290,7 +293,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::taxon::Value response_data;
           try {
             uconn->rate_counter ++;
-            (*handler) (fiber, username, response_data, move(request_data));
+            handler.at(0) (fiber, username, response_data, move(request_data));
             uconn->pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
@@ -372,8 +375,11 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
           // Search for a handler.
-          auto handler = impl->http_handlers.ptr(path);
-          if(!handler) {
+          static_vector<User_Service::http_handler_type, 1> handler;
+          if(auto ptr = impl->http_handlers.ptr(path))
+            handler.emplace_back(*ptr);
+
+          if(handler.empty()) {
             POSEIDON_LOG_DEBUG(("No HTTP handler for `$1`"), path);
             session->http_shut_down(::poseidon::http_status_not_found);
             return;
@@ -383,7 +389,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           cow_string response_content_type = &"application/octet-stream";
           cow_string response_data;
           try {
-            (*handler) (fiber, response_content_type, response_data, cow_string(uri.query));
+            handler.at(0) (fiber, response_content_type, response_data, cow_string(uri.query));
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), data, stdex);

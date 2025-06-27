@@ -145,8 +145,11 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
           return;
 
         // Find a handler.
-        auto handler = impl->handlers.ptr(this->m_opcode);
-        if(!handler) {
+        static_vector<Service::handler_type, 1> service_handler;
+        if(auto ptr = impl->handlers.ptr(this->m_opcode))
+          service_handler.emplace_back(*ptr);
+
+        if(service_handler.empty()) {
           do_set_single_response(this->m_weak_req, this->m_request_uuid, ::taxon::null,
                                  sformat("No handler for `$1`", this->m_opcode));
           return;
@@ -155,7 +158,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         // Call the user-defined handler to get response data.
         ::taxon::Value response_data;
         try {
-          (*handler) (*this, impl->service_uuid, response_data, move(this->m_request_data));
+          service_handler.at(0) (*this, impl->service_uuid, response_data, move(this->m_request_data));
         }
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
@@ -311,8 +314,11 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
           return;
 
         // Find a handler.
-        auto handler = impl->handlers.ptr(this->m_opcode);
-        if(!handler) {
+        static_vector<Service::handler_type, 1> service_handler;
+        if(auto ptr = impl->handlers.ptr(this->m_opcode))
+          service_handler.emplace_back(*ptr);
+
+        if(service_handler.empty()) {
           do_send_remote_response(session, this->m_request_uuid, ::taxon::null,
                                   sformat("No handler for `$1`", this->m_opcode));
           return;
@@ -321,8 +327,8 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         // Call the user-defined handler to get response data.
         ::taxon::Value response_data;
         try {
-          (*handler) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
-                      response_data, move(this->m_request_data));
+          service_handler.at(0) (*this, ::poseidon::UUID(session->session_user_data().as_string()),
+                                 response_data, move(this->m_request_data));
         }
         catch(exception& stdex) {
           POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2"), this->m_opcode, stdex);
