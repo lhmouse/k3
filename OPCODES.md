@@ -1,11 +1,11 @@
 # Table of Contents
 
 1. [General Status Codes](#general-status-codes)
-2. [Agent Commands](#agent-commands)
+2. [Agent Opcodes](#agent-Opcodes)
    1. [`/user/ban/set`](#userbanset)
    2. [`/user/ban/lift`](#userbanlift)
    3. [`/user/kick`](#userkick)
-3. [Monitor Commands](#monitor-commands)
+3. [Monitor Opcodes](#monitor-Opcodes)
    1. [`/nickname/acquire`](#nicknameacquire)
    2. [`/nickname/release`](#nicknamerelease)
    3. [`/role/create`](#rolecreate)
@@ -31,7 +31,7 @@ strings:
 |`gs_role_not_online`        |Role not online.                               |
 |`gs_role_foreign`           |Role belongs to another server.                |
 
-## Agent Commands
+## Agent Opcodes
 
 ### `/user/ban/set`
 
@@ -87,7 +87,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-## Monitor Commands
+## Monitor Opcodes
 
 ### `/nickname/acquire`
 
