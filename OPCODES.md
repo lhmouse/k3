@@ -1,11 +1,11 @@
 # Table of Contents
 
 1. [General Status Codes](#general-status-codes)
-2. [Agent Opcodes](#agent-Opcodes)
+2. [Agent Opcodes](#agent-opcodes)
    1. [`/user/ban/set`](#userbanset)
    2. [`/user/ban/lift`](#userbanlift)
    3. [`/user/kick`](#userkick)
-3. [Monitor Opcodes](#monitor-Opcodes)
+3. [Monitor Opcodes](#monitor-opcodes)
    1. [`/nickname/acquire`](#nicknameacquire)
    2. [`/nickname/release`](#nicknamerelease)
    3. [`/role/create`](#rolecreate)
