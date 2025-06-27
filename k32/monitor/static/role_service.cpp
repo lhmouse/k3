@@ -26,6 +26,7 @@ struct Implementation
     // remote data from mysql
     bool db_ready = false;
     cow_int64_dictionary<Role_Information> roles;
+    list<static_vector<int64_t, 255>> save_buckets;
   };
 
 void
@@ -549,13 +550,12 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       return;
     }
 
+    // Write role information to MySQL. This is a slow operation, and data may
+    // change when it is being executed. Therefore we will have to verify that
+    // the value on Redis is unchanged before deleting it safely.
     Role_Information roinfo;
     roinfo.roid = roid;
-
-    while(!task2->result().is_nil()) {
-      // Write role information to MySQL. This is a slow operation, and data may
-      // change when it is being executed. Therefore we will have to verify that
-      // the value on Redis is unchanged before deleting it safely.
+    do {
       do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
       auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
@@ -590,6 +590,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       ::poseidon::task_scheduler.launch(task2);
       fiber.yield(task2);
     }
+    while(!task2->result().is_nil());
 
     impl->roles.erase(roid);
 
@@ -620,10 +621,8 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     ROCKET_ASSERT(impl->db_ready);
 
     cow_vector<cow_string> redis_cmd;
-    redis_cmd.emplace_back(&"GETEX");
+    redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roid));
-    redis_cmd.emplace_back(&"EX");
-    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
 
     auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
     ::poseidon::task_scheduler.launch(task2);
@@ -634,10 +633,9 @@ do_slash_role_flush(const shptr<Implementation>& impl,
       return;
     }
 
+    // Write a snapshot of role information to MySQL.
     Role_Information roinfo;
     roinfo.roid = roid;
-
-    // Write a snapshot of role information to MySQL.
     do_parse_role_information_from_string(roinfo, task2->result().as_string());
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
@@ -658,7 +656,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
 void
 do_service_timer_callback(const shptr<Implementation>& impl,
                           const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                          ::poseidon::Abstract_Fiber& fiber, steady_time now)
+                          ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     if(impl->db_ready == false) {
       // Check tables.
@@ -667,8 +665,52 @@ do_service_timer_callback(const shptr<Implementation>& impl,
       impl->db_ready = true;
     }
 
+    // Arrange online roles for writing. Initially, users are divided into 20
+    // buckets. For each timer tick, one bucket is popped and written. If there
+    // are no more buckets, users are divided again. The loop repeats as such.
+    if(impl->save_buckets.empty()) {
+      while(impl->save_buckets.size() < 20)
+        impl->save_buckets.emplace_back();
 
-////////////////////////??
+      for(const auto& r : impl->roles) {
+        auto first_bucket = impl->save_buckets.begin();
+        if(first_bucket->size() >= first_bucket->capacity())
+          first_bucket = impl->save_buckets.emplace(first_bucket);
+
+        first_bucket->push_back(r.first);
+        impl->save_buckets.splice(impl->save_buckets.end(), impl->save_buckets, first_bucket);
+      }
+    }
+
+    auto bucket = move(impl->save_buckets.back());
+    impl->save_buckets.pop_back();
+    POSEIDON_LOG_DEBUG(("Automatically flushing $1 role(s) from Redis to MySQL"), bucket.size());
+
+    while(!bucket.empty()) {
+      int64_t roid = bucket.back();
+      bucket.pop_back();
+
+      cow_vector<cow_string> redis_cmd;
+      redis_cmd.emplace_back(&"GET");
+      redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roid));
+
+      auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+      ::poseidon::task_scheduler.launch(task2);
+      fiber.yield(task2);
+
+      if(task2->result().is_nil())
+        continue;
+
+      // Write a snapshot of role information to MySQL.
+      Role_Information roinfo;
+      roinfo.roid = roid;
+      do_parse_role_information_from_string(roinfo, task2->result().as_string());
+
+      impl->roles.insert_or_assign(roinfo.roid, roinfo);
+      do_store_role_information_into_mysql(fiber, nullptr, roinfo);
+
+      POSEIDON_LOG_INFO(("Automatically flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
+    }
   }
 
 }  // namespace
@@ -738,7 +780,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/role/flush", bindw(this->m_impl, do_slash_role_flush));
 
     // Restart the service.
-    this->m_impl->service_timer.start(100ms, 59001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->service_timer.start(100ms, 17001ms, bindw(this->m_impl, do_service_timer_callback));
   }
 
 }  // namespace k32::monitor
