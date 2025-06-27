@@ -142,7 +142,7 @@ strings:
 * Description
 
   Creates a new role in the _default_ database. By design， the caller should
-  call `/user/nickname/acquire` to acquire ownership of `nickname`, then pass
+  call `/nickname/acquire` first to acquire ownership of `nickname`, then pass
   `serial` as `roid`. After a role is created, it will be loaded into Redis
   automatically.
 
