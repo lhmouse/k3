@@ -751,7 +751,7 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    ::asteria::V_integer redis_role_ttl = 600;
+    ::asteria::V_integer redis_role_ttl = 3600;
 
     // `monitor.redis_role_ttl`
     auto conf_value = conf_file.query(&"monitor.redis_role_ttl");
@@ -763,7 +763,7 @@ reload(const ::poseidon::Config_File& conf_file)
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
-    if((redis_role_ttl < 60) || (redis_role_ttl > 999999999))
+    if((redis_role_ttl < 600) || (redis_role_ttl > 999999999))
       POSEIDON_THROW((
           "Invalid `monitor.redis_role_ttl`: value `$1` out of range",
           "[in configuration file '$2']"),
@@ -781,7 +781,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/role/flush", bindw(this->m_impl, do_slash_role_flush));
 
     // Restart the service.
-    this->m_impl->service_timer.start(100ms, 17001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->service_timer.start(100ms, 11001ms, bindw(this->m_impl, do_service_timer_callback));
   }
 
 }  // namespace k32::monitor
