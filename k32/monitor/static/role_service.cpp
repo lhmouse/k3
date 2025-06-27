@@ -683,8 +683,6 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
     auto bucket = move(impl->save_buckets.back());
     impl->save_buckets.pop_back();
-    POSEIDON_LOG_DEBUG(("Automatically flushing $1 role(s) from Redis to MySQL"), bucket.size());
-
     while(!bucket.empty()) {
       int64_t roid = bucket.back();
       bucket.pop_back();
