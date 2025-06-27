@@ -8,10 +8,11 @@
    4. [`/nickname/acquire`](#nicknameacquire)
    5. [`/nickname/release`](#nicknamerelease)
 3. [Monitor Service Opcodes](#monitor-service-opcodes)
-   1. [`/role/create`](#rolecreate)
-   2. [`/role/load`](#roleload)
-   3. [`/role/unload`](#roleunload)
-   4. [`/role/flush`](#roleflush)
+   1. [`/role/list`](#rolelist)
+   2. [`/role/create`](#rolecreate)
+   3. [`/role/load`](#roleload)
+   4. [`/role/unload`](#roleunload)
+   5. [`/role/flush`](#roleflush)
 
 ## General Status Codes
 
@@ -126,6 +127,26 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ## Monitor Service Opcodes
+
+### `/role/list`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Owner of roles to list.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+  - `role_list` <sub>array of objects</sub> : Roles that have been found.
+    - `roid` <sub>integer</sub> : Unique ID of role.
+    - `avatar` <sub>string</sub> : Avatar data, encoded as a JSON string.
+
+* Description
+
+  Searches the _default_ database for all roles that belong to `username`, and
+  returns their avatars. The result is not cached.
+
+[back to table of contents](#table-of-contents)
 
 ### `/role/create`
 

@@ -74,9 +74,9 @@ user_service.add_http_handler(
       POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
 
       ::taxon::V_object req_data;
-      req_data.try_emplace(&"roid", 405);
+      req_data.try_emplace(&"username", &"test01001");
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", req_data);
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/list", req_data);
       service.launch(req1);
       fiber.yield(req1);
 

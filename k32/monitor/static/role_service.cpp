@@ -152,6 +152,55 @@ do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
   }
 
 void
+do_slash_role_list(const shptr<Implementation>& impl,
+                   ::poseidon::Abstract_Fiber& fiber,
+                   const ::poseidon::UUID& /*req_service_uuid*/,
+                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    phcow_string username;
+
+    for(const auto& r : request_data)
+      if(r.first == &"username")
+        username = r.second.as_string();
+
+    POSEIDON_CHECK(username != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    POSEIDON_CHECK(impl->db_ready);
+
+    static constexpr char select_avatar_from_role[] =
+        R"!!!(
+          SELECT `roid`
+                 , `avatar`
+            FROM `role`
+            WHERE `username` = ?
+                  AND `avatar` != ''
+        )!!!";
+
+    cow_vector<::poseidon::MySQL_Value> sql_args;
+    sql_args.emplace_back(username.rdstr());       // WHERE `username` = ?
+
+    auto task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
+                                                        &select_avatar_from_role, sql_args);
+    ::poseidon::task_scheduler.launch(task1);
+    fiber.yield(task1);
+
+    ::taxon::V_array role_list;
+    for(const auto& row : task1->result_rows()) {
+      ::taxon::V_object role;
+      role.try_emplace(&"roid", row.at(0).as_integer());  // SELECT `roid`
+      role.try_emplace(&"avatar", row.at(1).as_blob());   //        , `avatar`
+      role_list.emplace_back(move(role));
+    }
+
+    POSEIDON_LOG_INFO(("Found $1 role(s) for user `$2`"), role_list.size(), username);
+
+    response_data.try_emplace(&"role_list", role_list);
+    response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
 do_slash_role_create(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*req_service_uuid*/,
@@ -600,6 +649,7 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
 
     // Set up request handlers.
+    service.set_handler(&"/role/list", bindw(this->m_impl, do_slash_role_list));
     service.set_handler(&"/role/create", bindw(this->m_impl, do_slash_role_create));
     service.set_handler(&"/role/load", bindw(this->m_impl, do_slash_role_load));
     service.set_handler(&"/role/unload", bindw(this->m_impl, do_slash_role_unload));
