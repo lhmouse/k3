@@ -218,7 +218,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
       else if(r.first == &"username")
         username = r.second.as_string();
 
-    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
     POSEIDON_CHECK(nickname != "");
     POSEIDON_CHECK(username != "");
 
@@ -312,7 +312,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
       if(r.first == &"roid")
         roid = r.second.as_integer();
 
-    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
     //
@@ -409,7 +409,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       if(r.first == &"roid")
         roid = r.second.as_integer();
 
-    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
     //
@@ -489,7 +489,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
       if(r.first == &"roid")
         roid = r.second.as_integer();
 
-    POSEIDON_CHECK((roid >= 1) && (roid <= 999999999999999999));
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
     //
