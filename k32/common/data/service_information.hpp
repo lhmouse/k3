@@ -1,5 +1,5 @@
 // This file is part of k32.
-// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
+// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
 #ifndef K32_COMMON_DATA_SERVICE_INFORMATION_
 #define K32_COMMON_DATA_SERVICE_INFORMATION_
