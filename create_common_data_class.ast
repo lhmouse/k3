@@ -33,27 +33,14 @@ if(std.filesystem.get_real_path(path_cpp) != null) {
   return 1;
 }
 
-var text_meson_build = '';
 var old_meson_build = std.filesystem.read('meson.build', 0, 100`000`000);
-var lines = std.string.explode(old_meson_build, "\n");
-while(lines[$] == '')
-  unset lines[$];
-for(each s -> lines) {
-  var index = std.string.find(s, '##+[common/data]');
-  if(index != null) {
-    text_meson_build += std.string.slice(s, 0, index);
-    text_meson_build += "'";
-    text_meson_build += path_cpp;
-    text_meson_build += "',\n";
-  }
-  text_meson_build += s;
-  text_meson_build += "\n";
-}
-
-if(text_meson_build == old_meson_build) {
+var m = std.string.pcre_match(old_meson_build, "(.*\n)( +)('k32/common/data/[^']+\\.cpp',)(.)(.*)", [ 'dotall' ]);
+if(m == null) {
   std.io.putfln('Could not found insertion point in meson.build');
   return 1;
 }
+
+var text_meson_build = std.string.format("$1$2$3$4$2'$6',$4$5", m[1], m[2], m[3], m[4], m[5], path_cpp);
 
 var ln = __varg(1);
 if(ln == null) {
@@ -87,7 +74,7 @@ if(ln == null) {
 }
 ln = std.string.to_lower(std.string.trim(ln));
 if(ln != 'yes') {
-  std.io.putfln('Cancelled');
+  std.io.putfln('Unconfirmed');
   return 1;
 }
 

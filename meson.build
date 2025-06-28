@@ -65,7 +65,6 @@ lib_common = static_library('common',
       'k32/common/data/service_response.cpp',
       'k32/common/data/user_information.cpp',
       'k32/common/data/role_information.cpp',
-      ##+[common/data] insertion point for script
       'k32/common/fiber/service_future.cpp',
       'k32/common/fiber/http_future.cpp',
       'k32/common/static/service.cpp',
