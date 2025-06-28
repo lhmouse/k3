@@ -1,48 +1,24 @@
 #!/usr/bin/env asteria
 
-std.io.putc('Enter class name: ');
-var ln = std.io.getln();
+var ln = __varg(0);
 if(ln == null) {
-  std.io.putfln('Cancelled');
-  return 1;
+  std.io.putc('Enter class name: ');
+  ln = std.io.getln();
+  if(ln == null) {
+    std.io.putfln('Cancelled');
+    return 1;
+  }
 }
 ln = std.string.trim(ln);
-var m = std.string.pcre_match(ln,
-  '^([a-z][a-z0-9]+(_[a-z0-9]+)*)$',
-  [ 'caseless' ]);
+var m = std.string.pcre_match(ln, '^([a-z][a-z0-9]+(_[a-z0-9]+)*)$', [ 'caseless' ]);
 if(m == null) {
-  std.io.putfln('Class name is not valid');
+  std.io.putfln('Class name is not valid: $1', ln);
   return 1;
 }
 
 var cl_name = m[1];
 var cl_name_up = std.string.to_upper(cl_name);
 var cl_name_lo = std.string.to_lower(cl_name);
-
-std.io.putc('Enter UUID for this class (optional): ');
-var ln = std.io.getln();
-if(ln == null) {
-  std.io.putfln('Cancelled');
-  return 1;
-}
-ln = std.string.trim(ln);
-if(ln == '') {
-  ln = std.system.random_uuid();
-  std.io.putfln('Generated new UUID: $1', ln);
-}
-var m = std.string.pcre_match(ln,
-  '\b([0-9a-f]{8})[-_]([0-9a-f]{4})[-_]([0-9a-f]{4})[-_]([0-9a-f]{4})[-_]([0-9a-f]{12})\b',
-  [ 'caseless' ]);
-if(m == null) {
-  std.io.putfln('UUID is not valid');
-  return 1;
-}
-
-var cl_uuid = std.string.to_upper(m[1]);
-for(var k = 2;  k <= 5;  ++k) {
-  cl_uuid += '_';
-  cl_uuid += std.string.to_upper(m[k]);
-}
 
 var path_hpp = std.string.format('k32/common/data/$1.hpp', cl_name_lo);
 var path_cpp = std.string.format('k32/common/data/$1.cpp', cl_name_lo);
@@ -56,9 +32,6 @@ if(std.filesystem.get_real_path(path_cpp) != null) {
   std.io.putfln('File exists: $1', path_cpp);
   return 1;
 }
-
-std.io.putfln('New header file: $1', path_hpp);
-std.io.putfln('New source file: $1', path_cpp);
 
 var text_meson_build = '';
 var old_meson_build = std.filesystem.read('meson.build', 0, 100`000`000);
@@ -81,6 +54,30 @@ if(text_meson_build == old_meson_build) {
   std.io.putfln('Could not found insertion point in meson.build');
   return 1;
 }
+
+var ln = __varg(1);
+if(ln == null) {
+  std.io.putc('Enter UUID for this class (optional): ');
+  ln = std.io.getln();
+  if(ln == null) {
+    std.io.putfln('Cancelled');
+    return 1;
+  }
+}
+ln = std.string.trim(ln);
+if(ln == '')
+  ln = std.system.random_uuid();
+var m = std.string.pcre_match(ln, '([0-9a-f]{8})[-_]([0-9a-f]{4})[-_]([0-9a-f]{4})[-_]([0-9a-f]{4})[-_]([0-9a-f]{12})', [ 'caseless' ]);
+if(m == null) {
+  std.io.putfln('UUID is not valid: $1', ln);
+  return 1;
+}
+
+var cl_uuid = std.string.to_upper(std.string.format('$1_$2_$3_$4_$5', m[1], m[2], m[3], m[4], m[5]));
+
+std.io.putfln('New header file: $1', path_hpp);
+std.io.putfln('New source file: $1', path_cpp);
+std.io.putfln('Friend UUID: $1', cl_uuid);
 
 std.io.putc('Type [yes] to proceed: ');
 var ln = std.io.getln();
