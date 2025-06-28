@@ -6,6 +6,7 @@
 #include "http_requestor.hpp"
 #include <poseidon/easy/easy_http_client.hpp>
 #include <poseidon/easy/easy_https_client.hpp>
+#include <deque>
 namespace k32 {
 namespace {
 

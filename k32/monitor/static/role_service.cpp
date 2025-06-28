@@ -14,6 +14,7 @@
 #include <poseidon/fiber/mysql_query_future.hpp>
 #include <poseidon/mysql/mysql_connection.hpp>
 #include <poseidon/static/mysql_connector.hpp>
+#include <list>
 namespace k32::monitor {
 namespace {
 

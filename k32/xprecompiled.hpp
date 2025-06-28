@@ -1,5 +1,5 @@
 // This file is part of k32.
-// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved. reserved.
+// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
 #ifndef K32_XPRECOMPILED_
 #define K32_XPRECOMPILED_
@@ -36,6 +36,9 @@
 #include <rocket/condition_variable.hpp>
 #include <rocket/shared_function.hpp>
 #include <rocket/static_char_buffer.hpp>
+#include <asteria/value.hpp>
+#include <asteria/utils.hpp>
+#include <taxon.hpp>
 
 #include <iterator>
 #include <memory>
@@ -43,11 +46,10 @@
 #include <exception>
 #include <typeinfo>
 #include <type_traits>
-#include <functional>
-#include <algorithm>
-#include <numeric>
 #include <chrono>
 #include <array>
+#include <string>
+#include <vector>
 
 #include <cstdio>
 #include <climits>
@@ -65,27 +67,5 @@
 #include <x86intrin.h>
 #include <nmmintrin.h>
 #include <immintrin.h>
-
-#include <asteria/value.hpp>
-#include <asteria/utils.hpp>
-#include <poseidon/base/uuid.hpp>
-#include <poseidon/socket/ipv6_address.hpp>
-#include <poseidon/fiber/abstract_fiber.hpp>
-#include <poseidon/utils.hpp>
-#include <taxon.hpp>
-
-// Standard containers are subject to `_GLIBCXX_DEBUG` and other macros, and
-// can change the ABI between Debug and Release builds. Therefore they should
-// not be used in public headers.
-#include <string>
-#include <bitset>
-#include <vector>
-#include <deque>
-#include <list>
-#include <forward_list>
-#include <map>
-#include <set>
-#include <unordered_map>
-#include <unordered_set>
 
 #endif
