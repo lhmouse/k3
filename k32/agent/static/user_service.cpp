@@ -560,12 +560,12 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
 
-      if(task1->result_rows().size() == 0) {
+      if(task1->result_row_count() == 0) {
         response_data.try_emplace(&"status", &"gs_nickname_conflict");
         return;
       }
 
-      serial = task1->result_rows().front().at(0).as_integer();
+      serial = task1->result_row_field(0, 0).as_integer();  // SELECT `serial`
     }
 
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);

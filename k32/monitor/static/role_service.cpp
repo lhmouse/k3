@@ -280,16 +280,16 @@ do_slash_role_create(const shptr<Implementation>& impl,
       ::poseidon::task_scheduler.launch(task1);
       fiber.yield(task1);
 
-      if(task1->result_rows().size() == 0) {
+      if(task1->result_row_count() == 0) {
         response_data.try_emplace(&"status", &"gs_roid_conflict");
         return;
       }
 
-      roinfo.nickname = task1->result_rows().front().at(0).as_blob();            // SELECT `nickname`
-      roinfo.update_time = task1->result_rows().front().at(1).as_system_time();  //        , `update_time`
-      roinfo.avatar = task1->result_rows().front().at(2).as_blob();              //        , `avatar`
-      roinfo.profile = task1->result_rows().front().at(3).as_blob();             //        , `profile`
-      roinfo.whole = task1->result_rows().front().at(4).as_blob();               //        , `whole`
+      roinfo.nickname = task1->result_row_field(0, 0).as_blob();            // SELECT `nickname`
+      roinfo.update_time = task1->result_row_field(0, 1).as_system_time();  //        , `update_time`
+      roinfo.avatar = task1->result_row_field(0, 2).as_blob();              //        , `avatar`
+      roinfo.profile = task1->result_row_field(0, 3).as_blob();             //        , `profile`
+      roinfo.whole = task1->result_row_field(0, 4).as_blob();               //        , `whole`
     }
 
     do_store_role_information_into_redis(fiber, roinfo, impl->redis_role_ttl);
@@ -345,17 +345,17 @@ do_slash_role_load(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    if(task1->result_rows().size() == 0) {
+    if(task1->result_row_count() == 0) {
       response_data.try_emplace(&"status", &"gs_roid_not_found");
       return;
     }
 
-    roinfo.username = task1->result_rows().front().at(0).as_blob();            // SELECT `username`
-    roinfo.nickname = task1->result_rows().front().at(1).as_blob();            //        , `nickname`
-    roinfo.update_time = task1->result_rows().front().at(2).as_system_time();  //        , `update_time`
-    roinfo.avatar = task1->result_rows().front().at(3).as_blob();              //        , `avatar`
-    roinfo.profile = task1->result_rows().front().at(4).as_blob();             //        , `profile`
-    roinfo.whole = task1->result_rows().front().at(5).as_blob();               //        , `whole`
+    roinfo.username = task1->result_row_field(0, 0).as_blob();            // SELECT `username`
+    roinfo.nickname = task1->result_row_field(0, 1).as_blob();            //        , `nickname`
+    roinfo.update_time = task1->result_row_field(0, 2).as_system_time();  //        , `update_time`
+    roinfo.avatar = task1->result_row_field(0, 3).as_blob();              //        , `avatar`
+    roinfo.profile = task1->result_row_field(0, 4).as_blob();             //        , `profile`
+    roinfo.whole = task1->result_row_field(0, 5).as_blob();               //        , `whole`
 
     do_store_role_information_into_redis(fiber, roinfo, impl->redis_role_ttl);
     impl->roles.insert_or_assign(roinfo.roid, roinfo);
