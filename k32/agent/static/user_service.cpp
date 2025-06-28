@@ -262,16 +262,16 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           temp_value.clear();
 
           phcow_string opcode;
-          ::taxon::V_object request_data;
-          ::taxon::Value serial;
+          if(auto ptr = root.ptr(&"opcode"))
+            opcode = ptr->as_string();
 
-          for(const auto& r : root)
-            if(r.first == &"opcode")
-              opcode = r.second.as_string();
-            else if(r.first == &"data")
-              request_data = r.second.as_object();
-            else if(r.first == &"serial")
-              serial = r.second;
+          ::taxon::V_object request_data;
+          if(auto ptr = root.ptr(&"data"))
+            request_data = ptr->as_object();
+
+          ::taxon::Value serial;
+          if(auto ptr = root.ptr(&"serial"))
+            serial = *ptr;
 
           // Call the user-defined handler to get response data.
           int ws_status = user_ws_status_unknown_opcode;

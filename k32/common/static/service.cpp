@@ -190,16 +190,16 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           temp_value.clear();
 
           ::poseidon::UUID request_uuid;
-          ::taxon::V_object response_data;
-          cow_string error;
+          if(auto ptr = root.ptr(&"uuid"))
+            request_uuid = ::poseidon::UUID(ptr->as_string());
 
-          for(const auto& r : root)
-            if(r.first == &"uuid")
-              request_uuid = ::poseidon::UUID(r.second.as_string());
-            else if(r.first == &"data")
-              response_data = r.second.as_object();
-            else if(r.first == &"error")
-              error = r.second.as_string();
+          ::taxon::V_object response_data;
+          if(auto ptr = root.ptr(&"data"))
+            response_data = ptr->as_object();
+
+          cow_string error;
+          if(auto ptr = root.ptr(&"error"))
+            error = ptr->as_string();
 
           // Set the request future.
           ::poseidon::UUID service_uuid(session->session_user_data().as_string());
@@ -404,16 +404,16 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           temp_value.clear();
 
           phcow_string opcode;
-          ::taxon::V_object request_data;
-          ::poseidon::UUID request_uuid;
+          if(auto ptr = root.ptr(&"opcode"))
+            opcode = ptr->as_string();
 
-          for(const auto& r : root)
-            if(r.first == &"opcode")
-              opcode = r.second.as_string();
-            else if(r.first == &"data")
-              request_data = r.second.as_object();
-            else if(r.first == &"uuid")
-              request_uuid = ::poseidon::UUID(r.second.as_string());
+          ::taxon::V_object request_data;
+          if(auto ptr = root.ptr(&"data"))
+            request_data = ptr->as_object();
+
+          ::poseidon::UUID request_uuid;
+          if(auto ptr = root.ptr(&"uuid"))
+            request_uuid = ::poseidon::UUID(ptr->as_string());
 
           // Handle the request in another fiber, so it's stateless.
           auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid,
