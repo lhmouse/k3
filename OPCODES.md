@@ -73,7 +73,7 @@ strings:
 * Request Parameters
 
   - `username` <sub>string</sub> : Name of user to kick.
-  - `ws_status` <sub>number, optional</sub> : WebSocket status code.
+  - `ws_status` <sub>integer, optional</sub> : WebSocket status code.
   - `reason` <sub>string, optional</sub> : Additional reason string.
 
 * Response Parameters

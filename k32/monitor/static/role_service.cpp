@@ -158,12 +158,7 @@ do_slash_role_list(const shptr<Implementation>& impl,
                    const ::poseidon::UUID& /*req_service_uuid*/,
                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    phcow_string username;
-
-    for(const auto& r : request_data)
-      if(r.first == &"username")
-        username = r.second.as_string();
-
+    phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
@@ -207,21 +202,14 @@ do_slash_role_create(const shptr<Implementation>& impl,
                      const ::poseidon::UUID& /*req_service_uuid*/,
                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    int64_t roid = -1;
-    cow_string nickname;
-    phcow_string username;
-
-    for(const auto& r : request_data)
-      if(r.first == &"roid")
-        roid = r.second.as_integer();
-      else if(r.first == &"nickname")
-        nickname = r.second.as_string();
-      else if(r.first == &"username")
-        username = r.second.as_string();
-
+    int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
-    POSEIDON_CHECK(nickname != "");
+
+    phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
+
+    cow_string nickname = request_data.at(&"nickname").as_string();
+    POSEIDON_CHECK(nickname != "");
 
     ////////////////////////////////////////////////////////////
     //
@@ -307,12 +295,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
                    const ::poseidon::UUID& /*req_service_uuid*/,
                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    int64_t roid = -1;
-
-    for(const auto& r : request_data)
-      if(r.first == &"roid")
-        roid = r.second.as_integer();
-
+    int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -404,12 +387,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
                      const ::poseidon::UUID& /*req_service_uuid*/,
                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    int64_t roid = -1;
-
-    for(const auto& r : request_data)
-      if(r.first == &"roid")
-        roid = r.second.as_integer();
-
+    int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -484,12 +462,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
                     const ::poseidon::UUID& /*req_service_uuid*/,
                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    int64_t roid = -1;
-
-    for(const auto& r : request_data)
-      if(r.first == &"roid")
-        roid = r.second.as_integer();
-
+    int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////

@@ -503,16 +503,10 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
                           const ::poseidon::UUID& /*req_service_uuid*/,
                           ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    cow_string nickname;
-    phcow_string username;
-
-    for(const auto& r : request_data)
-      if(r.first == &"nickname")
-        nickname = r.second.as_string();
-      else if(r.first == &"username")
-        username = r.second.as_string();
-
+    cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
+
+    phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
@@ -580,12 +574,7 @@ do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
                           const ::poseidon::UUID& /*req_service_uuid*/,
                           ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    cow_string nickname;
-
-    for(const auto& r : request_data)
-      if(r.first == &"nickname")
-        nickname = r.second.as_string();
-
+    cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
 
     ////////////////////////////////////////////////////////////
@@ -676,19 +665,16 @@ do_slash_user_kick(const shptr<Implementation>& impl,
                    const ::poseidon::UUID& /*request_service_uuid*/,
                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    phcow_string username;
-    int ws_status = 1008;
-    cow_string reason;
-
-    for(const auto& r : request_data)
-      if(r.first == &"username")
-        username = r.second.as_string();
-      else if(r.first == &"ws_status")
-        ws_status = clamp_cast<int>(r.second.as_number(), 1000, 4999);
-      else if(r.first == &"reason")
-        reason = r.second.as_string();
-
+    phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
+
+    int ws_status = 1008;
+    if(auto ptr = request_data.ptr(&"ws_status"))
+      ws_status = clamp_cast<int>(ptr->as_integer(), 1000, 4999);
+
+    cow_string reason;
+    if(auto ptr = request_data.ptr(&"reason"))
+      reason = ptr->as_string();
 
     ////////////////////////////////////////////////////////////
     //
@@ -714,18 +700,11 @@ do_slash_user_ban_set(const shptr<Implementation>& impl,
                       const ::poseidon::UUID& /*request_service_uuid*/,
                       ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    constexpr time_point<system_clock, seconds> _2000_01_01(946684800s);
-    phcow_string username;
-    system_time until;
-
-    for(const auto& r : request_data)
-      if(r.first == &"username")
-        username = r.second.as_string();
-      else if(r.first == &"until")
-        until = r.second.as_time();
-
+    phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
-    POSEIDON_CHECK(until >= _2000_01_01);
+
+    system_time until = request_data.at(&"until").as_time();
+    POSEIDON_CHECK(until.time_since_epoch() >= 946684800s);  // 2000-1-1
 
     ////////////////////////////////////////////////////////////
     //
@@ -772,12 +751,7 @@ do_slash_user_ban_lift(const shptr<Implementation>& impl,
                        const ::poseidon::UUID& /*request_service_uuid*/,
                        ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    phcow_string username;
-
-    for(const auto& r : request_data)
-      if(r.first == &"username")
-        username = r.second.as_string();
-
+    phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
