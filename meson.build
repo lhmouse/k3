@@ -60,37 +60,42 @@ endif
 #===========================================================
 lib_common = static_library('common',
     cpp_pch: 'k32/xprecompiled.hpp',
-    pic: true,
-    install: false,
     sources: [
-      'k32/common/data/service_information.cpp', 'k32/common/static/service.cpp',
-      'k32/common/data/service_response.cpp', 'k32/common/fiber/service_future.cpp',
-      'k32/common/static/http_requestor.cpp', 'k32/common/fiber/http_future.cpp',
+      'k32/common/data/service_information.cpp',
+      'k32/common/data/service_response.cpp',
+      'k32/common/data/user_information.cpp',
+      'k32/common/data/role_information.cpp',
+      'k32/common/fiber/service_future.cpp',
+      'k32/common/fiber/http_future.cpp',
+      'k32/common/static/service.cpp',
+      'k32/common/static/http_requestor.cpp',
       'k32/common/static/clock.cpp',
-    ])
+    ],
+    pic: true,
+    install: false)
 
 shared_module('k32_agent',
     cpp_pch: 'k32/xprecompiled.hpp',
-    link_with: lib_common,
-    install: true,
     sources: [
       'k32/agent/globals.cpp',
-      'k32/agent/static/user_service.cpp', 'k32/agent/data/user_information.cpp',
-    ])
+      'k32/agent/static/user_service.cpp',
+    ],
+    link_with: lib_common,
+    install: true)
 
 shared_module('k32_monitor',
     cpp_pch: 'k32/xprecompiled.hpp',
-    link_with: lib_common,
-    install: true,
     sources: [
       'k32/monitor/globals.cpp',
-      'k32/monitor/static/role_service.cpp', 'k32/monitor/data/role_information.cpp',
-    ])
+      'k32/monitor/static/role_service.cpp',
+    ],
+    link_with: lib_common,
+    install: true)
 
 shared_module('k32_logic',
     cpp_pch: 'k32/xprecompiled.hpp',
-    link_with: lib_common,
-    install: true,
     sources: [
       'k32/logic/globals.cpp',
-    ])
+    ],
+    link_with: lib_common,
+    install: true)

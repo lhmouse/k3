@@ -1,11 +1,11 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
-#ifndef K32_AGENT_DATA_USER_INFORMATION_
-#define K32_AGENT_DATA_USER_INFORMATION_
+#ifndef K32_COMMON_DATA_USER_INFORMATION_
+#define K32_COMMON_DATA_USER_INFORMATION_
 
 #include "../../fwd.hpp"
-namespace k32::agent {
+namespace k32 {
 
 struct User_Information
   {
@@ -33,5 +33,5 @@ struct User_Information
     explicit operator bool() const noexcept { return this->username.length() != 0;  }
   };
 
-}  // namespace k32::agent
+}  // namespace k32
 #endif

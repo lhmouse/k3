@@ -5,7 +5,7 @@
 #define K32_AGENT_STATIC_USER_SERVICE_
 
 #include "../../fwd.hpp"
-#include "../data/user_information.hpp"
+#include "../../common/data/user_information.hpp"
 namespace k32::agent {
 
 class User_Service

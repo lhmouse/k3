@@ -5,7 +5,7 @@
 #define K32_MONITOR_STATIC_ROLE_SERVICE_
 
 #include "../../fwd.hpp"
-#include "../data/role_information.hpp"
+#include "../../common/data/role_information.hpp"
 namespace k32::monitor {
 
 class Role_Service

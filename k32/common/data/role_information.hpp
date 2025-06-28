@@ -1,11 +1,11 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
-#ifndef K32_MONITOR_DATA_ROLE_INFORMATION_
-#define K32_MONITOR_DATA_ROLE_INFORMATION_
+#ifndef K32_COMMON_DATA_ROLE_INFORMATION_
+#define K32_COMMON_DATA_ROLE_INFORMATION_
 
 #include "../../fwd.hpp"
-namespace k32::monitor {
+namespace k32 {
 
 struct Role_Information
   {
@@ -33,5 +33,5 @@ struct Role_Information
     explicit operator bool() const noexcept { return this->roid == 0;  }
   };
 
-}  // namespace k32::monitor
+}  // namespace k32
 #endif
