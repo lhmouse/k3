@@ -14,13 +14,6 @@ class Service_Future
   :
     public ::poseidon::Abstract_Future
   {
-  public:
-    struct multicast_selector_t
-      {
-        ::poseidon::UUID target_service_uuid;
-        cow_string target_service_type;
-      };
-
   private:
     ::poseidon::UUID m_target_service_uuid;
     cow_string m_target_service_type;
@@ -29,6 +22,12 @@ class Service_Future
     cow_vector<Service_Response> m_responses;
 
   public:
+    struct multicast_selector_t
+      {
+        ::poseidon::UUID target_service_uuid;
+        cow_string target_service_type;
+      };
+
     Service_Future(multicast_selector_t&& selector, const phcow_string& opcode,
                    const ::taxon::V_object& request_data);
 
