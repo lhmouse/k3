@@ -1,0 +1,175 @@
+#!/usr/bin/env asteria
+
+std.io.putc('Enter class name: ');
+var ln = std.io.getln();
+if(ln == null) {
+  std.io.putfln('Cancelled');
+  return 1;
+}
+ln = std.string.trim(ln);
+var m = std.string.pcre_match(ln,
+  '^([a-z][a-z0-9]+(_[a-z0-9]+)*)$',
+  [ 'caseless' ]);
+if(m == null) {
+  std.io.putfln('Class name is not valid');
+  return 1;
+}
+
+var cl_name = m[1];
+var cl_name_up = std.string.to_upper(cl_name);
+var cl_name_lo = std.string.to_lower(cl_name);
+
+std.io.putc('Enter UUID for this class (optional): ');
+var ln = std.io.getln();
+if(ln == null) {
+  std.io.putfln('Cancelled');
+  return 1;
+}
+ln = std.string.trim(ln);
+if(ln == '') {
+  ln = std.system.random_uuid();
+  std.io.putfln('Generated new UUID: $1', ln);
+}
+var m = std.string.pcre_match(ln,
+  '\b([0-9a-f]{8})[-_]([0-9a-f]{4})[-_]([0-9a-f]{4})[-_]([0-9a-f]{4})[-_]([0-9a-f]{12})\b',
+  [ 'caseless' ]);
+if(m == null) {
+  std.io.putfln('UUID is not valid');
+  return 1;
+}
+
+var cl_uuid = std.string.to_upper(m[1]);
+for(var k = 2;  k <= 5;  ++k) {
+  cl_uuid += '_';
+  cl_uuid += std.string.to_upper(m[k]);
+}
+
+var path_hpp = std.string.format('k32/common/data/$1.hpp', cl_name_lo);
+var path_cpp = std.string.format('k32/common/data/$1.cpp', cl_name_lo);
+
+if(std.filesystem.get_real_path(path_hpp) != null) {
+  std.io.putfln('File exists: $1', path_hpp);
+  return 1;
+}
+
+if(std.filesystem.get_real_path(path_cpp) != null) {
+  std.io.putfln('File exists: $1', path_cpp);
+  return 1;
+}
+
+std.io.putfln('New header file: $1', path_hpp);
+std.io.putfln('New source file: $1', path_cpp);
+
+var text_meson_build = '';
+var old_meson_build = std.filesystem.read('meson.build', 0, 100`000`000);
+var lines = std.string.explode(old_meson_build, "\n");
+while(lines[$] == '')
+  unset lines[$];
+for(each s -> lines) {
+  var index = std.string.find(s, '##+[common/data]');
+  if(index != null) {
+    text_meson_build += std.string.slice(s, 0, index);
+    text_meson_build += "'";
+    text_meson_build += path_cpp;
+    text_meson_build += "',\n";
+  }
+  text_meson_build += s;
+  text_meson_build += "\n";
+}
+
+if(text_meson_build == old_meson_build) {
+  std.io.putfln('Could not found insertion point in meson.build');
+  return 1;
+}
+
+std.io.putc('Type [yes] to proceed: ');
+var ln = std.io.getln();
+if(ln == null) {
+  std.io.putfln('Cancelled');
+  return 1;
+}
+ln = std.string.to_lower(std.string.trim(ln));
+if(ln != 'yes') {
+  std.io.putfln('Cancelled');
+  return 1;
+}
+
+const template_copyright = [
+  '// This file is part of k32.',
+  '// Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.',
+];
+
+const template_hpp = [
+  '#ifndef K32_COMMON_DATA_$2_',
+  '#define K32_COMMON_DATA_$2_',
+  '',
+  '#include "../../fwd.hpp"',
+  'namespace k32 {',
+  '',
+  'struct $1',
+  '  {',
+  '    ? // TODO: add data members',
+  '',
+  '#ifdef K32_FRIENDS_$4_',
+  '    $1() noexcept = default;',
+  '#endif',
+  '    $1(const $1&) = default;',
+  '    $1($1&&) = default;',
+  '    $1& operator=(const $1&) & = default;',
+  '    $1& operator=($1&&) & = default;',
+  '    ~$1();',
+  '',
+  '    static const $1& null;',
+  '    explicit operator bool() const noexcept ? // TODO: add null predictor',
+  '  };',
+  '',
+  '}  // namespace k32',
+  '#endif',
+];
+
+var text_hpp = '';
+for(each s -> template_copyright) {
+  text_hpp += s;
+  text_hpp += "\n";
+}
+text_hpp += "\n";
+for(each s -> template_hpp) {
+  text_hpp += std.string.format(s, cl_name, cl_name_up, cl_name_lo, cl_uuid);
+  text_hpp += "\n";
+}
+
+const template_cpp = [
+  '#include "../../xprecompiled.hpp"',
+  '#define K32_FRIENDS_$4_',
+  '#include "$3.hpp"',
+  'namespace k32 {',
+  '',
+  'const $1& $1::null = *new $1();',
+  '',
+  '$1::',
+  '~$1()',
+  '  {',
+  '  }',
+  '',
+  '}  // namespace k32',
+];
+
+var text_cpp = '';
+for(each s -> template_copyright) {
+  text_cpp += s;
+  text_cpp += "\n";
+}
+text_cpp += "\n";
+for(each s -> template_cpp) {
+  text_cpp += std.string.format(s, cl_name, cl_name_up, cl_name_lo, cl_uuid);
+  text_cpp += "\n";
+}
+
+std.filesystem.write(path_hpp, text_hpp);
+std.io.putfln('Created: $1', path_hpp);
+
+std.filesystem.write(path_cpp, text_cpp);
+std.io.putfln('Created: $1', path_cpp);
+
+std.filesystem.write('meson.build', text_meson_build);
+std.io.putfln('Updated: meson.build');
