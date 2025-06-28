@@ -700,11 +700,11 @@ Service::
 find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {
     if(!this->m_impl)
-      return null_service_information;
+      return Service_Information::null;
 
     auto ptr = this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
     if(!ptr)
-      return null_service_information;
+      return Service_Information::null;
 
     return *ptr;
   }

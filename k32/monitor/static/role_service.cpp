@@ -590,11 +590,11 @@ Role_Service::
 find_role(int64_t roid) const noexcept
   {
     if(!this->m_impl)
-      return null_role_information;
+      return Role_Information::null;
 
     auto ptr = this->m_impl->roles.ptr(roid);
     if(!ptr)
-      return null_role_information;
+      return Role_Information::null;
 
     return *ptr;
   }

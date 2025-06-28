@@ -907,11 +907,11 @@ User_Service::
 find_user(const phcow_string& username) const noexcept
   {
     if(!this->m_impl)
-      return null_user_information;
+      return User_Information::null;
 
     auto ptr = this->m_impl->users.ptr(username);
     if(!ptr)
-      return null_user_information;
+      return User_Information::null;
 
     return *ptr;
   }

@@ -29,10 +29,9 @@ struct User_Information
     User_Information& operator=(User_Information&&) & = default;
     ~User_Information();
 
+    static const User_Information& null;
     explicit operator bool() const noexcept { return this->username.length() != 0;  }
   };
-
-extern const User_Information& null_user_information;
 
 }  // namespace k32::agent
 #endif

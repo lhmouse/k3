@@ -6,7 +6,7 @@
 #include "service_information.hpp"
 namespace k32 {
 
-const Service_Information& null_service_information = *new Service_Information();
+const Service_Information& Service_Information::null = *new Service_Information();
 
 Service_Information::
 ~Service_Information()

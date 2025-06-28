@@ -6,7 +6,7 @@
 #include "role_information.hpp"
 namespace k32::monitor {
 
-const Role_Information& null_role_information = *new Role_Information();
+const Role_Information& Role_Information::null = *new Role_Information();
 
 Role_Information::
 ~Role_Information()

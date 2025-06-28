@@ -29,10 +29,9 @@ struct Role_Information
     Role_Information& operator=(Role_Information&&) & = default;
     ~Role_Information();
 
+    static const Role_Information& null;
     explicit operator bool() const noexcept { return this->roid == 0;  }
   };
-
-extern const Role_Information& null_role_information;
 
 }  // namespace k32::monitor
 #endif
