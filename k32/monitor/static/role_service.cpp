@@ -150,6 +150,9 @@ do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
 
     if(!task2->result().is_nil())
       do_parse_role_information_from_string(roinfo, task2->result().as_string());
+
+    POSEIDON_LOG_INFO(("Loaded from MySQL: role `$1` (`$2`), updated on `$3`"),
+                      roinfo.roid, roinfo.nickname, roinfo.update_time);
   }
 
 void
@@ -354,6 +357,9 @@ do_store_role_information_into_mysql(::poseidon::Abstract_Fiber& fiber,
                                      uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
                                      Role_Information& roinfo)
   {
+    POSEIDON_LOG_INFO(("Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
+                      roinfo.roid, roinfo.nickname, roinfo.update_time);
+
     static constexpr char update_role[] =
         R"!!!(
           UPDATE `role`
@@ -379,6 +385,9 @@ do_store_role_information_into_mysql(::poseidon::Abstract_Fiber& fiber,
                                                         move(mysql_conn_opt), &update_role, sql_args);
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
+
+    POSEIDON_LOG_INFO(("Stored into MySQL: role `$1` (`$2`), updated on `$3`"),
+                      roinfo.roid, roinfo.nickname, roinfo.update_time);
   }
 
 void
@@ -424,7 +433,6 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       }
 
       do_store_role_information_into_mysql(fiber, move(mysql_conn), roinfo);
-      POSEIDON_LOG_DEBUG(("Stored role `$1` (`$2`) into MySQL"), roinfo.roid, roinfo.nickname);
 
       static constexpr char redis_delete_if_unchanged[] =
           R"!!!(
@@ -559,8 +567,6 @@ do_service_timer_callback(const shptr<Implementation>& impl,
 
       impl->roles.insert_or_assign(roinfo.roid, roinfo);
       do_store_role_information_into_mysql(fiber, nullptr, roinfo);
-
-      POSEIDON_LOG_INFO(("Automatically flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
     }
   }
 
