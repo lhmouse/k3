@@ -34,13 +34,13 @@ if(std.filesystem.get_real_path(path_cpp) != null) {
 }
 
 var old_meson_build = std.filesystem.read('meson.build', 0, 100`000`000);
-var m = std.string.pcre_match(old_meson_build, "(.*\n)( +)('k32/common/data/[^']+\\.cpp',)(.)(.*)", [ 'dotall' ]);
+var m = std.string.pcre_match(old_meson_build, "(.*)('k32/common/data/[^']+\\.cpp',)(.)(.*)", [ 'dotall' ]);
 if(m == null) {
   std.io.putfln('Could not found insertion point in meson.build');
   return 1;
 }
 
-var text_meson_build = std.string.format("$1$2$3$4$2'$6',$4$5", m[1], m[2], m[3], m[4], m[5], path_cpp);
+var text_meson_build = std.string.format("$1$2$3'$5',$3$4", m[1], m[2], m[3], m[4], path_cpp);
 
 var ln = __varg(1);
 if(ln == null) {
