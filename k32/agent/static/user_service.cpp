@@ -2,7 +2,7 @@
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
 #include "../../xprecompiled.hpp"
-#define K32_FRIENDS_FC7DDE3B_4A8E_11F0_BB68_5254005015D2_
+#define K32_FRIENDS_6A8BAC8C_B8F6_4BDA_BD7F_B90D5BF07B81_
 #include "user_service.hpp"
 #include "../globals.hpp"
 #include "../../common/static/service.hpp"

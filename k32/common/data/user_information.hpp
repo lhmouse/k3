@@ -20,7 +20,7 @@ struct User_Information
     int64_t current_roid = 0;
     ::poseidon::UUID current_logic_service_uuid;
 
-#ifdef K32_FRIENDS_FC7DDE3B_4A8E_11F0_BB68_5254005015D2_
+#ifdef K32_FRIENDS_6A8BAC8C_B8F6_4BDA_BD7F_B90D5BF07B81_
     User_Information() noexcept = default;
 #endif
     User_Information(const User_Information&) = default;
