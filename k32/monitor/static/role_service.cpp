@@ -478,10 +478,8 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     POSEIDON_CHECK(impl->db_ready);
 
     cow_vector<cow_string> redis_cmd;
-    redis_cmd.emplace_back(&"GETEX");
+    redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roid));
-    redis_cmd.emplace_back(&"EX");
-    redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
 
     auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
     ::poseidon::task_scheduler.launch(task2);
