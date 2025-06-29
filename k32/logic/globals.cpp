@@ -8,6 +8,7 @@ namespace k32::logic {
 
 Clock& clock = *new Clock;
 Service& service = *new Service;
+Role_Service& role_service = *new Role_Service;
 
 }  // namespace k32::logic
 
@@ -20,4 +21,5 @@ poseidon_module_main(void)
     ::poseidon::Config_File conf_file;
     conf_file.reload(&"k32.conf");
     service.reload(conf_file, &"logic");
+    role_service.reload(conf_file);
   }

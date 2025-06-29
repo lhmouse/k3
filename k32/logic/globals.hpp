@@ -7,10 +7,12 @@
 #include "../fwd.hpp"
 #include "../common/static/clock.hpp"
 #include "../common/static/service.hpp"
+#include "static/role_service.hpp"
 namespace k32::logic {
 
 extern Clock& clock;
 extern Service& service;
+extern Role_Service& role_service;
 
 }  // namespace k32::logic
 #endif

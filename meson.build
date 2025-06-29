@@ -89,7 +89,7 @@ shared_module('k32_monitor',
 shared_module('k32_logic',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/logic/globals.cpp',
+      'k32/logic/globals.cpp', 'k32/logic/static/role_service.cpp',
     ],
     link_with: lib_common,
     install: true)
