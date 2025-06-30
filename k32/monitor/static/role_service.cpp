@@ -522,10 +522,9 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       impl->db_ready = true;
     }
 
-    // Arrange online roles for writing. Initially, users are divided into 20
-    // buckets. For each timer tick, one bucket is popped and written. If there
-    // are no more buckets, users are divided again. The loop repeats as such.
     if(impl->save_buckets.empty()) {
+      // Arrange online roles for writing. Initially, users are divided into 20
+      // buckets. For each timer tick, one bucket will be popped and written.
       while(impl->save_buckets.size() < 20)
         impl->save_buckets.emplace_back();
 
