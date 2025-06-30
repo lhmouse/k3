@@ -34,7 +34,6 @@ class HTTP_Future
 
   public:
 #ifdef K32_FRIENDS_C84621A4_4E68_11F0_BA96_5254005015D2_
-    friend class HTTP_Requestor;
     uint32_t& mf_resp_status_code() noexcept { return this->m_resp_status_code;  }
     cow_string& mf_resp_content_type() noexcept { return this->m_resp_content_type;  }
     cow_string& mf_resp_payload() noexcept { return this->m_resp_payload;  }

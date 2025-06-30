@@ -67,11 +67,10 @@ do_remove_connection(const shptr<Implementation>& impl, const cow_string& defaul
   }
 
 void
-do_client_http_callback(const shptr<Implementation>& impl,
-                        const shptr<::poseidon::HTTP_Client_Session>& session,
-                        ::poseidon::Abstract_Fiber& /*fiber*/,
-                        ::poseidon::Easy_HTTP_Event event,
-                        ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
+do_http_callback(const shptr<Implementation>& impl,
+                 const shptr<::poseidon::HTTP_Client_Session>& session,
+                 ::poseidon::Abstract_Fiber& /*fiber*/, ::poseidon::Easy_HTTP_Event event,
+                 ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
   {
     switch(event)
       {
@@ -91,11 +90,10 @@ do_client_http_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_client_https_callback(const shptr<Implementation>& impl,
-                         const shptr<::poseidon::HTTPS_Client_Session>& session,
-                         ::poseidon::Abstract_Fiber& /*fiber*/,
-                         ::poseidon::Easy_HTTP_Event event,
-                         ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
+do_https_callback(const shptr<Implementation>& impl,
+                  const shptr<::poseidon::HTTPS_Client_Session>& session,
+                  ::poseidon::Abstract_Fiber& /*fiber*/, ::poseidon::Easy_HTTP_Event event,
+                  ::poseidon::HTTP_S_Headers&& ht_resp, linear_buffer&& data)
   {
     switch(event)
       {
@@ -141,20 +139,20 @@ enqueue_weak(const shptr<HTTP_Future>& req)
 
     uint32_t default_port = 0;
     ::poseidon::chars_view uri_sv;
-    if(req->m_req_uri.starts_with("http://")) {
+    if(req->request_uri().starts_with("http://")) {
       default_port = 80;
-      uri_sv = ::poseidon::chars_view(req->m_req_uri.data() + 7, req->m_req_uri.size() - 7);
+      uri_sv = ::poseidon::chars_view(req->request_uri().data() + 7, req->request_uri().size() - 7);
     }
-    else if(req->m_req_uri.starts_with("https://")) {
+    else if(req->request_uri().starts_with("https://")) {
       default_port = 443;
-      uri_sv = ::poseidon::chars_view(req->m_req_uri.data() + 8, req->m_req_uri.size() - 8);
+      uri_sv = ::poseidon::chars_view(req->request_uri().data() + 8, req->request_uri().size() - 8);
     }
     else
-      POSEIDON_THROW(("Invalid HTTP request URI `$1`"), req->m_req_uri);
+      POSEIDON_THROW(("Invalid HTTP request URI `$1`"), req->request_uri());
 
     ::poseidon::Network_Reference caddr;
     if(::poseidon::parse_network_reference(caddr, uri_sv) != uri_sv.n)
-        POSEIDON_THROW(("Invalid HTTP request URI `$1`"), req->m_req_uri);
+        POSEIDON_THROW(("Invalid HTTP request URI `$1`"), req->request_uri());
 
     if(caddr.port.n == 0)
       caddr.port_num = static_cast<uint16_t>(default_port);
@@ -168,8 +166,7 @@ enqueue_weak(const shptr<HTTP_Future>& req)
     if(default_port == 80) {
       http_session = conn.weak_http_session.lock();
       if(!http_session) {
-        http_session = this->m_impl->http_client.connect(default_host,
-                              bindw(this->m_impl, do_client_http_callback));
+        http_session = this->m_impl->http_client.connect(default_host, bindw(this->m_impl, do_http_callback));
         conn.weak_http_session = http_session;
         POSEIDON_LOG_INFO(("Connecting to `http://$1`"), http_session->http_default_host());
       }
@@ -177,8 +174,7 @@ enqueue_weak(const shptr<HTTP_Future>& req)
     else {
       https_session = conn.weak_https_session.lock();
       if(!https_session) {
-        https_session = this->m_impl->https_client.connect(default_host,
-                               bindw(this->m_impl, do_client_https_callback));
+        https_session = this->m_impl->https_client.connect(default_host, bindw(this->m_impl, do_https_callback));
         conn.weak_https_session = https_session;
         POSEIDON_LOG_INFO(("Connecting to `https://$1`"), https_session->https_default_host());
       }
@@ -194,17 +190,17 @@ enqueue_weak(const shptr<HTTP_Future>& req)
     ht_req.raw_query = cow_string(caddr.query);
     ht_req.headers.emplace_back(&"Connection", &"keep-alive");
 
-    if(!req->m_req_payload.empty()) {
+    if(!req->request_payload().empty()) {
       // Set request payload.
       ht_req.method = ::poseidon::http_POST;
-      if(!req->m_req_content_type.empty())
-        ht_req.headers.emplace_back(&"Content-Type", req->m_req_content_type);
+      if(!req->request_content_type().empty())
+        ht_req.headers.emplace_back(&"Content-Type", req->request_content_type());
     }
 
     if(http_session)
-      http_session->http_request(move(ht_req), req->m_req_payload);
+      http_session->http_request(move(ht_req), req->request_payload());
     else
-      https_session->https_request(move(ht_req), req->m_req_payload);
+      https_session->https_request(move(ht_req), req->request_payload());
   }
 
 }  // namespace k32

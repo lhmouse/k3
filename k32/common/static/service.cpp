@@ -796,52 +796,52 @@ launch(const shptr<Service_Future>& req)
       POSEIDON_THROW(("Service not initialized"));
 
     // Collect target services.
-    req->m_responses.clear();
-    if(req->m_target_service_uuid == loopback_uuid) {
+    req->mf_responses().clear();
+    if(req->target_service_uuid() == loopback_uuid) {
       // Add myself.
-      req->m_responses.emplace_back().service_uuid = this->m_impl->service_uuid;
+      req->mf_responses().emplace_back().service_uuid = this->m_impl->service_uuid;
     }
-    else if(req->m_target_service_uuid == multicast_uuid) {
+    else if(req->target_service_uuid() == multicast_uuid) {
       // Add all matching services.
-      auto psv = this->m_impl->remote_services_by_type.ptr(req->m_target_service_type);
+      auto psv = this->m_impl->remote_services_by_type.ptr(req->target_service_type());
       if(psv && !psv->empty()) {
-        req->m_responses.reserve(psv->size());
+        req->mf_responses().reserve(psv->size());
         for(const auto& s : *psv)
-          req->m_responses.emplace_back().service_uuid = s.service_uuid;
+          req->mf_responses().emplace_back().service_uuid = s.service_uuid;
       }
     }
-    else if(req->m_target_service_uuid == randomcast_uuid) {
+    else if(req->target_service_uuid() == randomcast_uuid) {
       // Add a random service from multicast list.
-      auto psv = this->m_impl->remote_services_by_type.ptr(req->m_target_service_type);
+      auto psv = this->m_impl->remote_services_by_type.ptr(req->target_service_type());
       if(psv && !psv->empty()) {
         size_t k = ::rocket::probe_origin(psv->size(), static_cast<size_t>(::random()));
-        req->m_responses.emplace_back().service_uuid = psv->at(k).service_uuid;
+        req->mf_responses().emplace_back().service_uuid = psv->at(k).service_uuid;
       }
     }
-    else if(req->m_target_service_uuid == broadcast_uuid) {
+    else if(req->target_service_uuid() == broadcast_uuid) {
       // Add all services.
-      req->m_responses.reserve(this->m_impl->remote_services_by_uuid.size());
+      req->mf_responses().reserve(this->m_impl->remote_services_by_uuid.size());
       for(const auto& r : this->m_impl->remote_services_by_uuid)
-        req->m_responses.emplace_back().service_uuid = r.second.service_uuid;
+        req->mf_responses().emplace_back().service_uuid = r.second.service_uuid;
     }
     else {
       // Do unicast.
-      auto ps = this->m_impl->remote_services_by_uuid.ptr(req->m_target_service_uuid);
+      auto ps = this->m_impl->remote_services_by_uuid.ptr(req->target_service_uuid());
       if(ps)
-        req->m_responses.emplace_back().service_uuid = ps->service_uuid;
+        req->mf_responses().emplace_back().service_uuid = ps->service_uuid;
     }
 
-    if(req->m_responses.size() == 0)
+    if(req->mf_responses().size() == 0)
       req->mf_abstract_future_complete();
     else
-      for(size_t k = 0;  k != req->m_responses.size();  ++k) {
-        auto& resp = req->m_responses.mut(k);
+      for(size_t k = 0;  k != req->mf_responses().size();  ++k) {
+        auto& resp = req->mf_responses().mut(k);
         resp.request_uuid = ::poseidon::UUID::random();
 
         if(resp.service_uuid == this->m_impl->service_uuid) {
           // This is myself, so there's no need to send it over network.
           auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req, resp.request_uuid,
-                                                    req->m_opcode, req->m_request_data);
+                                                    req->opcode(), req->request_data());
           ::poseidon::fiber_scheduler.launch(fiber3);
         }
         else {
@@ -899,7 +899,7 @@ launch(const shptr<Service_Future>& req)
 
           // Send and wait.
           auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
-                                                   req->m_opcode, req->m_request_data);
+                                                   req->opcode(), req->request_data());
           ::poseidon::task_scheduler.launch(task2);
         }
       }

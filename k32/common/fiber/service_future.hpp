@@ -41,7 +41,6 @@ class Service_Future
 
   public:
 #ifdef K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
-    friend class Service;
     cow_vector<Service_Response>& mf_responses() noexcept { return this->m_responses;  }
     void mf_abstract_future_complete() { this->do_abstract_future_initialize_once();  }
 #endif
