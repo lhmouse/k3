@@ -5,7 +5,6 @@
 #define K32_COMMON_STATIC_CLOCK_
 
 #include "../../fwd.hpp"
-#include <poseidon/base/datetime.hpp>
 namespace k32 {
 
 class Clock
@@ -57,9 +56,6 @@ class Clock
 
     system_time
     get_system_time() const noexcept;
-
-    ::poseidon::DateTime
-    get_date_time() const noexcept;
 
     system_time_fields
     get_system_time_fields() const noexcept;

@@ -53,16 +53,6 @@ get_system_time() const noexcept
            + nanoseconds(ts.tv_nsec);
   }
 
-::poseidon::DateTime
-Clock::
-get_date_time() const noexcept
-  {
-    struct timespec ts;
-    ::clock_gettime(CLOCK_REALTIME, &ts);
-    return system_clock::from_time_t(ts.tv_sec) + this->m_offset
-           + nanoseconds(ts.tv_nsec);
-  }
-
 Clock::system_time_fields
 Clock::
 get_system_time_fields() const noexcept
