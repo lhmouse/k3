@@ -321,8 +321,8 @@ do_slash_role_load(const shptr<Implementation>& impl,
 
 void
 do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
-                                     uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
-                                     Role_Record& roinfo)
+                                uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
+                                Role_Record& roinfo)
   {
     POSEIDON_LOG_INFO(("Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
