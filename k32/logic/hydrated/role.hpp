@@ -17,7 +17,7 @@ class Role
     phcow_string m_username;
 
   public:
-#ifdef K32_FRIENDS_E12697BF_5864_474B_81C5_C0E69BE77D05_
+#ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     friend class Role_Service;
     Role() noexcept = default;
 #endif
@@ -51,7 +51,7 @@ class Role
     void
     make_profile(::taxon::V_object& profile);
 
-#ifdef K32_FRIENDS_E12697BF_5864_474B_81C5_C0E69BE77D05_
+#ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     // Load role cultivation data from the database. This is an internal function
     // called by the role service, after basic information has been filled in.
     void

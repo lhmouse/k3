@@ -2,20 +2,119 @@
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
 #include "../../xprecompiled.hpp"
-#define K32_FRIENDS_3532A6AA_9A1A_4E3B_A672_A3C0EB259AE9_
+#define K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
 #include "role_service.hpp"
 #include "../globals.hpp"
+#include "../../common/data/role_record.hpp"
 #include <poseidon/base/config_file.hpp>
+#include <poseidon/easy/easy_timer.hpp>
+#include <poseidon/fiber/redis_query_future.hpp>
+#include <poseidon/static/task_scheduler.hpp>
 #include <asteria/library/chrono.hpp>
+#include <list>
 namespace k32::logic {
 namespace {
+
+struct Hydrated_Role
+  {
+    Role_Record roinfo;
+    shptr<Role> role;
+  };
 
 struct Implementation
   {
     seconds redis_role_ttl;
     int service_zone_id = 0;
     system_time service_start_time;
+
+    ::poseidon::Easy_Timer save_timer;
+
+    // online roles
+    cow_int64_dictionary<Hydrated_Role> hyd_roles;
+    ::std::list<static_vector<int64_t, 255>> save_buckets;
   };
+
+void
+do_update_role_record(Hydrated_Role& hyd)
+  {
+    ROCKET_ASSERT(hyd.roinfo.roid == hyd.role->roid());
+    hyd.roinfo.username = hyd.role->username();
+    hyd.roinfo.nickname = hyd.role->nickname();
+    hyd.roinfo.update_time = system_clock::now();
+
+    ::taxon::V_object temp_obj;
+    hyd.role->make_avatar(temp_obj);
+    hyd.roinfo.avatar = ::taxon::Value(temp_obj).to_string();
+
+    temp_obj.clear();
+    hyd.role->make_profile(temp_obj);
+    hyd.roinfo.profile = ::taxon::Value(temp_obj).to_string();
+
+    temp_obj.clear();
+    hyd.role->hibernate(temp_obj);
+    hyd.roinfo.whole = ::taxon::Value(temp_obj).to_string();
+  }
+
+void
+do_save_role_record(::poseidon::Abstract_Fiber& fiber, const Role_Record& roinfo, seconds ttl)
+  {
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"SET");
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
+    redis_cmd.emplace_back(roinfo.serialize_to_string());
+    redis_cmd.emplace_back(&"EX");
+    redis_cmd.emplace_back(sformat("$1", ttl.count()));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    POSEIDON_LOG_INFO(("Saved role to Redis: role `$1` (`$2`), updated on `$3`"),
+                      roinfo.roid, roinfo.nickname, roinfo.update_time);
+  }
+
+void
+do_save_timer_callback(const shptr<Implementation>& impl,
+                       const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+  {
+    if(impl->save_buckets.empty()) {
+      // Arrange online roles for writing. Initially, users are divided into 20
+      // buckets. For each timer tick, one bucket will be popped and written.
+      while(impl->save_buckets.size() < 20)
+        impl->save_buckets.emplace_back();
+
+      for(const auto& r : impl->hyd_roles) {
+        auto first_bucket = impl->save_buckets.begin();
+        if(first_bucket->size() >= first_bucket->capacity())
+          first_bucket = impl->save_buckets.emplace(first_bucket);
+
+        first_bucket->push_back(r.first);
+        impl->save_buckets.splice(impl->save_buckets.end(), impl->save_buckets, first_bucket);
+      }
+    }
+
+    auto bucket = move(impl->save_buckets.back());
+    impl->save_buckets.pop_back();
+    while(!bucket.empty()) {
+      int64_t roid = bucket.back();
+      bucket.pop_back();
+
+      // Serialize role data for saving. As this is an asynchronous operation,
+      // `impl->hyd_roles` may change between iterations. It's crucial that we
+      // limit scopes of pointers, references, and iterators.
+      Hydrated_Role hyd;
+      if(auto ptr = impl->hyd_roles.ptr(roid))
+        hyd = *ptr;
+
+      if(!hyd.role)
+        continue;
+
+      do_update_role_record(hyd);
+      impl->hyd_roles.insert_or_assign(roid, hyd);
+      do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
+    }
+  }
 
 }  // namespace
 
@@ -50,6 +149,20 @@ service_start_time() const noexcept
       return system_time();
 
     return this->m_impl->service_start_time;
+  }
+
+shptr<Role>
+Role_Service::
+find_online_role_opt(int64_t roid) const noexcept
+  {
+    if(!this->m_impl)
+      return nullptr;
+
+    auto hyd = this->m_impl->hyd_roles.ptr(roid);
+    if(!hyd)
+      return nullptr;
+
+    return hyd->role;
   }
 
 void
@@ -123,7 +236,7 @@ reload(const ::poseidon::Config_File& conf_file)
 //    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
 
     // Restart the service.
-//    this->m_impl->service_timer.start(1000ms, 19001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
   }
 
 }  // namespace k32::logic

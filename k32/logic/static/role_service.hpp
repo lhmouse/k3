@@ -5,6 +5,7 @@
 #define K32_LOGIC_STATIC_ROLE_SERVICE_
 
 #include "../../fwd.hpp"
+#include "../hydrated/role.hpp"
 namespace k32::logic {
 
 class Role_Service
@@ -31,6 +32,10 @@ class Role_Service
     // running, '1970-01-01T00:00:00Z' is returned.
     system_time
     service_start_time() const noexcept;
+
+    // Gets a hydrated role on this service.
+    shptr<Role>
+    find_online_role_opt(int64_t roid) const noexcept;
 
     // Reloads configuration.
     void
