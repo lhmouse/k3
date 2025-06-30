@@ -19,6 +19,7 @@ struct Role_Record
 
     cow_string home_host;
     cow_string home_db;
+    ::poseidon::UUID home_srv;
 
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     Role_Record() noexcept = default;
@@ -31,6 +32,12 @@ struct Role_Record
 
     static const Role_Record& null;
     explicit operator bool() const noexcept { return this->roid == 0;  }
+
+    void
+    parse_from_string(const cow_string& str);
+
+    cow_string
+    serialize_to_string() const;
   };
 
 }  // namespace k32

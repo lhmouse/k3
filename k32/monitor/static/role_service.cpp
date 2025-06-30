@@ -98,47 +98,12 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_parse_role_record_from_string(Role_Record& roinfo, const cow_string& str)
+do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber, Role_Record& roinfo, seconds ttl)
   {
-    ROCKET_ASSERT(roinfo.roid != 0);
-
-    ::taxon::Value temp_value;
-    POSEIDON_CHECK(temp_value.parse(str));
-    ::taxon::V_object root = temp_value.as_object();
-    temp_value.clear();
-
-    roinfo.username = root.at(&"username").as_string();
-    roinfo.nickname = root.at(&"nickname").as_string();
-    roinfo.update_time = root.at(&"update_time").as_time();
-    roinfo.avatar = root.at(&"avatar").as_string();   // JSON as string
-    roinfo.profile = root.at(&"profile").as_string();   // JSON as string
-    roinfo.whole = root.at(&"whole").as_string();   // JSON as string
-
-    roinfo.home_host = root.at(&"@home_host").as_string();
-    roinfo.home_db = root.at(&"@home_db").as_string();
-  }
-
-void
-do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber,
-                                     Role_Record& roinfo, seconds ttl)
-  {
-    ::taxon::V_object root;
-    root.try_emplace(&"@home_srv", service.service_uuid().to_string());
-
-    root.try_emplace(&"username", roinfo.username.rdstr());
-    root.try_emplace(&"nickname", roinfo.nickname);
-    root.try_emplace(&"update_time", roinfo.update_time);
-    root.try_emplace(&"avatar", roinfo.avatar);  // JSON as string
-    root.try_emplace(&"profile", roinfo.profile);  // JSON as string
-    root.try_emplace(&"whole", roinfo.whole);  // JSON as string
-
-    root.try_emplace(&"@home_host", roinfo.home_host);
-    root.try_emplace(&"@home_db", roinfo.home_db);
-
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(::taxon::Value(root).to_string());
+    redis_cmd.emplace_back(roinfo.serialize_to_string());
     redis_cmd.emplace_back(&"NX");  // no replace
     redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(&"EX");
@@ -149,7 +114,7 @@ do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber,
     fiber.yield(task2);
 
     if(!task2->result().is_nil())
-      do_parse_role_record_from_string(roinfo, task2->result().as_string());
+      roinfo.parse_from_string(task2->result().as_string());
 
     POSEIDON_LOG_INFO(("Loaded from MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
@@ -227,6 +192,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     roinfo.home_host = ::poseidon::hostname;
     roinfo.home_db = mysql_conn->service_uri();
+    roinfo.home_srv = service.service_uuid();
 
     static constexpr char insert_into_role[] =
         R"!!!(
@@ -311,6 +277,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     roinfo.home_host = ::poseidon::hostname;
     roinfo.home_db = mysql_conn->service_uri();
+    roinfo.home_srv = service.service_uuid();
 
     static constexpr char select_from_role[] =
         R"!!!(
@@ -421,9 +388,8 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     // change when it is being executed. Therefore we will have to verify that
     // the value on Redis is unchanged before deleting it safely.
     Role_Record roinfo;
-    roinfo.roid = roid;
     do {
-      do_parse_role_record_from_string(roinfo, task2->result().as_string());
+      roinfo.parse_from_string(task2->result().as_string());
 
       auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
       if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
@@ -493,8 +459,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
 
     // Write a snapshot of role information to MySQL.
     Role_Record roinfo;
-    roinfo.roid = roid;
-    do_parse_role_record_from_string(roinfo, task2->result().as_string());
+    roinfo.parse_from_string(task2->result().as_string());
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
@@ -559,8 +524,7 @@ do_save_timer_callback(const shptr<Implementation>& impl,
 
       // Write a snapshot of role information to MySQL.
       Role_Record roinfo;
-      roinfo.roid = roid;
-      do_parse_role_record_from_string(roinfo, task2->result().as_string());
+      roinfo.parse_from_string(task2->result().as_string());
 
       impl->role_records.insert_or_assign(roinfo.roid, roinfo);
       do_store_role_record_into_mysql(fiber, nullptr, roinfo);
