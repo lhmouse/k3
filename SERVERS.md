@@ -39,6 +39,8 @@ strings:
 |`gs_role_not_logged_in`     |Role not logged in.                            |
 |`gs_reconnect_clear`        |No role to reconnect.                          |
 
+[back to table of contents](#table-of-contents)
+
 ## Agent Service Opcodes
 
 ### `/user/ban/set`
