@@ -924,10 +924,9 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    ::asteria::V_integer client_port = 0;
-    ::asteria::V_integer client_rate_limit = 0, client_ping_interval = 0;
-    ::asteria::V_integer max_number_of_roles_per_user = 4;
-    ::asteria::V_integer nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
+    int64_t client_port = 0, client_rate_limit = 0, client_ping_interval = 0;
+    int64_t max_number_of_roles_per_user = 4;
+    int64_t nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
 
     // `agent.client_port_list`
     auto conf_value = conf_file.query(sformat("agent.client_port_list[$1]", service.service_index()));
