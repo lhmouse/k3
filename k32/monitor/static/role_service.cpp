@@ -22,7 +22,7 @@ struct Implementation
   {
     seconds redis_role_ttl;
 
-    ::poseidon::Easy_Timer service_timer;
+    ::poseidon::Easy_Timer save_timer;
 
     // remote data from mysql
     bool db_ready = false;
@@ -512,9 +512,9 @@ do_slash_role_flush(const shptr<Implementation>& impl,
   }
 
 void
-do_service_timer_callback(const shptr<Implementation>& impl,
-                          const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                          ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+do_save_timer_callback(const shptr<Implementation>& impl,
+                       const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     if(impl->db_ready == false) {
       // Check tables.
@@ -634,7 +634,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/role/flush", bindw(this->m_impl, do_slash_role_flush));
 
     // Restart the service.
-    this->m_impl->service_timer.start(100ms, 11001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->save_timer.start(100ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
   }
 
 }  // namespace k32::monitor
