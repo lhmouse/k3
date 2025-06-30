@@ -19,7 +19,7 @@
 namespace k32::agent {
 namespace {
 
-struct User_Connection_Record
+struct User_Connection
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
     steady_time rate_time;
@@ -45,7 +45,7 @@ struct Implementation
     // connections from clients
     bool db_ready = false;
     cow_dictionary<User_Record> users;
-    cow_dictionary<User_Connection_Record> connections;
+    cow_dictionary<User_Connection> connections;
     ::std::vector<phcow_string> expired_connections;
   };
 
@@ -232,7 +232,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 //          session->ws_send(::poseidon::ws_TEXT, buf);
 
           // Set up connection.
-          User_Connection_Record uconn;
+          User_Connection uconn;
           uconn.weak_session = session;
           uconn.rate_time = steady_clock::now();
           uconn.pong_time = uconn.rate_time;
