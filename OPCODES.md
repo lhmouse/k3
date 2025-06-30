@@ -13,6 +13,11 @@
    3. [`/role/load`](#roleload)
    4. [`/role/unload`](#roleunload)
    5. [`/role/flush`](#roleflush)
+4. [Logic Service Opcodes](#logic-service-opcodes)
+   1. [`/role/login`](#rolelogin)
+   2. [`/role/logout`](#rolelogout)
+   3. [`/role/disconnect`](#roledisconnect)
+   4. [`/role/reconnect`](#rolereconnect)
 
 ## General Status Codes
 
@@ -216,5 +221,79 @@ strings:
 * Description
 
   Writes a role back into the database.
+
+[back to table of contents](#table-of-contents)
+
+## Logic Service Opcodes
+
+### `/role/login`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role to load.
+  - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
+    connection.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Loads a role from Redis and triggers a _login_ event. If the role has not been
+  loaded into Redis, this operation fails.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/logout`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role to unload.
+  - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
+    connection.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Triggers a _logout_ event, writes the role back to Redis, and unloads it.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/disconnect`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role to disconnect.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Triggers a _disconnect_ event.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/reconnect`
+
+* Request Parameters
+
+  - `roid_list` <sub>array of integers</sub> : IDs of roles to check.
+  - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
+    connection.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  If a role in `roid_list` has been loaded, triggers a _reconnect_ event.
+  Otherwise no role is loaded, and an error is returned.
 
 [back to table of contents](#table-of-contents)

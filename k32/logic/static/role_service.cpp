@@ -28,6 +28,7 @@ struct Implementation
     system_time service_start_time;
 
     ::poseidon::Easy_Timer save_timer;
+    ::poseidon::Easy_Timer every_second_timer;
 
     // online roles
     cow_int64_dictionary<Hydrated_Role> hyd_roles;
@@ -113,6 +114,44 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       do_update_role_record(hyd);
       impl->hyd_roles.insert_or_assign(roid, hyd);
       do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
+    }
+  }
+
+void
+do_slash_role_login(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    const ::poseidon::UUID& /*req_service_uuid*/,
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    int64_t roid = request_data.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    ::poseidon::UUID agent_service_uuid(request_data.at(&"agent_service_uuid").as_string());
+    POSEIDON_CHECK(!agent_service_uuid.is_nil());
+
+    ////////////////////////////////////////////////////////////
+    //
+
+  }
+
+void
+do_every_second_timer_callback(const shptr<Implementation>& impl,
+                               const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                               ::poseidon::Abstract_Fiber& /*fiber*/, steady_time /*now*/)
+  {
+    ::std::vector<wkptr<Role>> weak_roles;
+    weak_roles.reserve(impl->hyd_roles.size());
+    for(const auto& r : impl->hyd_roles)
+      weak_roles.emplace_back(r.second.role);
+
+    while(!weak_roles.empty()) {
+      auto role = weak_roles.back().lock();
+      weak_roles.pop_back();
+
+      if(!role)
+        continue;
+
+      POSEIDON_CATCH_EVERYTHING(role->on_every_second());
     }
   }
 
@@ -229,14 +268,15 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->service_start_time = system_time(milliseconds(service_start_time_ms));
 
     // Set up request handlers.
-//    service.set_handler(&"/user/kick", bindw(this->m_impl, do_slash_user_kick));
-//    service.set_handler(&"/user/ban/set", bindw(this->m_impl, do_slash_user_ban_set));
-//    service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_slash_user_ban_lift));
-//    service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_slash_nickname_acquire));
-//    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
+    service.set_handler(&"/role/login", bindw(this->m_impl, do_slash_role_login));
+    service.set_handler(&"/role/logout", bindw(this->m_impl, do_slash_role_logout));
+    service.set_handler(&"/role/disconnect", bindw(this->m_impl, do_slash_role_disconnect));
+    service.set_handler(&"/role/reconnect", bindw(this->m_impl, do_slash_role_reconnect));
 
     // Restart the service.
     this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
+    this->m_impl->every_second_timer.start(milliseconds(1000 - clock.get_system_time_fields().milliseconds),
+                                           1s, bindw(this->m_impl, do_every_second_timer_callback));
   }
 
 }  // namespace k32::logic
