@@ -19,7 +19,7 @@
 namespace k32::agent {
 namespace {
 
-struct User_Connection_Information
+struct User_Connection_Record
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
     steady_time rate_time;
@@ -44,8 +44,8 @@ struct Implementation
 
     // connections from clients
     bool db_ready = false;
-    cow_dictionary<User_Information> users;
-    cow_dictionary<User_Connection_Information> connections;
+    cow_dictionary<User_Record> users;
+    cow_dictionary<User_Connection_Record> connections;
     ::std::vector<phcow_string> expired_connections;
   };
 
@@ -71,7 +71,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           }
 
           // Call the user-defined authenticator to get the username.
-          User_Information uinfo;
+          User_Record uinfo;
           if(auto ptr = impl->ws_authenticators.ptr(path))
             try {
               auto authenticator = *ptr;
@@ -232,7 +232,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 //          session->ws_send(::poseidon::ws_TEXT, buf);
 
           // Set up connection.
-          User_Connection_Information uconn;
+          User_Connection_Record uconn;
           uconn.weak_session = session;
           uconn.rate_time = steady_clock::now();
           uconn.pong_time = uconn.rate_time;
@@ -902,16 +902,16 @@ remove_ws_handler(const phcow_string& opcode) noexcept
     return this->m_impl->ws_handlers.erase(opcode);
   }
 
-const User_Information&
+const User_Record&
 User_Service::
 find_user(const phcow_string& username) const noexcept
   {
     if(!this->m_impl)
-      return User_Information::null;
+      return User_Record::null;
 
     auto ptr = this->m_impl->users.ptr(username);
     if(!ptr)
-      return User_Information::null;
+      return User_Record::null;
 
     return *ptr;
   }

@@ -61,8 +61,8 @@ endif
 lib_common = static_library('common',
     cpp_pch: 'k32/xprecompiled.hpp',
     sources: [
-      'k32/common/data/service_information.cpp', 'k32/common/data/service_response.cpp',
-      'k32/common/data/user_information.cpp', 'k32/common/data/role_information.cpp',
+      'k32/common/data/service_record.cpp', 'k32/common/data/service_response.cpp',
+      'k32/common/data/user_record.cpp', 'k32/common/data/role_record.cpp',
       'k32/common/fiber/service_future.cpp', 'k32/common/fiber/http_future.cpp',
       'k32/common/static/service.cpp', 'k32/common/static/http_requestor.cpp',
       'k32/common/static/clock.cpp',

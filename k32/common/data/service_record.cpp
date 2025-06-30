@@ -3,13 +3,13 @@
 
 #include "../../xprecompiled.hpp"
 #define K32_FRIENDS_5B7AEF1F_484C_11F0_A2E3_5254005015D2_
-#include "service_information.hpp"
+#include "service_record.hpp"
 namespace k32 {
 
-const Service_Information& Service_Information::null = *new Service_Information();
+const Service_Record& Service_Record::null = *new Service_Record();
 
-Service_Information::
-~Service_Information()
+Service_Record::
+~Service_Record()
   {
   }
 

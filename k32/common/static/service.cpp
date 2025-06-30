@@ -23,7 +23,7 @@
 namespace k32 {
 namespace {
 
-struct Remote_Service_Connection_Information
+struct Remote_Service_Connection_Record
   {
     wkptr<::poseidon::WS_Client_Session> weak_session;
     cow_bivector<wkptr<Service_Future>, ::poseidon::UUID> weak_futures;
@@ -47,11 +47,11 @@ struct Implementation
     ::poseidon::Easy_WS_Client private_client;
 
     // remote data from redis
-    cow_uuid_dictionary<Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Service_Information>> remote_services_by_type;
+    cow_uuid_dictionary<Service_Record> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Service_Record>> remote_services_by_type;
 
     // connections
-    cow_uuid_dictionary<Remote_Service_Connection_Information> remote_connections;
+    cow_uuid_dictionary<Remote_Service_Connection_Record> remote_connections;
     ::std::vector<::poseidon::UUID> expired_service_uuids;
   };
 
@@ -474,8 +474,8 @@ do_subscribe_services(const shptr<Implementation>& impl,
                       const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
-    cow_uuid_dictionary<Service_Information> remote_services_by_uuid;
-    cow_dictionary<cow_vector<Service_Information>> remote_services_by_type;
+    cow_uuid_dictionary<Service_Record> remote_services_by_uuid;
+    cow_dictionary<cow_vector<Service_Record>> remote_services_by_type;
 
     auto pattern = sformat("$1/service/*", impl->application_name);
     auto task2 = new_sh<::poseidon::Redis_Scan_and_Get_Future>(::poseidon::redis_connector, pattern);
@@ -485,7 +485,7 @@ do_subscribe_services(const shptr<Implementation>& impl,
 
     for(const auto& r : task2->result())
       try {
-        Service_Information remote;
+        Service_Record remote;
         POSEIDON_CHECK(r.first.size() == pattern.size() + 35);  // note `*` in pattern
         POSEIDON_CHECK(remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) == 36);
 
@@ -695,16 +695,16 @@ application_name() const noexcept
     return this->m_impl->application_name;
   }
 
-const Service_Information&
+const Service_Record&
 Service::
 find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {
     if(!this->m_impl)
-      return Service_Information::null;
+      return Service_Record::null;
 
     auto ptr = this->m_impl->remote_services_by_uuid.ptr(remote_service_uuid);
     if(!ptr)
-      return Service_Information::null;
+      return Service_Record::null;
 
     return *ptr;
   }

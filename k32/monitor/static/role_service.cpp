@@ -26,7 +26,7 @@ struct Implementation
 
     // remote data from mysql
     bool db_ready = false;
-    cow_int64_dictionary<Role_Information> roles;
+    cow_int64_dictionary<Role_Record> role_records;
     ::std::list<static_vector<int64_t, 255>> save_buckets;
   };
 
@@ -98,7 +98,7 @@ do_mysql_check_table_role(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_parse_role_information_from_string(Role_Information& roinfo, const cow_string& str)
+do_parse_role_record_from_string(Role_Record& roinfo, const cow_string& str)
   {
     ROCKET_ASSERT(roinfo.roid != 0);
 
@@ -119,8 +119,8 @@ do_parse_role_information_from_string(Role_Information& roinfo, const cow_string
   }
 
 void
-do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
-                                     Role_Information& roinfo, seconds ttl)
+do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber,
+                                     Role_Record& roinfo, seconds ttl)
   {
     ::taxon::V_object root;
     root.try_emplace(&"@home_srv", service.service_uuid().to_string());
@@ -149,7 +149,7 @@ do_store_role_information_into_redis(::poseidon::Abstract_Fiber& fiber,
     fiber.yield(task2);
 
     if(!task2->result().is_nil())
-      do_parse_role_information_from_string(roinfo, task2->result().as_string());
+      do_parse_role_record_from_string(roinfo, task2->result().as_string());
 
     POSEIDON_LOG_INFO(("Loaded from MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
@@ -218,7 +218,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
     //
     POSEIDON_CHECK(impl->db_ready);
 
-    Role_Information roinfo;
+    Role_Record roinfo;
     roinfo.roid = roid;
     roinfo.username = username;
     roinfo.nickname = nickname;
@@ -284,8 +284,8 @@ do_slash_role_create(const shptr<Implementation>& impl,
       roinfo.whole = task1->result_row_field(0, 4).as_blob();               //        , `whole`
     }
 
-    do_store_role_information_into_redis(fiber, roinfo, impl->redis_role_ttl);
-    impl->roles.insert_or_assign(roinfo.roid, roinfo);
+    do_store_role_record_into_redis(fiber, roinfo, impl->redis_role_ttl);
+    impl->role_records.insert_or_assign(roinfo.roid, roinfo);
 
     POSEIDON_LOG_INFO(("Created role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
@@ -305,7 +305,7 @@ do_slash_role_load(const shptr<Implementation>& impl,
     //
     POSEIDON_CHECK(impl->db_ready);
 
-    Role_Information roinfo;
+    Role_Record roinfo;
     roinfo.roid = roid;
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
@@ -344,8 +344,8 @@ do_slash_role_load(const shptr<Implementation>& impl,
     roinfo.profile = task1->result_row_field(0, 4).as_blob();             //        , `profile`
     roinfo.whole = task1->result_row_field(0, 5).as_blob();               //        , `whole`
 
-    do_store_role_information_into_redis(fiber, roinfo, impl->redis_role_ttl);
-    impl->roles.insert_or_assign(roinfo.roid, roinfo);
+    do_store_role_record_into_redis(fiber, roinfo, impl->redis_role_ttl);
+    impl->role_records.insert_or_assign(roinfo.roid, roinfo);
 
     POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
@@ -353,9 +353,9 @@ do_slash_role_load(const shptr<Implementation>& impl,
   }
 
 void
-do_store_role_information_into_mysql(::poseidon::Abstract_Fiber& fiber,
+do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
                                      uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
-                                     Role_Information& roinfo)
+                                     Role_Record& roinfo)
   {
     POSEIDON_LOG_INFO(("Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
@@ -412,7 +412,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->result().is_nil()) {
-      impl->roles.erase(roid);
+      impl->role_records.erase(roid);
       response_data.try_emplace(&"status", &"gs_role_not_online");
       return;
     }
@@ -420,10 +420,10 @@ do_slash_role_unload(const shptr<Implementation>& impl,
     // Write role information to MySQL. This is a slow operation, and data may
     // change when it is being executed. Therefore we will have to verify that
     // the value on Redis is unchanged before deleting it safely.
-    Role_Information roinfo;
+    Role_Record roinfo;
     roinfo.roid = roid;
     do {
-      do_parse_role_information_from_string(roinfo, task2->result().as_string());
+      do_parse_role_record_from_string(roinfo, task2->result().as_string());
 
       auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
       if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
@@ -432,7 +432,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
         return;
       }
 
-      do_store_role_information_into_mysql(fiber, move(mysql_conn), roinfo);
+      do_store_role_record_into_mysql(fiber, move(mysql_conn), roinfo);
 
       static constexpr char redis_delete_if_unchanged[] =
           R"!!!(
@@ -457,7 +457,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
       fiber.yield(task2);
     }
     while(!task2->result().is_nil());
-    impl->roles.erase(roid);
+    impl->role_records.erase(roid);
 
     POSEIDON_LOG_INFO(("Unloaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
@@ -486,15 +486,15 @@ do_slash_role_flush(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->result().is_nil()) {
-      impl->roles.erase(roid);
+      impl->role_records.erase(roid);
       response_data.try_emplace(&"status", &"gs_role_not_online");
       return;
     }
 
     // Write a snapshot of role information to MySQL.
-    Role_Information roinfo;
+    Role_Record roinfo;
     roinfo.roid = roid;
-    do_parse_role_information_from_string(roinfo, task2->result().as_string());
+    do_parse_role_record_from_string(roinfo, task2->result().as_string());
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
@@ -503,8 +503,8 @@ do_slash_role_flush(const shptr<Implementation>& impl,
       return;
     }
 
-    impl->roles.insert_or_assign(roinfo.roid, roinfo);
-    do_store_role_information_into_mysql(fiber, move(mysql_conn), roinfo);
+    impl->role_records.insert_or_assign(roinfo.roid, roinfo);
+    do_store_role_record_into_mysql(fiber, move(mysql_conn), roinfo);
 
     POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
@@ -528,7 +528,7 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       while(impl->save_buckets.size() < 20)
         impl->save_buckets.emplace_back();
 
-      for(const auto& r : impl->roles) {
+      for(const auto& r : impl->role_records) {
         auto first_bucket = impl->save_buckets.begin();
         if(first_bucket->size() >= first_bucket->capacity())
           first_bucket = impl->save_buckets.emplace(first_bucket);
@@ -553,17 +553,17 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       fiber.yield(task2);
 
       if(task2->result().is_nil()) {
-        impl->roles.erase(roid);
+        impl->role_records.erase(roid);
         continue;
       }
 
       // Write a snapshot of role information to MySQL.
-      Role_Information roinfo;
+      Role_Record roinfo;
       roinfo.roid = roid;
-      do_parse_role_information_from_string(roinfo, task2->result().as_string());
+      do_parse_role_record_from_string(roinfo, task2->result().as_string());
 
-      impl->roles.insert_or_assign(roinfo.roid, roinfo);
-      do_store_role_information_into_mysql(fiber, nullptr, roinfo);
+      impl->role_records.insert_or_assign(roinfo.roid, roinfo);
+      do_store_role_record_into_mysql(fiber, nullptr, roinfo);
     }
   }
 
@@ -582,16 +582,16 @@ Role_Service::
   {
   }
 
-const Role_Information&
+const Role_Record&
 Role_Service::
-find_role(int64_t roid) const noexcept
+find_role_record(int64_t roid) const noexcept
   {
     if(!this->m_impl)
-      return Role_Information::null;
+      return Role_Record::null;
 
-    auto ptr = this->m_impl->roles.ptr(roid);
+    auto ptr = this->m_impl->role_records.ptr(roid);
     if(!ptr)
-      return Role_Information::null;
+      return Role_Record::null;
 
     return *ptr;
   }

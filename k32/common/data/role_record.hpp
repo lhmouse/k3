@@ -1,13 +1,13 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
-#ifndef K32_COMMON_DATA_ROLE_INFORMATION_
-#define K32_COMMON_DATA_ROLE_INFORMATION_
+#ifndef K32_COMMON_DATA_ROLE_RECORD_
+#define K32_COMMON_DATA_ROLE_RECORD_
 
 #include "../../fwd.hpp"
 namespace k32 {
 
-struct Role_Information
+struct Role_Record
   {
     int64_t roid = 0;
     phcow_string username;
@@ -21,15 +21,15 @@ struct Role_Information
     cow_string home_db;
 
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
-    Role_Information() noexcept = default;
+    Role_Record() noexcept = default;
 #endif
-    Role_Information(const Role_Information&) = default;
-    Role_Information(Role_Information&&) = default;
-    Role_Information& operator=(const Role_Information&) & = default;
-    Role_Information& operator=(Role_Information&&) & = default;
-    ~Role_Information();
+    Role_Record(const Role_Record&) = default;
+    Role_Record(Role_Record&&) = default;
+    Role_Record& operator=(const Role_Record&) & = default;
+    Role_Record& operator=(Role_Record&&) & = default;
+    ~Role_Record();
 
-    static const Role_Information& null;
+    static const Role_Record& null;
     explicit operator bool() const noexcept { return this->roid == 0;  }
   };
 

@@ -5,7 +5,7 @@
 #define K32_AGENT_STATIC_USER_SERVICE_
 
 #include "../../fwd.hpp"
-#include "../../common/data/user_information.hpp"
+#include "../../common/data/user_record.hpp"
 namespace k32::agent {
 
 class User_Service
@@ -94,7 +94,7 @@ class User_Service
     remove_ws_handler(const phcow_string& opcode) noexcept;
 
     // Gets properties of a user.
-    const User_Information&
+    const User_Record&
     find_user(const phcow_string& username) const noexcept;
 
     // Reloads configuration.

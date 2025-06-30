@@ -1,13 +1,13 @@
 // This file is part of k32.
 // Copyright (C) 2024-2025, LH_Mouse. All wrongs reserved.
 
-#ifndef K32_COMMON_DATA_USER_INFORMATION_
-#define K32_COMMON_DATA_USER_INFORMATION_
+#ifndef K32_COMMON_DATA_USER_RECORD_
+#define K32_COMMON_DATA_USER_RECORD_
 
 #include "../../fwd.hpp"
 namespace k32 {
 
-struct User_Information
+struct User_Record
   {
     phcow_string username;
     ::poseidon::IPv6_Address login_address;
@@ -21,15 +21,15 @@ struct User_Information
     ::poseidon::UUID current_logic_service_uuid;
 
 #ifdef K32_FRIENDS_6A8BAC8C_B8F6_4BDA_BD7F_B90D5BF07B81_
-    User_Information() noexcept = default;
+    User_Record() noexcept = default;
 #endif
-    User_Information(const User_Information&) = default;
-    User_Information(User_Information&&) = default;
-    User_Information& operator=(const User_Information&) & = default;
-    User_Information& operator=(User_Information&&) & = default;
-    ~User_Information();
+    User_Record(const User_Record&) = default;
+    User_Record(User_Record&&) = default;
+    User_Record& operator=(const User_Record&) & = default;
+    User_Record& operator=(User_Record&&) & = default;
+    ~User_Record();
 
-    static const User_Information& null;
+    static const User_Record& null;
     explicit operator bool() const noexcept { return this->username.length() != 0;  }
   };
 

@@ -5,7 +5,7 @@
 #define K32_MONITOR_STATIC_ROLE_SERVICE_
 
 #include "../../fwd.hpp"
-#include "../../common/data/role_information.hpp"
+#include "../../common/data/role_record.hpp"
 namespace k32::monitor {
 
 class Role_Service
@@ -23,8 +23,8 @@ class Role_Service
     ~Role_Service();
 
     // Gets properties of a role.
-    const Role_Information&
-    find_role(int64_t roid) const noexcept;
+    const Role_Record&
+    find_role_record(int64_t roid) const noexcept;
 
     // Reloads configuration.
     void
