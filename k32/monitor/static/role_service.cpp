@@ -380,7 +380,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 
     if(task2->result().is_nil()) {
       impl->role_records.erase(roid);
-      response_data.try_emplace(&"status", &"gs_role_not_online");
+      response_data.try_emplace(&"status", &"gs_role_not_loaded");
       return;
     }
 
@@ -453,7 +453,7 @@ do_slash_role_flush(const shptr<Implementation>& impl,
 
     if(task2->result().is_nil()) {
       impl->role_records.erase(roid);
-      response_data.try_emplace(&"status", &"gs_role_not_online");
+      response_data.try_emplace(&"status", &"gs_role_not_loaded");
       return;
     }
 
