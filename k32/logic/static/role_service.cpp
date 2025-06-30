@@ -12,6 +12,7 @@ namespace {
 
 struct Implementation
   {
+    seconds redis_role_ttl;
     int service_zone_id = 0;
     system_time service_start_time;
   };
@@ -59,10 +60,26 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    int64_t service_zone_id = 0, service_start_time_ms = 0;
+    int64_t redis_role_ttl = 900, service_zone_id = 0, service_start_time_ms = 0;
+
+    // `redis_role_ttl`
+    auto conf_value = conf_file.query(&"redis_role_ttl");
+    if(conf_value.is_integer())
+      redis_role_ttl = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `redis_role_ttl`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((redis_role_ttl < 600) || (redis_role_ttl > 999999999))
+      POSEIDON_THROW((
+          "Invalid `redis_role_ttl`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          redis_role_ttl, conf_file.path());
 
     // `logic.service_zone_id`
-    auto conf_value = conf_file.query(&"logic.service_zone_id");
+    conf_value = conf_file.query(&"logic.service_zone_id");
     if(conf_value.is_integer())
       service_zone_id = conf_value.as_integer();
     else if(!conf_value.is_null())
@@ -94,6 +111,7 @@ reload(const ::poseidon::Config_File& conf_file)
           service_start_time_ms, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
+    this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
     this->m_impl->service_zone_id = static_cast<int>(service_zone_id);
     this->m_impl->service_start_time = system_time(milliseconds(service_start_time_ms));
 
@@ -105,9 +123,7 @@ reload(const ::poseidon::Config_File& conf_file)
 //    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
 
     // Restart the service.
-//    this->m_impl->service_timer.start(150ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
-//    this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
-
+//    this->m_impl->service_timer.start(1000ms, 19001ms, bindw(this->m_impl, do_service_timer_callback));
   }
 
 }  // namespace k32::logic

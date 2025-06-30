@@ -26,6 +26,10 @@ class Role
     ~Role();
 
     // Get basic information. These fields are read-only.
+    const ::poseidon::UUID&
+    agent_service_uuid() const noexcept
+      { return this->m_agent_service_uuid;  }
+
     int64_t
     roid() const noexcept
       { return this->m_roid;  }

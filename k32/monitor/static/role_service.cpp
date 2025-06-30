@@ -606,19 +606,19 @@ reload(const ::poseidon::Config_File& conf_file)
     // Define default values here. The operation shall be atomic.
     int64_t redis_role_ttl = 900;
 
-    // `monitor.redis_role_ttl`
-    auto conf_value = conf_file.query(&"monitor.redis_role_ttl");
+    // `redis_role_ttl`
+    auto conf_value = conf_file.query(&"redis_role_ttl");
     if(conf_value.is_integer())
       redis_role_ttl = conf_value.as_integer();
     else if(!conf_value.is_null())
       POSEIDON_THROW((
-          "Invalid `monitor.redis_role_ttl`: expecting an `integer`, got `$1`",
+          "Invalid `redis_role_ttl`: expecting an `integer`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
     if((redis_role_ttl < 600) || (redis_role_ttl > 999999999))
       POSEIDON_THROW((
-          "Invalid `monitor.redis_role_ttl`: value `$1` out of range",
+          "Invalid `redis_role_ttl`: value `$1` out of range",
           "[in configuration file '$2']"),
           redis_role_ttl, conf_file.path());
 
