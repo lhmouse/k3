@@ -16,8 +16,8 @@
 4. [Logic Service Opcodes](#logic-service-opcodes)
    1. [`/role/login`](#rolelogin)
    2. [`/role/logout`](#rolelogout)
-   3. [`/role/disconnect`](#roledisconnect)
-   4. [`/role/reconnect`](#rolereconnect)
+   3. [`/role/reconnect`](#rolereconnect)
+   4. [`/role/disconnect`](#roledisconnect)
 
 ## General Status Codes
 
@@ -262,22 +262,6 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/disconnect`
-
-* Request Parameters
-
-  - `roid` <sub>integer</sub> : ID of role to disconnect.
-
-* Response Parameters
-
-  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
-
-* Description
-
-  Triggers a _disconnect_ event.
-
-[back to table of contents](#table-of-contents)
-
 ### `/role/reconnect`
 
 * Request Parameters
@@ -294,5 +278,21 @@ strings:
 
   If a role in `roid_list` has been loaded, triggers a _reconnect_ event.
   Otherwise no role is loaded, and an error is returned.
+
+[back to table of contents](#table-of-contents)
+
+### `/role/disconnect`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role to disconnect.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Triggers a _disconnect_ event.
 
 [back to table of contents](#table-of-contents)

@@ -207,6 +207,61 @@ do_slash_role_logout(const shptr<Implementation>& impl,
   }
 
 void
+do_slash_role_reconnect(const shptr<Implementation>& impl,
+                        ::poseidon::Abstract_Fiber& /*fiber*/,
+                        const ::poseidon::UUID& /*request_service_uuid*/,
+                        ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    int64_t roid = request_data.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    ::poseidon::UUID agent_service_uuid(request_data.at(&"agent_service_uuid").as_string());
+    POSEIDON_CHECK(!agent_service_uuid.is_nil());
+
+    ////////////////////////////////////////////////////////////
+    //
+    Hydrated_Role hyd;
+    if(auto ptr = impl->hyd_roles.ptr(roid))
+      hyd = *ptr;
+
+    if(!hyd.role) {
+      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      return;
+    }
+
+    hyd.role->mf_agent_service_uuid() = agent_service_uuid;
+    hyd.role->on_connect();
+
+    response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_slash_role_disconnect(const shptr<Implementation>& impl,
+                         ::poseidon::Abstract_Fiber& /*fiber*/,
+                         const ::poseidon::UUID& /*request_service_uuid*/,
+                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    int64_t roid = request_data.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    ////////////////////////////////////////////////////////////
+    //
+    Hydrated_Role hyd;
+    if(auto ptr = impl->hyd_roles.ptr(roid))
+      hyd = *ptr;
+
+    if(!hyd.role) {
+      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      return;
+    }
+
+    hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
+    hyd.role->on_disconnect();
+
+    response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
 do_every_second_timer_callback(const shptr<Implementation>& impl,
                                const shptr<::poseidon::Abstract_Timer>& /*timer*/,
                                ::poseidon::Abstract_Fiber& /*fiber*/, steady_time /*now*/)
@@ -342,8 +397,8 @@ reload(const ::poseidon::Config_File& conf_file)
     // Set up request handlers.
     service.set_handler(&"/role/login", bindw(this->m_impl, do_slash_role_login));
     service.set_handler(&"/role/logout", bindw(this->m_impl, do_slash_role_logout));
-    service.set_handler(&"/role/disconnect", bindw(this->m_impl, do_slash_role_disconnect));
     service.set_handler(&"/role/reconnect", bindw(this->m_impl, do_slash_role_reconnect));
+    service.set_handler(&"/role/disconnect", bindw(this->m_impl, do_slash_role_disconnect));
 
     // Restart the service.
     this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
