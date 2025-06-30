@@ -120,7 +120,7 @@ do_save_timer_callback(const shptr<Implementation>& impl,
 void
 do_slash_role_login(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
-                    const ::poseidon::UUID& /*req_service_uuid*/,
+                    const ::poseidon::UUID& /*request_service_uuid*/,
                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
@@ -131,7 +131,79 @@ do_slash_role_login(const shptr<Implementation>& impl,
 
     ////////////////////////////////////////////////////////////
     //
+    Hydrated_Role hyd;
+    if(auto ptr = impl->hyd_roles.ptr(roid))
+      hyd = *ptr;
 
+    if(!hyd.role) {
+      // Load role from Redis.
+      cow_vector<cow_string> redis_cmd;
+      redis_cmd.emplace_back(&"GETEX");
+      redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roid));
+      redis_cmd.emplace_back(&"EX");
+      redis_cmd.emplace_back(sformat("$1", impl->redis_role_ttl.count()));
+
+      auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+      ::poseidon::task_scheduler.launch(task2);
+      fiber.yield(task2);
+
+      if(task2->result().is_nil()) {
+        response_data.try_emplace(&"status", &"gs_role_not_loaded");
+        return;
+      }
+
+      hyd.roinfo.parse_from_string(task2->result().as_string());
+      hyd.role = new_sh<Role>();
+
+      hyd.role->mf_roid() = hyd.roinfo.roid;
+      hyd.role->mf_nickname() = hyd.roinfo.nickname;
+      hyd.role->mf_username() = hyd.roinfo.username;
+
+      ::taxon::Value temp_value;
+      POSEIDON_CHECK(temp_value.parse(hyd.roinfo.whole));
+      hyd.role->hydrate(temp_value.as_object());
+
+      auto result = impl->hyd_roles.try_emplace(hyd.roinfo.roid, hyd);
+      if(!result.second)
+        hyd = result.first->second;  // load conflict
+      else
+        hyd.role->on_login();
+    }
+
+    hyd.role->mf_agent_service_uuid() = agent_service_uuid;
+    hyd.role->on_connect();
+
+    response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_slash_role_logout(const shptr<Implementation>& impl,
+                     ::poseidon::Abstract_Fiber& fiber,
+                     const ::poseidon::UUID& /*request_service_uuid*/,
+                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    int64_t roid = request_data.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    ////////////////////////////////////////////////////////////
+    //
+    Hydrated_Role hyd;
+    if(auto ptr = impl->hyd_roles.ptr(roid))
+      hyd = *ptr;
+
+    if(!hyd.role) {
+      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      return;
+    }
+
+    hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
+    hyd.role->on_logout();
+
+    do_update_role_record(hyd);
+    impl->hyd_roles.erase(roid);
+    do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
+
+    response_data.try_emplace(&"status", &"gs_ok");
   }
 
 void

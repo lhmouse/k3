@@ -11,14 +11,17 @@ class Role
   {
   private:
     // basic information
-    ::poseidon::UUID m_agent_service_uuid;
     int64_t m_roid = 0;
     cow_string m_nickname;
     phcow_string m_username;
+    ::poseidon::UUID m_agent_srv;
 
   public:
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
-    friend class Role_Service;
+    int64_t& mf_roid() noexcept { return this->m_roid;  }
+    cow_string& mf_nickname() noexcept { return this->m_nickname;  }
+    phcow_string& mf_username() noexcept { return this->m_username;  }
+    ::poseidon::UUID& mf_agent_service_uuid() noexcept { return this->m_agent_srv;  }
     Role() noexcept = default;
 #endif
     Role(const Role&) = delete;
@@ -26,10 +29,6 @@ class Role
     ~Role();
 
     // Get basic information. These fields are read-only.
-    const ::poseidon::UUID&
-    agent_service_uuid() const noexcept
-      { return this->m_agent_service_uuid;  }
-
     int64_t
     roid() const noexcept
       { return this->m_roid;  }
@@ -41,6 +40,10 @@ class Role
     const cow_string&
     nickname() const noexcept
       { return this->m_nickname;  }
+
+    const ::poseidon::UUID&
+    agent_service_uuid() const noexcept
+      { return this->m_agent_srv;  }
 
     // Load role cultivation data from the database. This is an internal function
     // called by the role service, after basic information has been filled in.

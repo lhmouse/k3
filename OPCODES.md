@@ -36,6 +36,7 @@ strings:
 |`gs_roid_not_found`         |Role ID not found in database.                 |
 |`gs_role_not_loaded`        |Role not loaded in Redis.                      |
 |`gs_role_foreign`           |Role belongs to another server.                |
+|`gs_role_not_logged_in`     |Role not logged in.                            |
 
 ## Agent Service Opcodes
 
@@ -250,8 +251,6 @@ strings:
 * Request Parameters
 
   - `roid` <sub>integer</sub> : ID of role to unload.
-  - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
-    connection.
 
 * Response Parameters
 
