@@ -121,10 +121,10 @@ do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber, Role_Record& 
   }
 
 void
-do_slash_role_list(const shptr<Implementation>& impl,
-                   ::poseidon::Abstract_Fiber& fiber,
-                   const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_list(const shptr<Implementation>& impl,
+                  ::poseidon::Abstract_Fiber& fiber,
+                  const ::poseidon::UUID& /*request_service_uuid*/,
+                  ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -165,10 +165,10 @@ do_slash_role_list(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_create(const shptr<Implementation>& impl,
-                     ::poseidon::Abstract_Fiber& fiber,
-                     const ::poseidon::UUID& /*request_service_uuid*/,
-                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_create(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    const ::poseidon::UUID& /*request_service_uuid*/,
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -259,10 +259,10 @@ do_slash_role_create(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_load(const shptr<Implementation>& impl,
-                   ::poseidon::Abstract_Fiber& fiber,
-                   const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_load(const shptr<Implementation>& impl,
+                  ::poseidon::Abstract_Fiber& fiber,
+                  const ::poseidon::UUID& /*request_service_uuid*/,
+                  ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -358,10 +358,10 @@ do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
   }
 
 void
-do_slash_role_unload(const shptr<Implementation>& impl,
-                     ::poseidon::Abstract_Fiber& fiber,
-                     const ::poseidon::UUID& /*request_service_uuid*/,
-                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_unload(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    const ::poseidon::UUID& /*request_service_uuid*/,
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -431,10 +431,10 @@ do_slash_role_unload(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_flush(const shptr<Implementation>& impl,
-                    ::poseidon::Abstract_Fiber& fiber,
-                    const ::poseidon::UUID& /*request_service_uuid*/,
-                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_flush(const shptr<Implementation>& impl,
+                   ::poseidon::Abstract_Fiber& fiber,
+                   const ::poseidon::UUID& /*request_service_uuid*/,
+                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -590,11 +590,11 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
 
     // Set up request handlers.
-    service.set_handler(&"/role/list", bindw(this->m_impl, do_slash_role_list));
-    service.set_handler(&"/role/create", bindw(this->m_impl, do_slash_role_create));
-    service.set_handler(&"/role/load", bindw(this->m_impl, do_slash_role_load));
-    service.set_handler(&"/role/unload", bindw(this->m_impl, do_slash_role_unload));
-    service.set_handler(&"/role/flush", bindw(this->m_impl, do_slash_role_flush));
+    service.set_handler(&"!role/list", bindw(this->m_impl, do_star_role_list));
+    service.set_handler(&"!role/create", bindw(this->m_impl, do_star_role_create));
+    service.set_handler(&"!role/load", bindw(this->m_impl, do_star_role_load));
+    service.set_handler(&"!role/unload", bindw(this->m_impl, do_star_role_unload));
+    service.set_handler(&"!role/flush", bindw(this->m_impl, do_star_role_flush));
 
     // Restart the service.
     this->m_impl->save_timer.start(100ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));

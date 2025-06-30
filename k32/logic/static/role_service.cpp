@@ -118,10 +118,10 @@ do_save_timer_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_login(const shptr<Implementation>& impl,
-                    ::poseidon::Abstract_Fiber& fiber,
-                    const ::poseidon::UUID& /*request_service_uuid*/,
-                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_login(const shptr<Implementation>& impl,
+                   ::poseidon::Abstract_Fiber& fiber,
+                   const ::poseidon::UUID& /*request_service_uuid*/,
+                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -177,10 +177,10 @@ do_slash_role_login(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_logout(const shptr<Implementation>& impl,
-                     ::poseidon::Abstract_Fiber& fiber,
-                     const ::poseidon::UUID& /*request_service_uuid*/,
-                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_logout(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber,
+                    const ::poseidon::UUID& /*request_service_uuid*/,
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -207,10 +207,10 @@ do_slash_role_logout(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_reconnect(const shptr<Implementation>& impl,
-                        ::poseidon::Abstract_Fiber& /*fiber*/,
-                        const ::poseidon::UUID& /*request_service_uuid*/,
-                        ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_reconnect(const shptr<Implementation>& impl,
+                       ::poseidon::Abstract_Fiber& /*fiber*/,
+                       const ::poseidon::UUID& /*request_service_uuid*/,
+                       ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     ::std::vector<int64_t> roid_list;
     for(const auto& r : request_data.at(&"roid_list").as_array()) {
@@ -243,10 +243,10 @@ do_slash_role_reconnect(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_role_disconnect(const shptr<Implementation>& impl,
-                         ::poseidon::Abstract_Fiber& /*fiber*/,
-                         const ::poseidon::UUID& /*request_service_uuid*/,
-                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_role_disconnect(const shptr<Implementation>& impl,
+                        ::poseidon::Abstract_Fiber& /*fiber*/,
+                        const ::poseidon::UUID& /*request_service_uuid*/,
+                        ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -402,10 +402,10 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->service_start_time = system_time(milliseconds(service_start_time_ms));
 
     // Set up request handlers.
-    service.set_handler(&"/role/login", bindw(this->m_impl, do_slash_role_login));
-    service.set_handler(&"/role/logout", bindw(this->m_impl, do_slash_role_logout));
-    service.set_handler(&"/role/reconnect", bindw(this->m_impl, do_slash_role_reconnect));
-    service.set_handler(&"/role/disconnect", bindw(this->m_impl, do_slash_role_disconnect));
+    service.set_handler(&"!role/login", bindw(this->m_impl, do_star_role_login));
+    service.set_handler(&"!role/logout", bindw(this->m_impl, do_star_role_logout));
+    service.set_handler(&"!role/reconnect", bindw(this->m_impl, do_star_role_reconnect));
+    service.set_handler(&"!role/disconnect", bindw(this->m_impl, do_star_role_disconnect));
 
     // Restart the service.
     this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));

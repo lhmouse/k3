@@ -498,10 +498,10 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
-                          ::poseidon::Abstract_Fiber& fiber,
-                          const ::poseidon::UUID& /*request_service_uuid*/,
-                          ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
+                         ::poseidon::Abstract_Fiber& fiber,
+                         const ::poseidon::UUID& /*request_service_uuid*/,
+                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
@@ -569,10 +569,10 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
   }
 
 void
-do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
-                          ::poseidon::Abstract_Fiber& fiber,
-                          const ::poseidon::UUID& /*request_service_uuid*/,
-                          ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_nickname_release(const shptr<Implementation>& /*impl*/,
+                         ::poseidon::Abstract_Fiber& fiber,
+                         const ::poseidon::UUID& /*request_service_uuid*/,
+                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
@@ -660,10 +660,10 @@ do_ping_timer_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_user_kick(const shptr<Implementation>& impl,
-                   ::poseidon::Abstract_Fiber& /*fiber*/,
-                   const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_user_kick(const shptr<Implementation>& impl,
+                  ::poseidon::Abstract_Fiber& /*fiber*/,
+                  const ::poseidon::UUID& /*request_service_uuid*/,
+                  ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -695,10 +695,10 @@ do_slash_user_kick(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_user_ban_set(const shptr<Implementation>& impl,
-                      ::poseidon::Abstract_Fiber& fiber,
-                      const ::poseidon::UUID& /*request_service_uuid*/,
-                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_user_ban_set(const shptr<Implementation>& impl,
+                     ::poseidon::Abstract_Fiber& fiber,
+                     const ::poseidon::UUID& /*request_service_uuid*/,
+                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -746,10 +746,10 @@ do_slash_user_ban_set(const shptr<Implementation>& impl,
   }
 
 void
-do_slash_user_ban_lift(const shptr<Implementation>& impl,
-                       ::poseidon::Abstract_Fiber& fiber,
-                       const ::poseidon::UUID& /*request_service_uuid*/,
-                       ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+do_star_user_ban_lift(const shptr<Implementation>& impl,
+                      ::poseidon::Abstract_Fiber& fiber,
+                      const ::poseidon::UUID& /*request_service_uuid*/,
+                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -1032,11 +1032,11 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
-    service.set_handler(&"/user/kick", bindw(this->m_impl, do_slash_user_kick));
-    service.set_handler(&"/user/ban/set", bindw(this->m_impl, do_slash_user_ban_set));
-    service.set_handler(&"/user/ban/lift", bindw(this->m_impl, do_slash_user_ban_lift));
-    service.set_handler(&"/nickname/acquire", bindw(this->m_impl, do_slash_nickname_acquire));
-    service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
+    service.set_handler(&"!user/kick", bindw(this->m_impl, do_star_user_kick));
+    service.set_handler(&"!user/ban/set", bindw(this->m_impl, do_star_user_ban_set));
+    service.set_handler(&"!user/ban/lift", bindw(this->m_impl, do_star_user_ban_lift));
+    service.set_handler(&"!nickname/acquire", bindw(this->m_impl, do_star_nickname_acquire));
+    service.set_handler(&"!nickname/release", bindw(this->m_impl, do_star_nickname_release));
 
     // Restart the service.
     this->m_impl->ping_timer.start(150ms, 7001ms, bindw(this->m_impl, do_ping_timer_callback));

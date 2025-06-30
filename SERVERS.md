@@ -2,22 +2,22 @@
 
 1. [General Status Codes](#general-status-codes)
 2. [Agent Service Opcodes](#agent-service-opcodes)
-   1. [`/user/ban/set`](#userbanset)
-   2. [`/user/ban/lift`](#userbanlift)
-   3. [`/user/kick`](#userkick)
-   4. [`/nickname/acquire`](#nicknameacquire)
-   5. [`/nickname/release`](#nicknamerelease)
+   1. [`!user/ban/set`](#userbanset)
+   2. [`!user/ban/lift`](#userbanlift)
+   3. [`!user/kick`](#userkick)
+   4. [`!nickname/acquire`](#nicknameacquire)
+   5. [`!nickname/release`](#nicknamerelease)
 3. [Monitor Service Opcodes](#monitor-service-opcodes)
-   1. [`/role/list`](#rolelist)
-   2. [`/role/create`](#rolecreate)
-   3. [`/role/load`](#roleload)
-   4. [`/role/unload`](#roleunload)
-   5. [`/role/flush`](#roleflush)
+   1. [`!role/list`](#rolelist)
+   2. [`!role/create`](#rolecreate)
+   3. [`!role/load`](#roleload)
+   4. [`!role/unload`](#roleunload)
+   5. [`!role/flush`](#roleflush)
 4. [Logic Service Opcodes](#logic-service-opcodes)
-   1. [`/role/login`](#rolelogin)
-   2. [`/role/logout`](#rolelogout)
-   3. [`/role/reconnect`](#rolereconnect)
-   4. [`/role/disconnect`](#roledisconnect)
+   1. [`!role/login`](#rolelogin)
+   2. [`!role/logout`](#rolelogout)
+   3. [`!role/reconnect`](#rolereconnect)
+   4. [`!role/disconnect`](#roledisconnect)
 
 ## General Status Codes
 
@@ -43,7 +43,7 @@ strings:
 
 ## Agent Service Opcodes
 
-### `/user/ban/set`
+### `!user/ban/set`
 
 * Request Parameters
 
@@ -61,7 +61,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/user/ban/lift`
+### `!user/ban/lift`
 
 * Request Parameters
 
@@ -77,7 +77,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/user/kick`
+### `!user/kick`
 
 * Request Parameters
 
@@ -97,7 +97,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/nickname/acquire`
+### `!nickname/acquire`
 
 * Request Parameters
 
@@ -119,7 +119,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/nickname/release`
+### `!nickname/release`
 
 * Request Parameters
 
@@ -137,7 +137,7 @@ strings:
 
 ## Monitor Service Opcodes
 
-### `/role/list`
+### `!role/list`
 
 * Request Parameters
 
@@ -157,7 +157,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/create`
+### `!role/create`
 
 * Request Parameters
 
@@ -172,13 +172,13 @@ strings:
 * Description
 
   Creates a new role in the _default_ database. By design， the caller should
-  call `/nickname/acquire` first to acquire ownership of `nickname`, then pass
+  call `!nickname/acquire` first to acquire ownership of `nickname`, then pass
   `serial` as `roid`. After a role is created, it will be loaded into Redis
   automatically.
 
 [back to table of contents](#table-of-contents)
 
-### `/role/load`
+### `!role/load`
 
 * Request Parameters
 
@@ -196,7 +196,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/unload`
+### `!role/unload`
 
 * Request Parameters
 
@@ -212,7 +212,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/flush`
+### `!role/flush`
 
 * Request Parameters
 
@@ -230,7 +230,7 @@ strings:
 
 ## Logic Service Opcodes
 
-### `/role/login`
+### `!role/login`
 
 * Request Parameters
 
@@ -249,7 +249,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/logout`
+### `!role/logout`
 
 * Request Parameters
 
@@ -265,7 +265,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/reconnect`
+### `!role/reconnect`
 
 * Request Parameters
 
@@ -284,7 +284,7 @@ strings:
 
 [back to table of contents](#table-of-contents)
 
-### `/role/disconnect`
+### `!role/disconnect`
 
 * Request Parameters
 
