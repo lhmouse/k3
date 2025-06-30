@@ -39,7 +39,7 @@ struct Implementation
     cow_dictionary<User_Service::ws_authenticator_type> ws_authenticators;
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
-    ::poseidon::Easy_Timer service_timer;
+    ::poseidon::Easy_Timer ping_timer;
     ::poseidon::Easy_HWS_Server user_server;
 
     // connections from clients
@@ -605,9 +605,9 @@ do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
   }
 
 void
-do_service_timer_callback(const shptr<Implementation>& impl,
-                          const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                          ::poseidon::Abstract_Fiber& fiber, steady_time now)
+do_ping_timer_callback(const shptr<Implementation>& impl,
+                       const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                       ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->db_ready == false) {
       // Check tables.
@@ -1039,7 +1039,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"/nickname/release", bindw(this->m_impl, do_slash_nickname_release));
 
     // Restart the service.
-    this->m_impl->service_timer.start(150ms, 7001ms, bindw(this->m_impl, do_service_timer_callback));
+    this->m_impl->ping_timer.start(150ms, 7001ms, bindw(this->m_impl, do_ping_timer_callback));
     this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
   }
 
