@@ -1032,11 +1032,11 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
     // Set up request handlers.
-    service.set_handler(&"!user/kick", bindw(this->m_impl, do_star_user_kick));
-    service.set_handler(&"!user/ban/set", bindw(this->m_impl, do_star_user_ban_set));
-    service.set_handler(&"!user/ban/lift", bindw(this->m_impl, do_star_user_ban_lift));
-    service.set_handler(&"!nickname/acquire", bindw(this->m_impl, do_star_nickname_acquire));
-    service.set_handler(&"!nickname/release", bindw(this->m_impl, do_star_nickname_release));
+    service.set_handler(&"*user/kick", bindw(this->m_impl, do_star_user_kick));
+    service.set_handler(&"*user/ban/set", bindw(this->m_impl, do_star_user_ban_set));
+    service.set_handler(&"*user/ban/lift", bindw(this->m_impl, do_star_user_ban_lift));
+    service.set_handler(&"*nickname/acquire", bindw(this->m_impl, do_star_nickname_acquire));
+    service.set_handler(&"*nickname/release", bindw(this->m_impl, do_star_nickname_release));
 
     // Restart the service.
     this->m_impl->ping_timer.start(150ms, 7001ms, bindw(this->m_impl, do_ping_timer_callback));

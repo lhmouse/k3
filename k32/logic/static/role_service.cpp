@@ -402,10 +402,10 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->service_start_time = system_time(milliseconds(service_start_time_ms));
 
     // Set up request handlers.
-    service.set_handler(&"!role/login", bindw(this->m_impl, do_star_role_login));
-    service.set_handler(&"!role/logout", bindw(this->m_impl, do_star_role_logout));
-    service.set_handler(&"!role/reconnect", bindw(this->m_impl, do_star_role_reconnect));
-    service.set_handler(&"!role/disconnect", bindw(this->m_impl, do_star_role_disconnect));
+    service.set_handler(&"*role/login", bindw(this->m_impl, do_star_role_login));
+    service.set_handler(&"*role/logout", bindw(this->m_impl, do_star_role_logout));
+    service.set_handler(&"*role/reconnect", bindw(this->m_impl, do_star_role_reconnect));
+    service.set_handler(&"*role/disconnect", bindw(this->m_impl, do_star_role_disconnect));
 
     // Restart the service.
     this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));

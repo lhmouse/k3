@@ -590,11 +590,11 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
 
     // Set up request handlers.
-    service.set_handler(&"!role/list", bindw(this->m_impl, do_star_role_list));
-    service.set_handler(&"!role/create", bindw(this->m_impl, do_star_role_create));
-    service.set_handler(&"!role/load", bindw(this->m_impl, do_star_role_load));
-    service.set_handler(&"!role/unload", bindw(this->m_impl, do_star_role_unload));
-    service.set_handler(&"!role/flush", bindw(this->m_impl, do_star_role_flush));
+    service.set_handler(&"*role/list", bindw(this->m_impl, do_star_role_list));
+    service.set_handler(&"*role/create", bindw(this->m_impl, do_star_role_create));
+    service.set_handler(&"*role/load", bindw(this->m_impl, do_star_role_load));
+    service.set_handler(&"*role/unload", bindw(this->m_impl, do_star_role_unload));
+    service.set_handler(&"*role/flush", bindw(this->m_impl, do_star_role_flush));
 
     // Restart the service.
     this->m_impl->save_timer.start(100ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));

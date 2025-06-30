@@ -36,7 +36,7 @@ user_service.add_http_handler(
       ::taxon::V_object req_data;
       req_data.try_emplace(&"roid", 505);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", req_data);
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/load", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
@@ -56,7 +56,7 @@ user_service.add_http_handler(
       ::taxon::V_object req_data;
       req_data.try_emplace(&"roid", 475);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/load", req_data);
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/load", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
@@ -76,7 +76,7 @@ user_service.add_http_handler(
       ::taxon::V_object req_data;
       req_data.try_emplace(&"username", &"test01001");
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/list", req_data);
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/list", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
@@ -96,7 +96,7 @@ user_service.add_http_handler(
       ::taxon::V_object req_data;
       req_data.try_emplace(&"roid", 505);
 
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"/role/flush", req_data);
+      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/flush", req_data);
       service.launch(req1);
       fiber.yield(req1);
 
