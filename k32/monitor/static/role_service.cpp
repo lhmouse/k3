@@ -123,7 +123,7 @@ do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber, Role_Record& 
 void
 do_slash_role_list(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber,
-                   const ::poseidon::UUID& /*req_service_uuid*/,
+                   const ::poseidon::UUID& /*request_service_uuid*/,
                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
@@ -167,7 +167,7 @@ do_slash_role_list(const shptr<Implementation>& impl,
 void
 do_slash_role_create(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
-                     const ::poseidon::UUID& /*req_service_uuid*/,
+                     const ::poseidon::UUID& /*request_service_uuid*/,
                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
@@ -261,7 +261,7 @@ do_slash_role_create(const shptr<Implementation>& impl,
 void
 do_slash_role_load(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber,
-                   const ::poseidon::UUID& /*req_service_uuid*/,
+                   const ::poseidon::UUID& /*request_service_uuid*/,
                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
@@ -360,7 +360,7 @@ do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
 void
 do_slash_role_unload(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
-                     const ::poseidon::UUID& /*req_service_uuid*/,
+                     const ::poseidon::UUID& /*request_service_uuid*/,
                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
@@ -433,7 +433,7 @@ do_slash_role_unload(const shptr<Implementation>& impl,
 void
 do_slash_role_flush(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
-                    const ::poseidon::UUID& /*req_service_uuid*/,
+                    const ::poseidon::UUID& /*request_service_uuid*/,
                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();

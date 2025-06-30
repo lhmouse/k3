@@ -500,7 +500,7 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
 void
 do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
                           ::poseidon::Abstract_Fiber& fiber,
-                          const ::poseidon::UUID& /*req_service_uuid*/,
+                          const ::poseidon::UUID& /*request_service_uuid*/,
                           ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
@@ -571,7 +571,7 @@ do_slash_nickname_acquire(const shptr<Implementation>& /*impl*/,
 void
 do_slash_nickname_release(const shptr<Implementation>& /*impl*/,
                           ::poseidon::Abstract_Fiber& fiber,
-                          const ::poseidon::UUID& /*req_service_uuid*/,
+                          const ::poseidon::UUID& /*request_service_uuid*/,
                           ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
