@@ -37,6 +37,7 @@ strings:
 |`gs_role_not_loaded`        |Role not loaded in Redis.                      |
 |`gs_role_foreign`           |Role belongs to another server.                |
 |`gs_role_not_logged_in`     |Role not logged in.                            |
+|`gs_reconnect_clear`        |No role to reconnect.                          |
 
 ## Agent Service Opcodes
 

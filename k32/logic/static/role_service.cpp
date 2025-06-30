@@ -212,8 +212,12 @@ do_slash_role_reconnect(const shptr<Implementation>& impl,
                         const ::poseidon::UUID& /*request_service_uuid*/,
                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
-    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+    ::std::vector<int64_t> roid_list;
+    for(const auto& r : request_data.at(&"roid_list").as_array()) {
+      int64_t roid = r.as_integer();
+      POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+      roid_list.push_back(roid);
+    }
 
     ::poseidon::UUID agent_service_uuid(request_data.at(&"agent_service_uuid").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
@@ -221,11 +225,14 @@ do_slash_role_reconnect(const shptr<Implementation>& impl,
     ////////////////////////////////////////////////////////////
     //
     Hydrated_Role hyd;
-    if(auto ptr = impl->hyd_roles.ptr(roid))
-      hyd = *ptr;
+    for(int64_t roid : roid_list)
+      if(auto ptr = impl->hyd_roles.ptr(roid)) {
+        hyd = *ptr;
+        break;
+      }
 
     if(!hyd.role) {
-      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      response_data.try_emplace(&"status", &"gs_reconnect_clear");
       return;
     }
 
