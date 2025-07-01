@@ -25,7 +25,7 @@ struct User_Connection
     wkptr<::poseidon::WS_Server_Session> weak_session;
     steady_time rate_time;
     steady_time pong_time;
-    uint32_t rate_counter = 0;
+    int rate_counter = 0;
 
     int64_t current_roid = 0;
     ::poseidon::UUID current_logic_srv;
@@ -304,10 +304,20 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
           }
 
+          // Check message rate.
+          double rate_limit = impl->client_rate_limit;
+          auto rate_duration = steady_clock::now() - impl->connections.at(username).rate_time;
+          if(rate_duration >= 1s)
+            rate_limit *= duration_cast<duration<double>>(rate_duration).count();
+
+          if(++ impl->connections.mut(username).rate_counter > rate_limit) {
+            session->ws_shut_down(user_ws_status_message_rate_limit);
+            return;
+          }
+
           // Call the user-defined handler to get response data.
           ::taxon::V_object response;
           try {
-            impl->connections.mut(username).rate_counter ++;
             handler.front() (fiber, username, response, request);
             impl->connections.mut(username).pong_time = steady_clock::now();
           }
@@ -640,28 +650,19 @@ do_ping_timer_callback(const shptr<Implementation>& impl,
         continue;
       }
 
-      if(it->second.rate_counter > impl->client_rate_limit * 60) {
-        POSEIDON_LOG_DEBUG(("Rate limit: username `$1`"), it->first);
-        session->ws_shut_down(user_ws_status_message_rate_limit);
-        continue;
-      }
-
       if(now - it->second.pong_time > impl->client_ping_interval * 2) {
         POSEIDON_LOG_DEBUG(("PING timed out: username `$1`"), it->first);
         session->ws_shut_down(user_ws_status_ping_timeout);
         continue;
       }
 
-      if(now - it->second.rate_time > 60s) {
-        POSEIDON_LOG_TRACE(("Rate counter reset: username `$1`"), it->first);
-        it->second.rate_time = now;
-        it->second.rate_counter = 0;
-      }
-
       if(now - it->second.pong_time > impl->client_ping_interval) {
         POSEIDON_LOG_TRACE(("PING: username `$1`"), it->first);
         session->ws_send(::poseidon::ws_PING, "");
       }
+
+      it->second.rate_time = now;
+      it->second.rate_counter = 0;
     }
 
     while(impl->expired_connections.size() != 0) {
@@ -1059,7 +1060,7 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    int64_t client_port = 0, client_rate_limit = 0, client_ping_interval = 0;
+    int64_t client_port = 0, client_rate_limit = 10, client_ping_interval = 0;
     int64_t max_number_of_roles_per_user = 4;
     int64_t nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
 
