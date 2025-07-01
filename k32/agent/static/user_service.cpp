@@ -104,6 +104,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
                       , `creation_time` = ?
                       , `login_time` = ?
                       , `logout_time` = ?
+                      , `banned_until` = '1999-01-01'
                   ON DUPLICATE KEY
                   UPDATE `login_address` = ?
                          , `login_time` = ?
@@ -143,6 +144,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           fiber.yield(task1);
 
           for(const auto& row : task1->result_rows()) {
+            // User exists.
             uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`
             uinfo.logout_time = row.at(1).as_system_time();     //        , `logout_time`
             uinfo.banned_until = row.at(2).as_system_time();    //        , `banned_until`
@@ -178,11 +180,11 @@ do_server_hws_callback(const shptr<Implementation>& impl,
               ::poseidon::UUID other_service_uuid(pval->as_string());
               if(other_service_uuid != service.service_uuid()) {
                 // Kick this user from the other service.
-                ::taxon::V_object srv_args;
-                srv_args.try_emplace(&"username", uinfo.username.rdstr());
-                srv_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
+                ::taxon::V_object tx_args;
+                tx_args.try_emplace(&"username", uinfo.username.rdstr());
+                tx_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                auto srv_q = new_sh<Service_Future>(other_service_uuid, &"/user/kick", srv_args);
+                auto srv_q = new_sh<Service_Future>(other_service_uuid, &"/user/kick", tx_args);
                 service.launch(srv_q);
                 fiber.yield(srv_q);
               }
@@ -199,37 +201,64 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           }
 
           // Find my roles.
-//          static constexpr char select_avatar_from_role[] =
-//              R"!!!(
-//                SELECT `roid`
-//                       , `avatar`
-//                  FROM `role`
-//                  WHERE `username` = ?
-//                        AND `avatar` != ''
-//              )!!!";
-//
-//          sql_args.clear();
-//          sql_args.emplace_back(uinfo.username.rdstr());       // WHERE `username` = ?
-//
-//          task1 = new_sh<::poseidon::MySQL_Query_Future>(::poseidon::mysql_connector,
-//                                                         &select_avatar_from_role, sql_args);
-//          ::poseidon::task_scheduler.launch(task1);
-//          fiber.yield(task1);
-//
-//          ::taxon::V_array avatar_list;
-//          for(const auto& row : task1->result_rows()) {
-//            uinfo.roid_list.push_back(row.at(0).as_integer());                      // SELECT `roid`
-//            POSEIDON_CHECK(avatar_list.emplace_back().parse(row.at(1).as_blob()));  //        , `avatar`
-//          }
-//
-//          // Send server and role information to client.
-//          ::taxon::V_object welcome;
-//          welcome.try_emplace(&"virtual_time", clock.get_double_time_t());
-//          welcome.try_emplace(&"avatar_list", avatar_list);
-//
-//          tinybuf_ln buf;
-//          ::taxon::Value(welcome).print_to(buf, ::taxon::option_json_mode);
-//          session->ws_send(::poseidon::ws_TEXT, buf);
+          ::taxon::V_object tx_args;
+          tx_args.try_emplace(&"username", uinfo.username.rdstr());
+
+          auto srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/list", tx_args);
+          service.launch(srv_q);
+          fiber.yield(srv_q);
+
+          ::taxon::V_array client_role_list;
+          for(const auto& resp : srv_q->responses()) {
+            POSEIDON_LOG_DEBUG(("Role list by user `$1`: $2"), uinfo.username, resp.response_data);
+            for(const auto& r : resp.response_data.at(&"role_list").as_array()) {
+              // For intermediate servers, an avatar is transferred as a JSON string.
+              // We will not send a raw string to the client, so parse it.
+              int64_t roid = r.as_object().at(&"roid").as_integer();
+              cow_string avatar_str = r.as_object().at(&"avatar").as_string();
+
+              ::taxon::V_object client_role;
+              client_role.try_emplace(&"roid", roid);
+              POSEIDON_CHECK(client_role.open(&"avatar").parse(avatar_str));
+
+              client_role_list.push_back(client_role);
+              uinfo.available_roid_list.push_back(roid);
+            }
+          }
+
+          bool reconnected = false;
+          if(client_role_list.size() != 0) {
+            // If one of the roles is online, then reconnect to it.
+            tx_args.clear();
+            for(const auto& r : client_role_list)
+              tx_args.open(&"roid_list").open_array().emplace_back(r.as_object().at(&"roid"));
+            tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+
+            srv_q = new_sh<Service_Future>(multicast(&"logic"), &"*role/reconnect", tx_args);
+            service.launch(srv_q);
+            fiber.yield(srv_q);
+
+            for(const auto& resp : srv_q->responses()) {
+              auto ptr = resp.response_data.count(&"roid");
+              if(ptr) {
+                reconnected = true;
+                break;
+              }
+            }
+          }
+
+          if(reconnected)
+            uinfo.available_roid_list.clear();
+          else {
+            // Send my role list so the user may select one.
+            tx_args.clear();
+            tx_args.try_emplace(&"opcode", &"=role/list");
+            tx_args.open(&"data").open_object().try_emplace(&"role_list", client_role_list);
+
+            tinybuf_ln buf;
+            ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
+            session->ws_send(::poseidon::ws_TEXT, buf);
+          }
 
           // Set up connection.
           User_Connection uconn;

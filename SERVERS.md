@@ -276,6 +276,7 @@ strings:
 * Response Parameters
 
   - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+  - `roid` <sub>integer</sub> : ID of role that has reconnected.
 
 * Description
 

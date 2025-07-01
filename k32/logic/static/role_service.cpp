@@ -159,9 +159,12 @@ do_star_role_login(const shptr<Implementation>& impl,
       hyd.role->mf_nickname() = hyd.roinfo.nickname;
       hyd.role->mf_username() = hyd.roinfo.username;
 
-      ::taxon::Value temp_value;
-      POSEIDON_CHECK(temp_value.parse(hyd.roinfo.whole));
-      hyd.role->hydrate(temp_value.as_object());
+      if(hyd.roinfo.whole.size() != 0) {
+        // For a new role, this value is an empty string and can't be parsed.
+        ::taxon::Value temp_value;
+        POSEIDON_CHECK(temp_value.parse(hyd.roinfo.whole));
+        hyd.role->hydrate(temp_value.as_object());
+      }
 
       auto result = impl->hyd_roles.try_emplace(hyd.roinfo.roid, hyd);
       if(!result.second)
@@ -239,6 +242,7 @@ do_star_role_reconnect(const shptr<Implementation>& impl,
     hyd.role->mf_agent_service_uuid() = agent_service_uuid;
     hyd.role->on_connect();
 
+    response_data.try_emplace(&"roid", hyd.roinfo.roid);
     response_data.try_emplace(&"status", &"gs_ok");
   }
 

@@ -25,84 +25,13 @@ poseidon_module_main(void)
 
 /*TEST*/
 
-user_service.add_http_handler(
-  &"/11",
+user_service.add_ws_authenticator(
+  &"/t0",
   +[](::poseidon::Abstract_Fiber& fiber,
-      cow_string& response_content_type, cow_string& response_data,
-      cow_string&& request_raw_query)
+      phcow_string& username, cow_string&& request_raw_query)
     {
-      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-
-      ::taxon::V_object req_data;
-      req_data.try_emplace(&"roid", 505);
-
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/load", req_data);
-      service.launch(req1);
-      fiber.yield(req1);
-
-      response_content_type = &"text/plain";
-      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
-      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
-    });
-
-user_service.add_http_handler(
-  &"/22",
-  +[](::poseidon::Abstract_Fiber& fiber,
-      cow_string& response_content_type, cow_string& response_data,
-      cow_string&& request_raw_query)
-    {
-      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-
-      ::taxon::V_object req_data;
-      req_data.try_emplace(&"roid", 475);
-
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/load", req_data);
-      service.launch(req1);
-      fiber.yield(req1);
-
-      response_content_type = &"text/plain";
-      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
-      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
-    });
-
-user_service.add_http_handler(
-  &"/33",
-  +[](::poseidon::Abstract_Fiber& fiber,
-      cow_string& response_content_type, cow_string& response_data,
-      cow_string&& request_raw_query)
-    {
-      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-
-      ::taxon::V_object req_data;
-      req_data.try_emplace(&"username", &"test01001");
-
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/list", req_data);
-      service.launch(req1);
-      fiber.yield(req1);
-
-      response_content_type = &"text/plain";
-      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
-      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
-    });
-
-user_service.add_http_handler(
-  &"/44",
-  +[](::poseidon::Abstract_Fiber& fiber,
-      cow_string& response_content_type, cow_string& response_data,
-      cow_string&& request_raw_query)
-    {
-      POSEIDON_LOG_FATAL(("HTTP: $1"), request_raw_query);
-
-      ::taxon::V_object req_data;
-      req_data.try_emplace(&"roid", 505);
-
-      auto req1 = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/flush", req_data);
-      service.launch(req1);
-      fiber.yield(req1);
-
-      response_content_type = &"text/plain";
-      response_data = ::taxon::Value(req1->responses().at(0).response_data).to_string();
-      POSEIDON_LOG_FATAL(("RESP => $1"), req1->responses().at(0).response_data);
+      POSEIDON_LOG_FATAL(("WS AUTH: $1"), request_raw_query);
+      username = &"test01001";
     });
 
 /*TEST*/
