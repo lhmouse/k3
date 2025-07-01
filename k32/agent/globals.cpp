@@ -28,7 +28,7 @@ poseidon_module_main(void)
 user_service.add_ws_authenticator(
   &"/t0",
   +[](::poseidon::Abstract_Fiber& fiber,
-      phcow_string& username, cow_string&& request_raw_query)
+      phcow_string& username, const cow_string& request_raw_query)
     {
       POSEIDON_LOG_FATAL(("WS AUTH: $1"), request_raw_query);
       username = &"test01001";

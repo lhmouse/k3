@@ -29,7 +29,7 @@ class User_Service
               ::poseidon::Abstract_Fiber& fiber,
               cow_string& response_content_type,  // output parameter
               cow_string& response_payload,  // output parameter
-              cow_string&& request_raw_query)>;
+              const cow_string& request_raw_query)>;
 
     // Adds a new HTTP handler for requests from users. If a new handler
     // already exists, an exception is thrown.
@@ -52,7 +52,7 @@ class User_Service
             void (
               ::poseidon::Abstract_Fiber& fiber,
               phcow_string& username,  // output parameter
-              cow_string&& request_raw_query)>;
+              const cow_string& request_raw_query)>;
 
     // Adds a new WebSocket authentication handler for users. If a new handler
     // already exists, an exception is thrown.
