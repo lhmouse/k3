@@ -405,8 +405,7 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Restart the service.
     this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
-    this->m_impl->every_second_timer.start(milliseconds(1000 - clock.get_system_time_fields().milliseconds),
-                                           1s, bindw(this->m_impl, do_every_second_timer_callback));
+    this->m_impl->every_second_timer.start(1s, bindw(this->m_impl, do_every_second_timer_callback));
   }
 
 }  // namespace k32::logic
