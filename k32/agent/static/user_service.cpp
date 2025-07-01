@@ -192,7 +192,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
                 tx_args.try_emplace(&"username", uinfo.username.rdstr());
                 tx_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
 
-                auto srv_q = new_sh<Service_Future>(other_service_uuid, &"/user/kick", tx_args);
+                auto srv_q = new_sh<Service_Future>(other_service_uuid, &"*user/kick", tx_args);
                 service.launch(srv_q);
                 fiber.yield(srv_q);
               }
@@ -362,6 +362,18 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           const phcow_string username = session->session_user_data().as_string();
 
+          if(impl->connections.at(username).current_roid != 0) {
+            // Notify logic server.
+            ::taxon::V_object tx_args;
+            tx_args.try_emplace(&"roid", impl->connections.at(username).current_roid);
+
+            auto srv_q = new_sh<Service_Future>(impl->connections.at(username).current_logic_srv,
+                                                &"*role/disconnect", tx_args);
+            service.launch(srv_q);
+            fiber.yield(srv_q);
+          }
+
+          // Update logout time.
           static constexpr char update_user_logout_time[] =
               R"!!!(
                 UPDATE `user`
