@@ -373,7 +373,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
               else if(parser.current_name() == "pw")
                 req_pw = parser.current_value().as_string();
 
-            POSEIDON_CHECK(request_service_uuid != ::poseidon::UUID::min());
+            POSEIDON_CHECK(request_service_uuid != ::poseidon::UUID());
             int64_t now = ::time(nullptr);
             POSEIDON_CHECK((req_ts >= now - 60) && (req_ts <= now + 60));
             char auth_pw[33];

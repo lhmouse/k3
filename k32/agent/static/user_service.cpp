@@ -16,6 +16,7 @@
 #include <poseidon/fiber/mysql_query_future.hpp>
 #include <poseidon/mysql/mysql_connection.hpp>
 #include <poseidon/static/mysql_connector.hpp>
+#include <unordered_set>
 namespace k32::agent {
 namespace {
 
@@ -23,8 +24,12 @@ struct User_Connection
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
     steady_time rate_time;
-    uint32_t rate_counter = 0;
     steady_time pong_time;
+    uint32_t rate_counter = 0;
+
+    int64_t current_roid = 0;
+    ::poseidon::UUID current_logic_srv;
+    ::std::unordered_set<int64_t> available_roid_set;
   };
 
 struct Implementation
@@ -143,12 +148,15 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::poseidon::task_scheduler.launch(task1);
           fiber.yield(task1);
 
-          for(const auto& row : task1->result_rows()) {
-            // User exists.
-            uinfo.creation_time = row.at(0).as_system_time();   // SELECT `creation_time`
-            uinfo.logout_time = row.at(1).as_system_time();     //        , `logout_time`
-            uinfo.banned_until = row.at(2).as_system_time();    //        , `banned_until`
+          if(task1->result_row_count() == 0) {
+            POSEIDON_LOG_FATAL(("Could not find user `$1` in database"), uinfo.username);
+            session->ws_shut_down(::poseidon::ws_status_unexpected_error);
+            return;
           }
+
+          uinfo.creation_time = task1->result_row(0).at(0).as_system_time();   // SELECT `creation_time`
+          uinfo.logout_time = task1->result_row(0).at(1).as_system_time();     //        , `logout_time`
+          uinfo.banned_until = task1->result_row(0).at(2).as_system_time();    //        , `banned_until`
 
           if(uinfo.login_time < uinfo.banned_until) {
             POSEIDON_LOG_DEBUG(("User `$1` is banned until `$2`"), uinfo.username, uinfo.banned_until);
@@ -174,12 +182,12 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           if(task2->result().is_string() && redis_uinfo.parse(task2->result().as_string())) {
             // Parse previous data on Redis. If it is not my service UUID, then
-            // kick the user on that service.
+            // disconnect the user on that service.
             auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
             if(pval && pval->is_string()) {
               ::poseidon::UUID other_service_uuid(pval->as_string());
               if(other_service_uuid != service.service_uuid()) {
-                // Kick this user from the other service.
+                // Disconnect this user from the other service.
                 ::taxon::V_object tx_args;
                 tx_args.try_emplace(&"username", uinfo.username.rdstr());
                 tx_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
@@ -191,80 +199,71 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             }
           }
 
-          if(auto uconn = impl->connections.ptr(uinfo.username)) {
-            // Like above, but on the same service.
-            auto other_session = uconn->weak_session.lock();
-            if(other_session) {
-              POSEIDON_LOG_INFO(("Conflict login `$1` from `$2`"), uinfo.username, session->remote_address());
-              other_session->ws_shut_down(user_ws_status_login_conflict);
-            }
+          User_Connection uconn;
+          uconn.weak_session = session;
+          uconn.rate_time = steady_clock::now();
+          uconn.pong_time = uconn.rate_time;
+
+          if(auto ptr = impl->connections.ptr(uinfo.username)) {
+            uconn.current_roid = ptr->current_roid;
+            uconn.current_logic_srv = ptr->current_logic_srv;
           }
 
-          // Find my roles.
-          ::taxon::V_object tx_args;
-          tx_args.try_emplace(&"username", uinfo.username.rdstr());
-
-          auto srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/list", tx_args);
-          service.launch(srv_q);
-          fiber.yield(srv_q);
-
-          ::taxon::V_array client_role_list;
-          for(const auto& resp : srv_q->responses()) {
-            POSEIDON_LOG_DEBUG(("Role list by user `$1`: $2"), uinfo.username, resp.response_data);
-            for(const auto& r : resp.response_data.at(&"role_list").as_array()) {
-              // For intermediate servers, an avatar is transferred as a JSON string.
-              // We will not send a raw string to the client, so parse it.
-              int64_t roid = r.as_object().at(&"roid").as_integer();
-              cow_string avatar_str = r.as_object().at(&"avatar").as_string();
-
-              ::taxon::V_object client_role;
-              client_role.try_emplace(&"roid", roid);
-              POSEIDON_CHECK(client_role.open(&"avatar").parse(avatar_str));
-
-              client_role_list.push_back(client_role);
-              uinfo.available_roid_list.push_back(roid);
-            }
-          }
-
-          bool reconnected = false;
-          if(client_role_list.size() != 0) {
-            // If one of the roles is online, then reconnect to it.
-            tx_args.clear();
-            for(const auto& r : client_role_list)
-              tx_args.open(&"roid_list").open_array().emplace_back(r.as_object().at(&"roid"));
+          if(uconn.current_roid != 0) {
+            // If there's an online role, try reconnecting.
+            ::taxon::V_object tx_args;
+            tx_args.try_emplace(&"roid", uconn.current_roid);
             tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
 
-            srv_q = new_sh<Service_Future>(multicast(&"logic"), &"*role/reconnect", tx_args);
+            auto srv_q = new_sh<Service_Future>(uconn.current_logic_srv, &"*role/reconnect", tx_args);
             service.launch(srv_q);
             fiber.yield(srv_q);
 
-            for(const auto& resp : srv_q->responses()) {
-              auto ptr = resp.response_data.count(&"roid");
-              if(ptr) {
-                reconnected = true;
-                break;
-              }
+            cow_string status = srv_q->response(0).response_data.at(&"status").as_string();
+            if(status != "gs_ok") {
+              POSEIDON_LOG_WARN(("Could not reconnect to role `$1`: $2"), uconn.current_roid, status);
+              uconn.current_roid = 0;
+              uconn.current_logic_srv = ::poseidon::UUID();
             }
           }
 
-          if(reconnected)
-            uinfo.available_roid_list.clear();
-          else {
-            // Send my role list so the user may select one.
+          if(uconn.current_roid == 0) {
+            // No role is online, so send the client a list of roles.
+            ::taxon::V_object tx_args;
+            tx_args.try_emplace(&"username", uinfo.username.rdstr());
+
+            auto srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/list", tx_args);
+            service.launch(srv_q);
+            fiber.yield(srv_q);
+
+            ::taxon::V_array available_role_list;
+            for(const auto& r : srv_q->response(0).response_data.at(&"role_list").as_array()) {
+              // For intermediate servers, an avatar is transferred as a JSON
+              // string. We will not send a raw string to the client, so parse it.
+              int64_t roid = r.as_object().at(&"roid").as_integer();
+              POSEIDON_LOG_DEBUG(("Found role `$1` of user `$2`"), roid, uinfo.username);
+              uconn.available_roid_set.insert(roid);
+
+              ::taxon::V_object client_role;
+              client_role.try_emplace(&"roid", roid);
+              cow_string avatar_raw = r.as_object().at(&"avatar").as_string();
+              POSEIDON_CHECK(client_role.open(&"avatar").parse(avatar_raw));
+              available_role_list.emplace_back(move(client_role));
+            }
+
+            // Send my role list so the user may choose one.
             tx_args.clear();
             tx_args.try_emplace(&"opcode", &"=role/list");
-            tx_args.open(&"data").open_object().try_emplace(&"role_list", client_role_list);
+            tx_args.open(&"data").open_object().try_emplace(&"role_list", available_role_list);
 
             tinybuf_ln buf;
             ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
             session->ws_send(::poseidon::ws_TEXT, buf);
           }
 
-          // Set up connection.
-          User_Connection uconn;
-          uconn.weak_session = session;
-          uconn.rate_time = steady_clock::now();
-          uconn.pong_time = uconn.rate_time;
+          if(auto ptr = impl->connections.ptr(uinfo.username))
+            if(auto old_session = ptr->weak_session.lock())
+              old_session->ws_shut_down(user_ws_status_login_conflict);
 
           impl->users.insert_or_assign(uinfo.username, uinfo);
           impl->connections.insert_or_assign(uinfo.username, uconn);
@@ -280,9 +279,6 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto uconn = impl->connections.mut_ptr(username);
-          if(!uconn)
-            return;
 
           tinybuf_ln buf(move(data));
           ::taxon::Value temp_value;
@@ -307,10 +303,10 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::taxon::V_object response_data;
           if(auto ptr = impl->ws_handlers.ptr(opcode))
             try {
-              uconn->rate_counter ++;
+              impl->connections.mut(username).rate_counter ++;
               auto saved_handler = *ptr;
               saved_handler(fiber, username, response_data, move(request_data));
-              uconn->pong_time = steady_clock::now();
+              impl->connections.mut(username).pong_time = steady_clock::now();
               ws_status = 0;
             }
             catch(exception& stdex) {
@@ -345,11 +341,8 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto uconn = impl->connections.mut_ptr(username);
-          if(!uconn)
-            return;
 
-          uconn->pong_time = steady_clock::now();
+          impl->connections.mut(username).pong_time = steady_clock::now();
           POSEIDON_LOG_TRACE(("PONG: username `$1`"), username);
           break;
         }
@@ -360,13 +353,6 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
 
           phcow_string username = session->session_user_data().as_string();
-          auto uconn = impl->connections.mut_ptr(username);
-          if(!uconn)
-            return;
-
-          auto uinfo = impl->users.mut_ptr(username);
-          if(!uinfo)
-            return;
 
           static constexpr char update_user_logout_time[] =
               R"!!!(
@@ -588,7 +574,7 @@ do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
         return;
       }
 
-      serial = task1->result_row_field(0, 0).as_integer();  // SELECT `serial`
+      serial = task1->result_row(0).at(0).as_integer();  // SELECT `serial`
     }
 
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
@@ -815,6 +801,126 @@ do_star_user_ban_lift(const shptr<Implementation>& impl,
     POSEIDON_LOG_INFO(("Lift ban on `$1`"), username);
 
     response_data.try_emplace(&"status", &"gs_ok");
+  }
+
+void
+do_plus_role_create(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    cow_string nickname = request_data.at(&"nickname").as_string();
+    POSEIDON_CHECK(nickname != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    if(impl->connections.at(username).current_roid != 0) {
+      response_data.try_emplace(&"status", &"sc_log_out_first");
+      return;
+    }
+
+    if(impl->connections.at(username).available_roid_set.size() >= impl->max_number_of_roles_per_user) {
+      response_data.try_emplace(&"status", &"sc_too_many_roles");
+      return;
+    }
+
+    int nickname_length = 0;
+    size_t offset = 0;
+    while(offset < nickname.size()) {
+      char32_t cp;
+      if(!::asteria::utf8_decode(cp, nickname, offset)) {
+        response_data.try_emplace(&"status", &"sc_nickname_invalid");
+        return;
+      }
+
+      int w = ::wcwidth(static_cast<wchar_t>(cp));
+      if(w <= 0) {
+        response_data.try_emplace(&"status", &"sc_nickname_invalid");
+        return;
+      }
+
+      nickname_length += w;
+      if(nickname_length > impl->nickname_length_limits[1]) {
+        response_data.try_emplace(&"status", &"sc_nickname_length_error");
+        return;
+      }
+    }
+
+    if(nickname_length < impl->nickname_length_limits[0]) {
+      response_data.try_emplace(&"status", &"sc_nickname_length_error");
+      return;
+    }
+
+    // Allocate a role ID.
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"nickname", nickname);
+    tx_args.try_emplace(&"username", username.rdstr());
+
+    auto srv_q = new_sh<Service_Future>(loopback_uuid, &"*nickname/acquire", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    cow_string status = srv_q->response(0).response_data.at(&"status").as_string();
+    if(status != "gs_ok") {
+      POSEIDON_LOG_DEBUG(("Could not acquire nickname `$1`: $2"), nickname, status);
+      response_data.try_emplace(&"status", &"sc_nickname_conflict");
+      return;
+    }
+
+    int64_t roid = srv_q->response(0).response_data.at(&"serial").as_integer();
+
+    // Create the role in database.
+    tx_args.clear();
+    tx_args.try_emplace(&"roid", roid);
+    tx_args.try_emplace(&"nickname", nickname);
+    tx_args.try_emplace(&"username", username.rdstr());
+
+    srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/create", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    if(srv_q->response_count() == 0)
+      POSEIDON_THROW(("No monitor service is online"));
+
+    status = srv_q->response(0).response_data.at(&"status").as_string();
+    if(status != "gs_ok") {
+      POSEIDON_LOG_WARN(("Could not create role `$1` (`$2`): $3"), roid, nickname, status);
+      response_data.try_emplace(&"status", &"sc_nickname_conflict");
+      return;
+    }
+
+    // Log into this role.
+    tx_args.clear();
+    tx_args.try_emplace(&"roid", roid);
+    tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+
+    srv_q = new_sh<Service_Future>(randomcast(&"logic"), &"*role/login", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    status = srv_q->response(0).response_data.at(&"status").as_string();
+    POSEIDON_CHECK(status == "gs_ok");
+
+    impl->connections.mut(username).current_roid = roid;
+    impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
+    impl->connections.mut(username).available_roid_set.insert(roid);
+
+    response_data.try_emplace(&"status", &"sc_ok");
+  }
+
+void
+do_plus_role_login(const shptr<Implementation>& impl,
+                   ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
+                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    POSEIDON_LOG_FATAL(("LOGIN `$1`: $2"), username, request_data);
+  }
+
+void
+do_plus_role_logout(const shptr<Implementation>& impl,
+                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
+                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+  {
+    POSEIDON_LOG_FATAL(("LOGOUT `$1`: $2"), username, request_data);
   }
 
 }  // namespace
@@ -1059,6 +1165,11 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->max_number_of_roles_per_user = static_cast<uint16_t>(max_number_of_roles_per_user);
     this->m_impl->nickname_length_limits[0] = static_cast<uint8_t>(nickname_length_limits_0);
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
+
+    // Set up default client request handlers.
+    this->m_impl->ws_handlers.insert_or_assign(&"+role/create", bindw(this->m_impl, do_plus_role_create));
+    this->m_impl->ws_handlers.insert_or_assign(&"+role/login", bindw(this->m_impl, do_plus_role_login));
+    this->m_impl->ws_handlers.insert_or_assign(&"+role/logout", bindw(this->m_impl, do_plus_role_logout));
 
     // Set up request handlers.
     service.set_handler(&"*user/kick", bindw(this->m_impl, do_star_user_kick));

@@ -215,12 +215,8 @@ do_star_role_reconnect(const shptr<Implementation>& impl,
                        const ::poseidon::UUID& /*request_service_uuid*/,
                        ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
   {
-    ::std::vector<int64_t> roid_list;
-    for(const auto& r : request_data.at(&"roid_list").as_array()) {
-      int64_t roid = r.as_integer();
-      POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
-      roid_list.push_back(roid);
-    }
+    int64_t roid = request_data.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ::poseidon::UUID agent_service_uuid(request_data.at(&"agent_service_uuid").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
@@ -228,21 +224,17 @@ do_star_role_reconnect(const shptr<Implementation>& impl,
     ////////////////////////////////////////////////////////////
     //
     Hydrated_Role hyd;
-    for(int64_t roid : roid_list)
-      if(auto ptr = impl->hyd_roles.ptr(roid)) {
-        hyd = *ptr;
-        break;
-      }
+    if(auto ptr = impl->hyd_roles.ptr(roid))
+      hyd = *ptr;
 
     if(!hyd.role) {
-      response_data.try_emplace(&"status", &"gs_reconnect_clear");
+      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
       return;
     }
 
     hyd.role->mf_agent_service_uuid() = agent_service_uuid;
     hyd.role->on_connect();
 
-    response_data.try_emplace(&"roid", hyd.roinfo.roid);
     response_data.try_emplace(&"status", &"gs_ok");
   }
 

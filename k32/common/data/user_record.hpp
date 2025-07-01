@@ -16,10 +16,6 @@ struct User_Record
     system_time logout_time;
     system_time banned_until;
 
-    cow_vector<int64_t> available_roid_list;
-    int64_t current_roid = 0;
-    ::poseidon::UUID current_logic_service_uuid;
-
 #ifdef K32_FRIENDS_6A8BAC8C_B8F6_4BDA_BD7F_B90D5BF07B81_
     User_Record() noexcept = default;
 #endif

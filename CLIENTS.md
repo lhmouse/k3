@@ -81,6 +81,7 @@ strings:
 |Status Code                 |Description                                    |
 |:---------------------------|:----------------------------------------------|
 |`sc_ok`                     |Operation completed successfully.              |
+|`sc_log_out_first`          |Another role is online; log out first.         |
 |`sc_nickname_invalid`       |Nickname not valid.                            |
 |`sc_nickname_length_error`  |Nickname length out of range.                  |
 |`sc_nickname_conflict`      |Nickname already exists.                       |

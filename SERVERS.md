@@ -198,7 +198,7 @@ strings:
 
 * Description
 
-  Creates a new role in the _default_ database. By design， the caller should
+  Creates a new role in the _default_ database. By design，the caller should
   call `*nickname/acquire` first to acquire ownership of `nickname`, then pass
   `serial` as `roid`. After a role is created, it will be loaded into Redis
   automatically.
@@ -320,19 +320,17 @@ strings:
 
 * Request Parameters
 
-  - `roid_list` <sub>array of integers</sub> : IDs of roles to check.
+  - `roid` <sub>integer</sub> : ID of role to reconnect.
   - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
     connection.
 
 * Response Parameters
 
   - `status` <sub>string</sub> : [General status code.](#general-status-codes)
-  - `roid` <sub>integer</sub> : ID of role that has reconnected.
 
 * Description
 
-  If a role in `roid_list` has been loaded, triggers a _reconnect_ event.
-  Otherwise no role is loaded, and an error is returned.
+  Triggers a _reconnect_ event.
 
 [back to table of contents](#table-of-contents)
 

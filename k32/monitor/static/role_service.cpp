@@ -243,11 +243,11 @@ do_star_role_create(const shptr<Implementation>& impl,
         return;
       }
 
-      roinfo.nickname = task1->result_row_field(0, 0).as_blob();            // SELECT `nickname`
-      roinfo.update_time = task1->result_row_field(0, 1).as_system_time();  //        , `update_time`
-      roinfo.avatar = task1->result_row_field(0, 2).as_blob();              //        , `avatar`
-      roinfo.profile = task1->result_row_field(0, 3).as_blob();             //        , `profile`
-      roinfo.whole = task1->result_row_field(0, 4).as_blob();               //        , `whole`
+      roinfo.nickname = task1->result_row(0).at(0).as_blob();            // SELECT `nickname`
+      roinfo.update_time = task1->result_row(0).at(1).as_system_time();  //        , `update_time`
+      roinfo.avatar = task1->result_row(0).at(2).as_blob();              //        , `avatar`
+      roinfo.profile = task1->result_row(0).at(3).as_blob();             //        , `profile`
+      roinfo.whole = task1->result_row(0).at(4).as_blob();               //        , `whole`
     }
 
     do_store_role_record_into_redis(fiber, roinfo, impl->redis_role_ttl);
@@ -304,12 +304,12 @@ do_star_role_load(const shptr<Implementation>& impl,
       return;
     }
 
-    roinfo.username = task1->result_row_field(0, 0).as_blob();            // SELECT `username`
-    roinfo.nickname = task1->result_row_field(0, 1).as_blob();            //        , `nickname`
-    roinfo.update_time = task1->result_row_field(0, 2).as_system_time();  //        , `update_time`
-    roinfo.avatar = task1->result_row_field(0, 3).as_blob();              //        , `avatar`
-    roinfo.profile = task1->result_row_field(0, 4).as_blob();             //        , `profile`
-    roinfo.whole = task1->result_row_field(0, 5).as_blob();               //        , `whole`
+    roinfo.username = task1->result_row(0).at(0).as_blob();            // SELECT `username`
+    roinfo.nickname = task1->result_row(0).at(1).as_blob();            //        , `nickname`
+    roinfo.update_time = task1->result_row(0).at(2).as_system_time();  //        , `update_time`
+    roinfo.avatar = task1->result_row(0).at(3).as_blob();              //        , `avatar`
+    roinfo.profile = task1->result_row(0).at(4).as_blob();             //        , `profile`
+    roinfo.whole = task1->result_row(0).at(5).as_blob();               //        , `whole`
 
     do_store_role_record_into_redis(fiber, roinfo, impl->redis_role_ttl);
     impl->role_records.insert_or_assign(roinfo.roid, roinfo);
