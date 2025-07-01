@@ -726,6 +726,37 @@ do_star_user_kick(const shptr<Implementation>& impl,
   }
 
 void
+do_star_user_check_role(const shptr<Implementation>& impl,
+                        ::poseidon::Abstract_Fiber& /*fiber*/,
+                        const ::poseidon::UUID& /*request_service_uuid*/,
+                        ::taxon::V_object& response, const ::taxon::V_object& request)
+  {
+    phcow_string username = request.at(&"username").as_string();
+    POSEIDON_CHECK(username != "");
+
+    int64_t roid = request.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    ////////////////////////////////////////////////////////////
+    //
+    User_Connection uconn;
+    if(auto ptr = impl->connections.ptr(username))
+      uconn = *ptr;
+
+    if(uconn.weak_session.expired()) {
+      response.try_emplace(&"status", &"gs_user_not_online");
+      return;
+    }
+
+    if(uconn.current_roid != roid) {
+      response.try_emplace(&"status", &"gs_roid_not_match");
+      return;
+    }
+
+    response.try_emplace(&"status", &"gs_ok");
+  }
+
+void
 do_star_user_ban_set(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*request_service_uuid*/,
@@ -1251,6 +1282,7 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Set up request handlers.
     service.set_handler(&"*user/kick", bindw(this->m_impl, do_star_user_kick));
+    service.set_handler(&"*user/check_role", bindw(this->m_impl, do_star_user_check_role));
     service.set_handler(&"*user/ban/set", bindw(this->m_impl, do_star_user_ban_set));
     service.set_handler(&"*user/ban/lift", bindw(this->m_impl, do_star_user_ban_lift));
     service.set_handler(&"*nickname/acquire", bindw(this->m_impl, do_star_nickname_acquire));

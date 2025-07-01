@@ -2,11 +2,12 @@
 
 1. [General Status Codes](#general-status-codes)
 2. [Agent Service Opcodes](#agent-service-opcodes)
-   1. [`*user/ban/set`](#userbanset)
-   2. [`*user/ban/lift`](#userbanlift)
-   3. [`*user/kick`](#userkick)
-   4. [`*nickname/acquire`](#nicknameacquire)
-   5. [`*nickname/release`](#nicknamerelease)
+   1. [`*user/kick`](#userkick)
+   2. [`*user/check_role`](#usercheck_role)
+   3. [`*user/ban/set`](#userbanset)
+   4. [`*user/ban/lift`](#userbanlift)
+   5. [`*nickname/acquire`](#nicknameacquire)
+   6. [`*nickname/release`](#nicknamerelease)
 3. [Monitor Service Opcodes](#monitor-service-opcodes)
    1. [`*role/list`](#rolelist)
    2. [`*role/create`](#rolecreate)
@@ -33,6 +34,7 @@ strings:
 |`gs_nickname_not_found`     |Nickname not found in database.                |
 |`gs_roid_conflict`          |Role ID already exists in database.            |
 |`gs_roid_not_found`         |Role ID not found in database.                 |
+|`gs_roid_not_match`         |Role ID not match.                             |
 |`gs_role_not_loaded`        |Role not loaded in Redis.                      |
 |`gs_role_foreign`           |Role belongs to another server.                |
 |`gs_role_not_logged_in`     |Role not logged in.                            |
@@ -41,6 +43,51 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ## Agent Service Opcodes
+
+### `*user/kick`
+
+* Service Type
+
+  - `"agent"`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Name of user to kick.
+  - `ws_status` <sub>integer, optional</sub> : WebSocket status code.
+  - `reason` <sub>string, optional</sub> : Additional reason string.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Terminates the connection from a user, by sending a WebSocket closure
+  notification of `ws_status` and `reason`. The default value for `ws_status` is
+  `1008` (_Policy Violation_).
+
+[back to table of contents](#table-of-contents)
+
+### `*user/check_role`
+
+* Service Type
+
+  - `"agent"`
+
+* Request Parameters
+
+  - `username` <sub>string</sub> : Name of user to test.
+  - `roid` <sub>integer</sub> : ID of current role.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Checks whether the specified user is online with the specified role.
+
+[back to table of contents](#table-of-contents)
 
 ### `*user/ban/set`
 
@@ -81,30 +128,6 @@ strings:
 * Description
 
   Lifts a ban on a user.
-
-[back to table of contents](#table-of-contents)
-
-### `*user/kick`
-
-* Service Type
-
-  - `"agent"`
-
-* Request Parameters
-
-  - `username` <sub>string</sub> : Name of user to kick.
-  - `ws_status` <sub>integer, optional</sub> : WebSocket status code.
-  - `reason` <sub>string, optional</sub> : Additional reason string.
-
-* Response Parameters
-
-  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
-
-* Description
-
-  Terminates the connection from a user, by sending a WebSocket closure
-  notification of `ws_status` and `reason`. The default value for `ws_status` is
-  `1008` (_Policy Violation_).
 
 [back to table of contents](#table-of-contents)
 

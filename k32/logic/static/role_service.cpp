@@ -24,6 +24,7 @@ struct Hydrated_Role
 struct Implementation
   {
     seconds redis_role_ttl;
+    seconds disconnect_to_logout_duration;
     int service_zone_id = 0;
     system_time service_start_time;
 
@@ -77,7 +78,7 @@ do_save_role_record(::poseidon::Abstract_Fiber& fiber, const Role_Record& roinfo
 void
 do_save_timer_callback(const shptr<Implementation>& impl,
                        const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                       ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+                       ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->save_buckets.empty()) {
       // Arrange online roles for writing. Initially, users are divided into 20
@@ -111,8 +112,33 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       if(!hyd.role)
         continue;
 
+      if(hyd.role->agent_service_uuid() != ::poseidon::UUID::min()) {
+        // Check agent connection.
+        ::taxon::V_object tx_args;
+        tx_args.try_emplace(&"username", hyd.role->username().rdstr());
+        tx_args.try_emplace(&"roid", hyd.role->roid());
+
+        auto srv_q = new_sh<Service_Future>(hyd.role->agent_service_uuid(), &"*user/check_role", tx_args);
+        service.launch(srv_q);
+        fiber.yield(srv_q);
+
+        cow_string status;
+        if(auto ptr = srv_q->response(0).obj.ptr(&"status"))
+          status = ptr->as_string();
+
+        if(status != "gs_ok") {
+          hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
+          hyd.role->mf_disconnected_since() = steady_clock::now();
+          hyd.role->on_disconnect();
+        }
+      }
+
       do_update_role_record(hyd);
-      impl->hyd_roles.insert_or_assign(roid, hyd);
+      if((hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
+          && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration))
+        impl->hyd_roles.erase(roid);
+      else
+        impl->hyd_roles.insert_or_assign(roid, hyd);
       do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
     }
   }
@@ -167,10 +193,10 @@ do_star_role_login(const shptr<Implementation>& impl,
       }
 
       auto result = impl->hyd_roles.try_emplace(hyd.roinfo.roid, hyd);
-      if(!result.second)
-        hyd = result.first->second;  // load conflict
-      else
+      if(result.second)
         hyd.role->on_login();
+      else
+        hyd = result.first->second;  // load conflict
     }
 
     hyd.role->mf_agent_service_uuid() = agent_service_uuid;
@@ -200,6 +226,7 @@ do_star_role_logout(const shptr<Implementation>& impl,
     }
 
     hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
+    hyd.role->mf_disconnected_since() = steady_clock::now();
     hyd.role->on_logout();
 
     do_update_role_record(hyd);
@@ -259,6 +286,7 @@ do_star_role_disconnect(const shptr<Implementation>& impl,
     }
 
     hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
+    hyd.role->mf_disconnected_since() = steady_clock::now();
     hyd.role->on_disconnect();
 
     response.try_emplace(&"status", &"gs_ok");
@@ -342,7 +370,8 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    int64_t redis_role_ttl = 900, service_zone_id = 0, service_start_time_ms = 0;
+    int64_t redis_role_ttl = 900, disconnect_to_logout_duration = 60;
+    int64_t service_zone_id = 0, service_start_time_ms = 0;
 
     // `redis_role_ttl`
     auto conf_value = conf_file.query(&"redis_role_ttl");
@@ -359,6 +388,22 @@ reload(const ::poseidon::Config_File& conf_file)
           "Invalid `redis_role_ttl`: value `$1` out of range",
           "[in configuration file '$2']"),
           redis_role_ttl, conf_file.path());
+
+    // `logic.disconnect_to_logout_duration`
+    conf_value = conf_file.query(&"logic.disconnect_to_logout_duration");
+    if(conf_value.is_integer())
+      disconnect_to_logout_duration = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `logic.disconnect_to_logout_duration`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((disconnect_to_logout_duration < 0) || (disconnect_to_logout_duration > 999999999))
+      POSEIDON_THROW((
+          "Invalid `disconnect_to_logout_duration`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          disconnect_to_logout_duration, conf_file.path());
 
     // `logic.service_zone_id`
     conf_value = conf_file.query(&"logic.service_zone_id");
@@ -394,6 +439,7 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
+    this->m_impl->disconnect_to_logout_duration = seconds(disconnect_to_logout_duration);
     this->m_impl->service_zone_id = static_cast<int>(service_zone_id);
     this->m_impl->service_start_time = system_time(milliseconds(service_start_time_ms));
 

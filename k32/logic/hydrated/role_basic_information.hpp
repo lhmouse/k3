@@ -14,6 +14,7 @@ class Role_Basic_Information
     cow_string m_nickname;
     phcow_string m_username;
     ::poseidon::UUID m_agent_srv;
+    steady_time m_dc_since;
 
   public:
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
@@ -21,6 +22,7 @@ class Role_Basic_Information
     cow_string& mf_nickname() noexcept { return this->m_nickname;  }
     phcow_string& mf_username() noexcept { return this->m_username;  }
     ::poseidon::UUID& mf_agent_service_uuid() noexcept { return this->m_agent_srv;  }
+    steady_time& mf_disconnected_since() noexcept { return this->m_dc_since;  }
     Role_Basic_Information() noexcept = default;
 #endif
     Role_Basic_Information(const Role_Basic_Information&) = delete;
@@ -32,7 +34,7 @@ class Role_Basic_Information
     roid() const noexcept
       { return this->m_roid;  }
 
-    const cow_string&
+    const phcow_string&
     username() const noexcept
       { return this->m_username;  }
 
