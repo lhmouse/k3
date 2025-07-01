@@ -139,7 +139,6 @@ do_star_role_list(const shptr<Implementation>& impl,
                  , `avatar`
             FROM `role`
             WHERE `username` = ?
-                  AND `avatar` != ''
         )!!!";
 
     cow_vector<::poseidon::MySQL_Value> sql_args;
@@ -150,15 +149,41 @@ do_star_role_list(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    ::taxon::V_array role_list;
+    ::std::vector<Role_Record> db_records;
     for(const auto& row : task1->result_rows()) {
-      ::taxon::V_object role;
-      role.try_emplace(&"roid", row.at(0).as_integer());  // SELECT `roid`
-      role.try_emplace(&"avatar", row.at(1).as_blob());   //        , `avatar`
-      role_list.emplace_back(move(role));
+      Role_Record roinfo;
+      roinfo.roid = row.at(0).as_integer();      // SELECT `roid`
+      roinfo.avatar = row.at(1).as_blob();       //        , `avatar`
+      db_records.emplace_back(move(roinfo));
     }
 
-    POSEIDON_LOG_INFO(("Found $1 role(s) for user `$2`"), role_list.size(), username);
+    POSEIDON_LOG_INFO(("Found $1 role(s) for user `$2`"), db_records.size(), username);
+
+    // If Redis contains role records that have not been flushed to MySQL,
+    // copy them.
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"MGET");
+    for(size_t k = 0;  k < db_records.size();  ++k)
+      redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), db_records.at(k).roid));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    for(size_t k = 0;  k < db_records.size();  ++k) {
+      const auto& redis_value = task2->result().as_array().at(k);
+      if(!redis_value.is_nil())
+        db_records.at(k).parse_from_string(redis_value.as_string());
+    }
+
+    ::taxon::V_array role_list;
+    role_list.reserve(db_records.size());
+    for(size_t k = 0;  k < db_records.size();  ++k) {
+      ::taxon::V_object role;
+      role.try_emplace(&"roid", db_records.at(k).roid);
+      role.try_emplace(&"avatar", db_records.at(k).avatar);
+      role_list.emplace_back(move(role));
+    }
 
     response.try_emplace(&"role_list", role_list);
     response.try_emplace(&"status", &"gs_ok");

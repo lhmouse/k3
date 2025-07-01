@@ -219,7 +219,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             service.launch(srv_q);
             fiber.yield(srv_q);
 
-            cow_string status = srv_q->response(0).obj.at(&"status").as_string();
+            auto status = srv_q->response(0).obj.at(&"status").as_string();
             if(status != "gs_ok") {
               POSEIDON_LOG_WARN(("Could not reconnect to role `$1`: $2"), uconn.current_roid, status);
               uconn.current_roid = 0;
@@ -240,13 +240,16 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             for(const auto& r : srv_q->response(0).obj.at(&"role_list").as_array()) {
               // For intermediate servers, an avatar is transferred as a JSON
               // string. We will not send a raw string to the client, so parse it.
+              const auto& avatar_raw = r.as_object().at(&"avatar").as_string();
+              if(avatar_raw.empty())
+                continue;
+
               int64_t roid = r.as_object().at(&"roid").as_integer();
               POSEIDON_LOG_DEBUG(("Found role `$1` of user `$2`"), roid, uinfo.username);
               uconn.available_roid_set.insert(roid);
 
               ::taxon::V_object client_role;
               client_role.try_emplace(&"roid", roid);
-              cow_string avatar_raw = r.as_object().at(&"avatar").as_string();
               POSEIDON_CHECK(client_role.open(&"avatar").parse(avatar_raw));
               available_role_list.emplace_back(move(client_role));
             }
@@ -815,7 +818,7 @@ do_plus_role_create(const shptr<Implementation>& impl,
     ////////////////////////////////////////////////////////////
     //
     if(impl->connections.at(username).current_roid != 0) {
-      response.try_emplace(&"status", &"sc_log_out_first");
+      response.try_emplace(&"status", &"sc_role_selected");
       return;
     }
 
@@ -860,7 +863,7 @@ do_plus_role_create(const shptr<Implementation>& impl,
     service.launch(srv_q);
     fiber.yield(srv_q);
 
-    cow_string status = srv_q->response(0).obj.at(&"status").as_string();
+    auto status = srv_q->response(0).obj.at(&"status").as_string();
     if(status != "gs_ok") {
       POSEIDON_LOG_DEBUG(("Could not acquire nickname `$1`: $2"), nickname, status);
       response.try_emplace(&"status", &"sc_nickname_conflict");
@@ -913,15 +916,77 @@ do_plus_role_login(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
                    ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    POSEIDON_LOG_FATAL(("LOGIN `$1`: $2"), username, request);
+    int64_t roid = clamp_cast<int64_t>(request.at(&"roid").as_number(), -1, INT64_MAX);
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    ////////////////////////////////////////////////////////////
+    //
+    if(impl->connections.at(username).current_roid != 0) {
+      response.try_emplace(&"status", &"sc_role_selected");
+      return;
+    }
+
+    if(impl->connections.at(username).available_roid_set.count(roid) == 0) {
+      response.try_emplace(&"status", &"sc_role_unavailable");
+      return;
+    }
+
+    // Load this role into Redis.
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", roid);
+
+    auto srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/load", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    auto status = srv_q->response(0).obj.at(&"status").as_string();
+    if(status != "gs_ok") {
+      response.try_emplace(&"status", &"sc_role_unavailable");
+      return;
+    }
+
+    // Log into this role.
+    tx_args.clear();
+    tx_args.try_emplace(&"roid", roid);
+    tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+
+    srv_q = new_sh<Service_Future>(randomcast(&"logic"), &"*role/login", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    status = srv_q->response(0).obj.at(&"status").as_string();
+    POSEIDON_CHECK(status == "gs_ok");
+
+    impl->connections.mut(username).current_roid = roid;
+    impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
+    impl->connections.mut(username).available_roid_set.insert(roid);
+
+    response.try_emplace(&"status", &"sc_ok");
   }
 
 void
 do_plus_role_logout(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response, const ::taxon::V_object& request)
+                    ::taxon::V_object& response, const ::taxon::V_object& /*request*/)
   {
-    POSEIDON_LOG_FATAL(("LOGOUT `$1`: $2"), username, request);
+    if(impl->connections.at(username).current_roid == 0) {
+      response.try_emplace(&"status", &"sc_no_role_selected");
+      return;
+    }
+
+    // Bring this role offline.
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", impl->connections.at(username).current_roid);
+
+    auto srv_q = new_sh<Service_Future>(impl->connections.at(username).current_logic_srv,
+                                        &"*role/logout", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    impl->connections.mut(username).current_roid = 0;
+    impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
+
+    response.try_emplace(&"status", &"sc_ok");
   }
 
 }  // namespace

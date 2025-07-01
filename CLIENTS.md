@@ -79,7 +79,9 @@ strings:
 |Status Code                 |Description                                    |
 |:---------------------------|:----------------------------------------------|
 |`sc_ok`                     |Operation completed successfully.              |
-|`sc_log_out_first`          |Another role is online; log out first.         |
+|`sc_role_selected`          |Another role is online; log out first.         |
+|`sc_no_role_selected`       |No role is online; select one first.           |
+|`sc_role_unavailable`       |Role not available to current user.            |
 |`sc_nickname_invalid`       |Nickname not valid.                            |
 |`sc_nickname_length_error`  |Nickname length out of range.                  |
 |`sc_nickname_conflict`      |Nickname already exists.                       |
