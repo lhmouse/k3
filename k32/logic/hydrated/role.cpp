@@ -72,7 +72,7 @@ void
 Role::
 on_every_second()
   {
-    POSEIDON_LOG_FATAL(("ON EVERY SECOND: $1"), *this);
+    POSEIDON_LOG_FATAL(("ON EVERY SECOND: $1 (agent $2)"), *this, this->agent_service_uuid());
   }
 
 }  // namespace k32::logic
