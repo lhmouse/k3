@@ -78,6 +78,24 @@ class Service_Future
         this->check_success();
         return this->m_responses;
       }
+
+    // Gets the number of target services. If `successful()` yields `false`, an
+    // exception is thrown, and there is no effect.
+    size_t
+    response_count() const
+      {
+        this->check_success();
+        return this->m_responses.size();
+      }
+
+    // Gets the response of a target service. If `successful()` yields `false`,
+    // an exception is thrown, and there is no effect.
+    const Service_Response&
+    response(size_t index) const
+      {
+        this->check_success();
+        return this->m_responses.at(index);
+      }
   };
 
 extern const ::poseidon::UUID multicast_uuid;
