@@ -121,7 +121,7 @@ void
 do_star_role_login(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber,
                    const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                   ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -183,7 +183,7 @@ void
 do_star_role_logout(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
                     const ::poseidon::UUID& /*request_service_uuid*/,
-                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -213,7 +213,7 @@ void
 do_star_role_reconnect(const shptr<Implementation>& impl,
                        ::poseidon::Abstract_Fiber& /*fiber*/,
                        const ::poseidon::UUID& /*request_service_uuid*/,
-                       ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                       ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -242,7 +242,7 @@ void
 do_star_role_disconnect(const shptr<Implementation>& impl,
                         ::poseidon::Abstract_Fiber& /*fiber*/,
                         const ::poseidon::UUID& /*request_service_uuid*/,
-                        ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                        ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     int64_t roid = request_data.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));

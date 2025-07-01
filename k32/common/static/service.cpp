@@ -144,19 +144,22 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!impl)
           return;
 
+        // Copy the handler, in case of fiber context switches.
+        static_vector<Service::handler_type, 1> handler;
+        if(auto ptr = impl->handlers.ptr(this->m_opcode))
+          handler.emplace_back(*ptr);
+
         ::taxon::V_object response_data;
         tinyfmt_str error_fmt;
         try {
-          if(auto ptr = impl->handlers.ptr(this->m_opcode)) {
-            // Copy the handler, in case of fiber context switches.
-            const auto saved_handler = *ptr;
-            saved_handler(*this, impl->service_uuid, response_data, move(this->m_request_data));
-          } else
+          if(handler.empty())
             format(error_fmt, "No handler for `$1`", this->m_opcode);
+          else
+            handler.front() (*this, impl->service_uuid, response_data, this->m_request_data);
         }
         catch(exception& stdex) {
-          format(error_fmt, "Unhandled exception in `$1`: $2", this->m_opcode, stdex);
-          POSEIDON_LOG_ERROR(("$1"), error_fmt.get_string());
+          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request_data, stdex);
+          POSEIDON_LOG_ERROR(("Unhandled exception: $1"), error_fmt.get_string());
         }
 
         // If the caller will be waiting, set the response.
@@ -309,20 +312,24 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!session)
           return;
 
+        const ::poseidon::UUID request_service_uuid(session->session_user_data().as_string());
+
+        // Copy the handler, in case of fiber context switches.
+        static_vector<Service::handler_type, 1> handler;
+        if(auto ptr = impl->handlers.ptr(this->m_opcode))
+          handler.emplace_back(*ptr);
+
         ::taxon::V_object response_data;
         tinyfmt_str error_fmt;
         try {
-          if(auto ptr = impl->handlers.ptr(this->m_opcode)) {
-            // Copy the handler, in case of fiber context switches.
-            const auto saved_handler = *ptr;
-            saved_handler(*this, ::poseidon::UUID(session->session_user_data().as_string()),
-                          response_data, move(this->m_request_data));
-          } else
+          if(handler.empty())
             format(error_fmt, "No handler for `$1`", this->m_opcode);
+          else
+            handler.front() (*this, request_service_uuid, response_data, this->m_request_data);
         }
         catch(exception& stdex) {
-          format(error_fmt, "Unhandled exception in `$1`: $2", this->m_opcode, stdex);
-          POSEIDON_LOG_ERROR(("$1"), error_fmt.get_string());
+          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request_data, stdex);
+          POSEIDON_LOG_ERROR(("Unhandled exception: $1"), error_fmt.get_string());
         }
 
         // If the caller will be waiting, set the response.
@@ -416,8 +423,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             request_uuid = ::poseidon::UUID(ptr->as_string());
 
           // Handle the request in another fiber, so it's stateless.
-          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid,
-                                                     move(opcode), move(request_data));
+          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid, opcode, request_data);
           ::poseidon::fiber_scheduler.launch(fiber3);
           break;
         }

@@ -516,7 +516,7 @@ void
 do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
                          ::poseidon::Abstract_Fiber& fiber,
                          const ::poseidon::UUID& /*request_service_uuid*/,
-                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                         ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
@@ -587,7 +587,7 @@ void
 do_star_nickname_release(const shptr<Implementation>& /*impl*/,
                          ::poseidon::Abstract_Fiber& fiber,
                          const ::poseidon::UUID& /*request_service_uuid*/,
-                         ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                         ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
@@ -678,7 +678,7 @@ void
 do_star_user_kick(const shptr<Implementation>& impl,
                   ::poseidon::Abstract_Fiber& /*fiber*/,
                   const ::poseidon::UUID& /*request_service_uuid*/,
-                  ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                  ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -713,7 +713,7 @@ void
 do_star_user_ban_set(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*request_service_uuid*/,
-                     ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                     ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -764,7 +764,7 @@ void
 do_star_user_ban_lift(const shptr<Implementation>& impl,
                       ::poseidon::Abstract_Fiber& fiber,
                       const ::poseidon::UUID& /*request_service_uuid*/,
-                      ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                      ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     phcow_string username = request_data.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
@@ -806,7 +806,7 @@ do_star_user_ban_lift(const shptr<Implementation>& impl,
 void
 do_plus_role_create(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     cow_string nickname = request_data.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
@@ -910,7 +910,7 @@ do_plus_role_create(const shptr<Implementation>& impl,
 void
 do_plus_role_login(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                   ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                   ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     POSEIDON_LOG_FATAL(("LOGIN `$1`: $2"), username, request_data);
   }
@@ -918,7 +918,7 @@ do_plus_role_login(const shptr<Implementation>& impl,
 void
 do_plus_role_logout(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response_data, ::taxon::V_object&& request_data)
+                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
   {
     POSEIDON_LOG_FATAL(("LOGOUT `$1`: $2"), username, request_data);
   }

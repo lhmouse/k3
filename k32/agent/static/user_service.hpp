@@ -76,7 +76,7 @@ class User_Service
               ::poseidon::Abstract_Fiber& fiber,
               const phcow_string& username,
               ::taxon::V_object& response_data,  // output parameter
-              ::taxon::V_object&& request_data)>;
+              const ::taxon::V_object& request_data)>;
 
     // Adds a new WebSocket handler for requests from users. If a new handler
     // already exists, an exception is thrown.
