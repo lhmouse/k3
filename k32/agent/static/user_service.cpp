@@ -249,7 +249,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
               uconn.available_roid_set.insert(roid);
 
               ::taxon::V_object client_role;
-              client_role.try_emplace(&"roid", roid);
+              client_role.try_emplace(&"roid", static_cast<double>(roid));
               POSEIDON_CHECK(client_role.open(&"avatar").parse(avatar_raw));
               available_role_list.emplace_back(move(client_role));
             }

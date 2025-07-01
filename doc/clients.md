@@ -108,7 +108,7 @@ strings:
 
 * Request Parameters
 
-  - `roid` <sub>integer</sub> : Unique ID of role to log into.
+  - `roid` <sub>number</sub> : Unique ID of role to log into.
 
 * Response Parameters
 
@@ -144,7 +144,7 @@ strings:
 * Notification Parameters
 
   - `role_list` <sub>array of objects</sub> : List of available roles.
-    - `roid` <sub>integer</sub> : Unique ID of role.
+    - `roid` <sub>number</sub> : Unique ID of role.
     - `avatar` <sub>object</sub> : Avatar data.
 
 * Description
