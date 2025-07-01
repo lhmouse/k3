@@ -219,7 +219,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             service.launch(srv_q);
             fiber.yield(srv_q);
 
-            cow_string status = srv_q->response(0).response_data.at(&"status").as_string();
+            cow_string status = srv_q->response(0).obj.at(&"status").as_string();
             if(status != "gs_ok") {
               POSEIDON_LOG_WARN(("Could not reconnect to role `$1`: $2"), uconn.current_roid, status);
               uconn.current_roid = 0;
@@ -237,7 +237,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             fiber.yield(srv_q);
 
             ::taxon::V_array available_role_list;
-            for(const auto& r : srv_q->response(0).response_data.at(&"role_list").as_array()) {
+            for(const auto& r : srv_q->response(0).obj.at(&"role_list").as_array()) {
               // For intermediate servers, an avatar is transferred as a JSON
               // string. We will not send a raw string to the client, so parse it.
               int64_t roid = r.as_object().at(&"roid").as_integer();
@@ -253,8 +253,8 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
             // Send my role list so the user may choose one.
             tx_args.clear();
-            tx_args.try_emplace(&"opcode", &"=role/list");
-            tx_args.open(&"data").open_object().try_emplace(&"role_list", available_role_list);
+            tx_args.try_emplace(&"@opcode", &"=role/list");
+            tx_args.try_emplace(&"role_list", available_role_list);
 
             tinybuf_ln buf;
             ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
@@ -283,19 +283,15 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           tinybuf_ln buf(move(data));
           ::taxon::Value temp_value;
           POSEIDON_CHECK(temp_value.parse(buf, ::taxon::option_json_mode));
-          ::taxon::V_object root = temp_value.as_object();
+          ::taxon::V_object request = temp_value.as_object();
           temp_value.clear();
 
           phcow_string opcode;
-          if(auto ptr = root.ptr(&"opcode"))
+          if(auto ptr = request.ptr(&"@opcode"))
             opcode = ptr->as_string();
 
-          ::taxon::V_object request_data;
-          if(auto ptr = root.ptr(&"data"))
-            request_data = ptr->as_object();
-
           ::taxon::Value serial;
-          if(auto ptr = root.ptr(&"serial"))
+          if(auto ptr = request.ptr(&"@serial"))
             serial = *ptr;
 
           // Copy the handler, in case of fiber context switches.
@@ -309,14 +305,14 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           }
 
           // Call the user-defined handler to get response data.
-          ::taxon::V_object response_data;
+          ::taxon::V_object response;
           try {
             impl->connections.mut(username).rate_counter ++;
-            handler.front() (fiber, username, response_data, request_data);
+            handler.front() (fiber, username, response, request);
             impl->connections.mut(username).pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2\n$3"), opcode, request_data, stdex);
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2\n$3"), opcode, request, stdex);
             session->ws_shut_down(::poseidon::ws_status_unexpected_error);
             return;
           }
@@ -325,13 +321,10 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             break;
 
           // The client expects a response, so send it.
-          root.clear();
-          root.try_emplace(&"serial", serial);
-          if(!response_data.empty())
-            root.try_emplace(&"data", response_data);
+          response.try_emplace(&"@serial", serial);
+          temp_value = response;
 
           buf.clear_buffer();
-          temp_value = root;
           temp_value.print_to(buf, ::taxon::option_json_mode);
           session->ws_send(::poseidon::ws_TEXT, buf);
           break;
@@ -523,12 +516,12 @@ void
 do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
                          ::poseidon::Abstract_Fiber& fiber,
                          const ::poseidon::UUID& /*request_service_uuid*/,
-                         ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                         ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    cow_string nickname = request_data.at(&"nickname").as_string();
+    cow_string nickname = request.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
 
-    phcow_string username = request_data.at(&"username").as_string();
+    phcow_string username = request.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
@@ -577,7 +570,7 @@ do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
       fiber.yield(task1);
 
       if(task1->result_row_count() == 0) {
-        response_data.try_emplace(&"status", &"gs_nickname_conflict");
+        response.try_emplace(&"status", &"gs_nickname_conflict");
         return;
       }
 
@@ -586,17 +579,17 @@ do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
 
     POSEIDON_LOG_INFO(("Acquired nickname `$1`"), nickname);
 
-    response_data.try_emplace(&"serial", serial);
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"serial", serial);
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_nickname_release(const shptr<Implementation>& /*impl*/,
                          ::poseidon::Abstract_Fiber& fiber,
                          const ::poseidon::UUID& /*request_service_uuid*/,
-                         ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                         ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    cow_string nickname = request_data.at(&"nickname").as_string();
+    cow_string nickname = request.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
 
     ////////////////////////////////////////////////////////////
@@ -617,13 +610,13 @@ do_star_nickname_release(const shptr<Implementation>& /*impl*/,
     fiber.yield(task1);
 
     if(task1->match_count() == 0) {
-      response_data.try_emplace(&"status", &"gs_nickname_not_found");
+      response.try_emplace(&"status", &"gs_nickname_not_found");
       return;
     }
 
     POSEIDON_LOG_INFO(("Released nickname `$1`"), nickname);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -685,17 +678,17 @@ void
 do_star_user_kick(const shptr<Implementation>& impl,
                   ::poseidon::Abstract_Fiber& /*fiber*/,
                   const ::poseidon::UUID& /*request_service_uuid*/,
-                  ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                  ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    phcow_string username = request_data.at(&"username").as_string();
+    phcow_string username = request.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     int ws_status = 1008;
-    if(auto ptr = request_data.ptr(&"ws_status"))
+    if(auto ptr = request.ptr(&"ws_status"))
       ws_status = clamp_cast<int>(ptr->as_integer(), 1000, 4999);
 
     cow_string reason;
-    if(auto ptr = request_data.ptr(&"reason"))
+    if(auto ptr = request.ptr(&"reason"))
       reason = ptr->as_string();
 
     ////////////////////////////////////////////////////////////
@@ -705,7 +698,7 @@ do_star_user_kick(const shptr<Implementation>& impl,
       session = uconn->weak_session.lock();
 
     if(session == nullptr) {
-      response_data.try_emplace(&"status", &"gs_user_not_online");
+      response.try_emplace(&"status", &"gs_user_not_online");
       return;
     }
 
@@ -713,19 +706,19 @@ do_star_user_kick(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Kicked user `$1`: $2 $3"), username, ws_status, reason);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_user_ban_set(const shptr<Implementation>& impl,
                      ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*request_service_uuid*/,
-                     ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                     ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    phcow_string username = request_data.at(&"username").as_string();
+    phcow_string username = request.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
-    system_time until = request_data.at(&"until").as_time();
+    system_time until = request.at(&"until").as_time();
     POSEIDON_CHECK(until.time_since_epoch() >= 946684800s);  // 2000-1-1
 
     ////////////////////////////////////////////////////////////
@@ -750,7 +743,7 @@ do_star_user_ban_set(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->match_count() == 0) {
-      response_data.try_emplace(&"status", &"gs_user_not_found");
+      response.try_emplace(&"status", &"gs_user_not_found");
       return;
     }
 
@@ -764,16 +757,16 @@ do_star_user_ban_set(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Set ban on `$1` until `$2`"), username, until);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_user_ban_lift(const shptr<Implementation>& impl,
                       ::poseidon::Abstract_Fiber& fiber,
                       const ::poseidon::UUID& /*request_service_uuid*/,
-                      ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                      ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    phcow_string username = request_data.at(&"username").as_string();
+    phcow_string username = request.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
@@ -797,7 +790,7 @@ do_star_user_ban_lift(const shptr<Implementation>& impl,
     fiber.yield(task2);
 
     if(task2->match_count() == 0) {
-      response_data.try_emplace(&"status", &"gs_user_not_found");
+      response.try_emplace(&"status", &"gs_user_not_found");
       return;
     }
 
@@ -807,26 +800,26 @@ do_star_user_ban_lift(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Lift ban on `$1`"), username);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_plus_role_create(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                    ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    cow_string nickname = request_data.at(&"nickname").as_string();
+    cow_string nickname = request.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
 
     ////////////////////////////////////////////////////////////
     //
     if(impl->connections.at(username).current_roid != 0) {
-      response_data.try_emplace(&"status", &"sc_log_out_first");
+      response.try_emplace(&"status", &"sc_log_out_first");
       return;
     }
 
     if(impl->connections.at(username).available_roid_set.size() >= impl->max_number_of_roles_per_user) {
-      response_data.try_emplace(&"status", &"sc_too_many_roles");
+      response.try_emplace(&"status", &"sc_too_many_roles");
       return;
     }
 
@@ -835,25 +828,25 @@ do_plus_role_create(const shptr<Implementation>& impl,
     while(offset < nickname.size()) {
       char32_t cp;
       if(!::asteria::utf8_decode(cp, nickname, offset)) {
-        response_data.try_emplace(&"status", &"sc_nickname_invalid");
+        response.try_emplace(&"status", &"sc_nickname_invalid");
         return;
       }
 
       int w = ::wcwidth(static_cast<wchar_t>(cp));
       if(w <= 0) {
-        response_data.try_emplace(&"status", &"sc_nickname_invalid");
+        response.try_emplace(&"status", &"sc_nickname_invalid");
         return;
       }
 
       nickname_length += w;
       if(nickname_length > impl->nickname_length_limits[1]) {
-        response_data.try_emplace(&"status", &"sc_nickname_length_error");
+        response.try_emplace(&"status", &"sc_nickname_length_error");
         return;
       }
     }
 
     if(nickname_length < impl->nickname_length_limits[0]) {
-      response_data.try_emplace(&"status", &"sc_nickname_length_error");
+      response.try_emplace(&"status", &"sc_nickname_length_error");
       return;
     }
 
@@ -866,14 +859,14 @@ do_plus_role_create(const shptr<Implementation>& impl,
     service.launch(srv_q);
     fiber.yield(srv_q);
 
-    cow_string status = srv_q->response(0).response_data.at(&"status").as_string();
+    cow_string status = srv_q->response(0).obj.at(&"status").as_string();
     if(status != "gs_ok") {
       POSEIDON_LOG_DEBUG(("Could not acquire nickname `$1`: $2"), nickname, status);
-      response_data.try_emplace(&"status", &"sc_nickname_conflict");
+      response.try_emplace(&"status", &"sc_nickname_conflict");
       return;
     }
 
-    int64_t roid = srv_q->response(0).response_data.at(&"serial").as_integer();
+    int64_t roid = srv_q->response(0).obj.at(&"serial").as_integer();
 
     // Create the role in database.
     tx_args.clear();
@@ -888,10 +881,10 @@ do_plus_role_create(const shptr<Implementation>& impl,
     if(srv_q->response_count() == 0)
       POSEIDON_THROW(("No monitor service is online"));
 
-    status = srv_q->response(0).response_data.at(&"status").as_string();
+    status = srv_q->response(0).obj.at(&"status").as_string();
     if(status != "gs_ok") {
       POSEIDON_LOG_WARN(("Could not create role `$1` (`$2`): $3"), roid, nickname, status);
-      response_data.try_emplace(&"status", &"sc_nickname_conflict");
+      response.try_emplace(&"status", &"sc_nickname_conflict");
       return;
     }
 
@@ -904,30 +897,30 @@ do_plus_role_create(const shptr<Implementation>& impl,
     service.launch(srv_q);
     fiber.yield(srv_q);
 
-    status = srv_q->response(0).response_data.at(&"status").as_string();
+    status = srv_q->response(0).obj.at(&"status").as_string();
     POSEIDON_CHECK(status == "gs_ok");
 
     impl->connections.mut(username).current_roid = roid;
     impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
     impl->connections.mut(username).available_roid_set.insert(roid);
 
-    response_data.try_emplace(&"status", &"sc_ok");
+    response.try_emplace(&"status", &"sc_ok");
   }
 
 void
 do_plus_role_login(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                   ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                   ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    POSEIDON_LOG_FATAL(("LOGIN `$1`: $2"), username, request_data);
+    POSEIDON_LOG_FATAL(("LOGIN `$1`: $2"), username, request);
   }
 
 void
 do_plus_role_logout(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                    ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    POSEIDON_LOG_FATAL(("LOGOUT `$1`: $2"), username, request_data);
+    POSEIDON_LOG_FATAL(("LOGOUT `$1`: $2"), username, request);
   }
 
 }  // namespace

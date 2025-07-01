@@ -13,21 +13,21 @@ constexpr ::poseidon::UUID loopback_uuid    = POSEIDON_UUID(19e9f082,d46d,48e7,a
 
 Service_Future::
 Service_Future(multicast_selector_t&& selector, const phcow_string& opcode,
-               const ::taxon::V_object& request_data)
+               const ::taxon::V_object& request)
   {
     this->m_target_service_uuid = selector.target_service_uuid;
     this->m_target_service_type = move(selector.target_service_type);
     this->m_opcode = opcode;
-    this->m_request_data = request_data;
+    this->m_request = request;
   }
 
 Service_Future::
 Service_Future(const ::poseidon::UUID& target_service_uuid,
-               const phcow_string& opcode, const ::taxon::V_object& request_data)
+               const phcow_string& opcode, const ::taxon::V_object& request)
   {
     this->m_target_service_uuid = target_service_uuid;
     this->m_opcode = opcode;
-    this->m_request_data = request_data;
+    this->m_request = request;
   }
 
 Service_Future::

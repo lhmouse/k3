@@ -124,9 +124,9 @@ void
 do_star_role_list(const shptr<Implementation>& impl,
                   ::poseidon::Abstract_Fiber& fiber,
                   const ::poseidon::UUID& /*request_service_uuid*/,
-                  ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                  ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    phcow_string username = request_data.at(&"username").as_string();
+    phcow_string username = request.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
     ////////////////////////////////////////////////////////////
@@ -160,23 +160,23 @@ do_star_role_list(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Found $1 role(s) for user `$2`"), role_list.size(), username);
 
-    response_data.try_emplace(&"role_list", role_list);
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"role_list", role_list);
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_role_create(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
                     const ::poseidon::UUID& /*request_service_uuid*/,
-                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                    ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
-    phcow_string username = request_data.at(&"username").as_string();
+    phcow_string username = request.at(&"username").as_string();
     POSEIDON_CHECK(username != "");
 
-    cow_string nickname = request_data.at(&"nickname").as_string();
+    cow_string nickname = request.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
 
     ////////////////////////////////////////////////////////////
@@ -239,7 +239,7 @@ do_star_role_create(const shptr<Implementation>& impl,
       fiber.yield(task1);
 
       if(task1->result_row_count() == 0) {
-        response_data.try_emplace(&"status", &"gs_roid_conflict");
+        response.try_emplace(&"status", &"gs_roid_conflict");
         return;
       }
 
@@ -255,16 +255,16 @@ do_star_role_create(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Created role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_role_load(const shptr<Implementation>& impl,
                   ::poseidon::Abstract_Fiber& fiber,
                   const ::poseidon::UUID& /*request_service_uuid*/,
-                  ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                  ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -300,7 +300,7 @@ do_star_role_load(const shptr<Implementation>& impl,
     fiber.yield(task1);
 
     if(task1->result_row_count() == 0) {
-      response_data.try_emplace(&"status", &"gs_roid_not_found");
+      response.try_emplace(&"status", &"gs_roid_not_found");
       return;
     }
 
@@ -316,7 +316,7 @@ do_star_role_load(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Loaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -361,9 +361,9 @@ void
 do_star_role_unload(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
                     const ::poseidon::UUID& /*request_service_uuid*/,
-                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                    ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -380,7 +380,7 @@ do_star_role_unload(const shptr<Implementation>& impl,
 
     if(task2->result().is_nil()) {
       impl->role_records.erase(roid);
-      response_data.try_emplace(&"status", &"gs_role_not_loaded");
+      response.try_emplace(&"status", &"gs_role_not_loaded");
       return;
     }
 
@@ -394,7 +394,7 @@ do_star_role_unload(const shptr<Implementation>& impl,
       auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
       if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
         ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
-        response_data.try_emplace(&"status", &"gs_role_foreign");
+        response.try_emplace(&"status", &"gs_role_foreign");
         return;
       }
 
@@ -427,16 +427,16 @@ do_star_role_unload(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Unloaded role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_role_flush(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber,
                    const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                   ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -453,7 +453,7 @@ do_star_role_flush(const shptr<Implementation>& impl,
 
     if(task2->result().is_nil()) {
       impl->role_records.erase(roid);
-      response_data.try_emplace(&"status", &"gs_role_not_loaded");
+      response.try_emplace(&"status", &"gs_role_not_loaded");
       return;
     }
 
@@ -464,7 +464,7 @@ do_star_role_flush(const shptr<Implementation>& impl,
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
       ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
-      response_data.try_emplace(&"status", &"gs_role_foreign");
+      response.try_emplace(&"status", &"gs_role_foreign");
       return;
     }
 
@@ -473,7 +473,7 @@ do_star_role_flush(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`)"), roinfo.roid, roinfo.nickname);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void

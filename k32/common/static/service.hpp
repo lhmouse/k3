@@ -24,13 +24,13 @@ class Service
     ~Service();
 
     // This callback is invoked when a service request message is received.
-    // `request_data` is the same field as in the source `Service_Future`.
+    // `request` is the same field as in the source `Service_Future`.
     using handler_type = shared_function<
             void (
               ::poseidon::Abstract_Fiber& fiber,
               const ::poseidon::UUID& request_service_uuid,
-              ::taxon::V_object& response_data,  // output parameter
-              const ::taxon::V_object& request_data)>;
+              ::taxon::V_object& response,  // output parameter
+              const ::taxon::V_object& request)>;
 
     // Adds a new handler for requests from other servers. If a new handler
     // already exists, an exception is thrown.

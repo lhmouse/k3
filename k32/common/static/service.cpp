@@ -95,10 +95,10 @@ do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon:
   }
 
 void
-do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::UUID& request_uuid,
-                       const ::taxon::V_object& response_data, const cow_string& error)
+do_set_response(const wkptr<Service_Future>& weak_req, const ::poseidon::UUID& request_uuid,
+                const ::taxon::V_object& response, const cow_string& error)
   {
-    if(error != "")
+    if(!error.empty())
       POSEIDON_LOG_ERROR(("Received service error: $1"), error);
 
     auto req = weak_req.lock();
@@ -110,7 +110,7 @@ do_set_single_response(const wkptr<Service_Future>& weak_req, const ::poseidon::
       if(p->request_uuid != request_uuid)
         all_received &= p->complete;
       else {
-        p->response_data = response_data;
+        p->obj = response;
         p->error = error;
         p->complete = true;
       }
@@ -125,14 +125,14 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
     wkptr<Service_Future> m_weak_req;
     ::poseidon::UUID m_request_uuid;
     phcow_string m_opcode;
-    ::taxon::V_object m_request_data;
+    ::taxon::V_object m_request;
 
     Local_Request_Fiber(const shptr<Implementation>& impl, const shptr<Service_Future>& req,
                         const ::poseidon::UUID& request_uuid, const phcow_string& opcode,
-                        const ::taxon::V_object& request_data)
+                        const ::taxon::V_object& request)
       :
         m_weak_impl(impl), m_weak_req(req), m_request_uuid(request_uuid),
-        m_opcode(opcode), m_request_data(request_data)
+        m_opcode(opcode), m_request(request)
       {
       }
 
@@ -149,22 +149,21 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(auto ptr = impl->handlers.ptr(this->m_opcode))
           handler.emplace_back(*ptr);
 
-        ::taxon::V_object response_data;
+        ::taxon::V_object response;
         tinyfmt_str error_fmt;
         try {
           if(handler.empty())
             format(error_fmt, "No handler for `$1`", this->m_opcode);
           else
-            handler.front() (*this, impl->service_uuid, response_data, this->m_request_data);
+            handler.front() (*this, impl->service_uuid, response, this->m_request);
         }
         catch(exception& stdex) {
-          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request_data, stdex);
+          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request, stdex);
           POSEIDON_LOG_ERROR(("Unhandled exception: $1"), error_fmt.get_string());
         }
 
         // If the caller will be waiting, set the response.
-        do_set_single_response(this->m_weak_req, this->m_request_uuid, response_data,
-                               error_fmt.get_string());
+        do_set_response(this->m_weak_req, this->m_request_uuid, response, error_fmt.get_string());
       }
   };
 
@@ -186,30 +185,27 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           if(session->session_user_data().is_null())
             return;
 
+          const ::poseidon::UUID target_service_uuid(session->session_user_data().as_string());
+
           tinybuf_ln buf(move(data));
           ::taxon::Value temp_value;
           POSEIDON_CHECK(temp_value.parse(buf));
-          ::taxon::V_object root = temp_value.as_object();
+          ::taxon::V_object response = temp_value.as_object();
           temp_value.clear();
 
           ::poseidon::UUID request_uuid;
-          if(auto ptr = root.ptr(&"uuid"))
+          if(auto ptr = response.ptr(&"@uuid"))
             request_uuid = ::poseidon::UUID(ptr->as_string());
 
-          ::taxon::V_object response_data;
-          if(auto ptr = root.ptr(&"data"))
-            response_data = ptr->as_object();
-
           cow_string error;
-          if(auto ptr = root.ptr(&"error"))
+          if(auto ptr = response.ptr(&"@error"))
             error = ptr->as_string();
 
           // Set the request future.
-          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
-          auto& conn = impl->remote_connections.open(service_uuid);
+          auto& conn = impl->remote_connections.open(target_service_uuid);
           for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
-              do_set_single_response(r.first, request_uuid, response_data, error);
+              do_set_response(r.first, request_uuid, response, error);
               break;
             }
 
@@ -225,8 +221,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
           if(session->session_user_data().is_null())
             return;
 
-          ::poseidon::UUID service_uuid(session->session_user_data().as_string());
-          do_remove_remote_connection(impl, service_uuid);
+          const ::poseidon::UUID target_service_uuid(session->session_user_data().as_string());
+
+          do_remove_remote_connection(impl, target_service_uuid);
 
           POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
           break;
@@ -238,15 +235,15 @@ struct Remote_Response_Task final : ::poseidon::Abstract_Task
   {
     wkptr<::poseidon::WS_Server_Session> m_weak_session;
     ::poseidon::UUID m_request_uuid;
-    ::taxon::V_object m_response_data;
+    ::taxon::V_object m_response;
     cow_string m_error;
 
     Remote_Response_Task(const shptr<::poseidon::WS_Server_Session>& session,
                          const ::poseidon::UUID& request_uuid,
-                         const ::taxon::V_object& response_data, const cow_string& error)
+                         const ::taxon::V_object& response, const cow_string& error)
       :
         m_weak_session(session),
-        m_request_uuid(request_uuid), m_response_data(response_data), m_error(error)
+        m_request_uuid(request_uuid), m_response(response), m_error(error)
       {
       }
 
@@ -258,27 +255,22 @@ struct Remote_Response_Task final : ::poseidon::Abstract_Task
         if(!session)
           return;
 
-        POSEIDON_LOG_TRACE(("Sending response: request_uuid `$1`"), this->m_request_uuid);
-
-        ::taxon::V_object root;
-        root.try_emplace(&"uuid", this->m_request_uuid.to_string());
-        if(!this->m_response_data.empty())
-          root.try_emplace(&"data", this->m_response_data);
+        this->m_response.try_emplace(&"@uuid", this->m_request_uuid.to_string());
         if(!this->m_error.empty())
-          root.try_emplace(&"error", this->m_error);
-        session->ws_send(::poseidon::ws_TEXT, ::taxon::Value(root).to_string());
+          this->m_response.try_emplace(&"@error", this->m_error);
+        session->ws_send(::poseidon::ws_TEXT, ::taxon::Value(this->m_response).to_string());
       }
   };
 
 void
 do_send_remote_response(const shptr<::poseidon::WS_Server_Session>& session,
                         const ::poseidon::UUID& request_uuid,
-                        const ::taxon::V_object& response_data, const cow_string& error)
+                        const ::taxon::V_object& response, const cow_string& error)
   {
     if(request_uuid.is_nil())
       return;
 
-    auto task4 = new_sh<Remote_Response_Task>(session, request_uuid, response_data, error);
+    auto task4 = new_sh<Remote_Response_Task>(session, request_uuid, response, error);
     ::poseidon::task_scheduler.launch(task4);
   }
 
@@ -288,15 +280,15 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
     wkptr<::poseidon::WS_Server_Session> m_weak_session;
     ::poseidon::UUID m_request_uuid;
     phcow_string m_opcode;
-    ::taxon::V_object m_request_data;
+    ::taxon::V_object m_request;
 
     Remote_Request_Fiber(const shptr<Implementation>& impl,
                          const shptr<::poseidon::WS_Server_Session>& session,
                          const ::poseidon::UUID& request_uuid,
-                         const phcow_string& opcode, const ::taxon::V_object& request_data)
+                         const phcow_string& opcode, const ::taxon::V_object& request)
       :
         m_weak_impl(impl), m_weak_session(session), m_request_uuid(request_uuid),
-        m_opcode(opcode), m_request_data(request_data)
+        m_opcode(opcode), m_request(request)
       {
       }
 
@@ -319,22 +311,21 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(auto ptr = impl->handlers.ptr(this->m_opcode))
           handler.emplace_back(*ptr);
 
-        ::taxon::V_object response_data;
+        ::taxon::V_object response;
         tinyfmt_str error_fmt;
         try {
           if(handler.empty())
             format(error_fmt, "No handler for `$1`", this->m_opcode);
           else
-            handler.front() (*this, request_service_uuid, response_data, this->m_request_data);
+            handler.front() (*this, request_service_uuid, response, this->m_request);
         }
         catch(exception& stdex) {
-          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request_data, stdex);
+          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request, stdex);
           POSEIDON_LOG_ERROR(("Unhandled exception: $1"), error_fmt.get_string());
         }
 
         // If the caller will be waiting, set the response.
-        do_send_remote_response(session, this->m_request_uuid, response_data,
-                                error_fmt.get_string());
+        do_send_remote_response(session, this->m_request_uuid, response, error_fmt.get_string());
       }
   };
 
@@ -407,23 +398,19 @@ do_server_ws_callback(const shptr<Implementation>& impl,
           tinybuf_ln buf(move(data));
           ::taxon::Value temp_value;
           POSEIDON_CHECK(temp_value.parse(buf));
-          ::taxon::V_object root = temp_value.as_object();
+          ::taxon::V_object request = temp_value.as_object();
           temp_value.clear();
 
           phcow_string opcode;
-          if(auto ptr = root.ptr(&"opcode"))
+          if(auto ptr = request.ptr(&"@opcode"))
             opcode = ptr->as_string();
 
-          ::taxon::V_object request_data;
-          if(auto ptr = root.ptr(&"data"))
-            request_data = ptr->as_object();
-
           ::poseidon::UUID request_uuid;
-          if(auto ptr = root.ptr(&"uuid"))
+          if(auto ptr = request.ptr(&"@uuid"))
             request_uuid = ::poseidon::UUID(ptr->as_string());
 
           // Handle the request in another fiber, so it's stateless.
-          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid, opcode, request_data);
+          auto fiber3 = new_sh<Remote_Request_Fiber>(impl, session, request_uuid, opcode, request);
           ::poseidon::fiber_scheduler.launch(fiber3);
           break;
         }
@@ -446,14 +433,14 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
     wkptr<Service_Future> m_weak_req;
     ::poseidon::UUID m_request_uuid;
     phcow_string m_opcode;
-    ::taxon::V_object m_request_data;
+    ::taxon::V_object m_request;
 
     Remote_Request_Task(const shptr<::poseidon::WS_Client_Session>& session,
                         const shptr<Service_Future>& req, const ::poseidon::UUID& request_uuid,
-                        const phcow_string& opcode, const ::taxon::V_object& request_data)
+                        const phcow_string& opcode, const ::taxon::V_object& request)
       :
         m_weak_session(session), m_weak_req(req), m_request_uuid(request_uuid),
-        m_opcode(opcode), m_request_data(request_data)
+        m_opcode(opcode), m_request(request)
       {
       }
 
@@ -465,13 +452,10 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
         if(!session)
           return;
 
-        ::taxon::V_object root;
-        root.try_emplace(&"opcode", this->m_opcode);
-        if(!this->m_request_data.empty())
-          root.try_emplace(&"data", this->m_request_data);
+        this->m_request.try_emplace(&"@opcode", this->m_opcode);
         if(!this->m_weak_req.expired())
-          root.try_emplace(&"uuid", this->m_request_uuid.to_string());
-        session->ws_send(::poseidon::ws_TEXT, ::taxon::Value(root).to_string());
+          this->m_request.try_emplace(&"@uuid", this->m_request_uuid.to_string());
+        session->ws_send(::poseidon::ws_TEXT, ::taxon::Value(this->m_request).to_string());
       }
   };
 
@@ -847,7 +831,7 @@ launch(const shptr<Service_Future>& req)
         if(resp.service_uuid == this->m_impl->service_uuid) {
           // This is myself, so there's no need to send it over network.
           auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req, resp.request_uuid,
-                                                    req->opcode(), req->request_data());
+                                                    req->opcode(), req->request());
           ::poseidon::fiber_scheduler.launch(fiber3);
         }
         else {
@@ -905,7 +889,7 @@ launch(const shptr<Service_Future>& req)
 
           // Send and wait.
           auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid,
-                                                   req->opcode(), req->request_data());
+                                                   req->opcode(), req->request());
           ::poseidon::task_scheduler.launch(task2);
         }
       }

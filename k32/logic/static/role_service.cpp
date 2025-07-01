@@ -121,12 +121,12 @@ void
 do_star_role_login(const shptr<Implementation>& impl,
                    ::poseidon::Abstract_Fiber& fiber,
                    const ::poseidon::UUID& /*request_service_uuid*/,
-                   ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                   ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
-    ::poseidon::UUID agent_service_uuid(request_data.at(&"agent_service_uuid").as_string());
+    ::poseidon::UUID agent_service_uuid(request.at(&"agent_service_uuid").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
 
     ////////////////////////////////////////////////////////////
@@ -148,7 +148,7 @@ do_star_role_login(const shptr<Implementation>& impl,
       fiber.yield(task2);
 
       if(task2->result().is_nil()) {
-        response_data.try_emplace(&"status", &"gs_role_not_loaded");
+        response.try_emplace(&"status", &"gs_role_not_loaded");
         return;
       }
 
@@ -176,16 +176,16 @@ do_star_role_login(const shptr<Implementation>& impl,
     hyd.role->mf_agent_service_uuid() = agent_service_uuid;
     hyd.role->on_connect();
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_role_logout(const shptr<Implementation>& impl,
                     ::poseidon::Abstract_Fiber& fiber,
                     const ::poseidon::UUID& /*request_service_uuid*/,
-                    ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                    ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -195,7 +195,7 @@ do_star_role_logout(const shptr<Implementation>& impl,
       hyd = *ptr;
 
     if(!hyd.role) {
-      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      response.try_emplace(&"status", &"gs_role_not_logged_in");
       return;
     }
 
@@ -206,19 +206,19 @@ do_star_role_logout(const shptr<Implementation>& impl,
     impl->hyd_roles.erase(roid);
     do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_role_reconnect(const shptr<Implementation>& impl,
                        ::poseidon::Abstract_Fiber& /*fiber*/,
                        const ::poseidon::UUID& /*request_service_uuid*/,
-                       ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                       ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
-    ::poseidon::UUID agent_service_uuid(request_data.at(&"agent_service_uuid").as_string());
+    ::poseidon::UUID agent_service_uuid(request.at(&"agent_service_uuid").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
 
     ////////////////////////////////////////////////////////////
@@ -228,23 +228,23 @@ do_star_role_reconnect(const shptr<Implementation>& impl,
       hyd = *ptr;
 
     if(!hyd.role) {
-      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      response.try_emplace(&"status", &"gs_role_not_logged_in");
       return;
     }
 
     hyd.role->mf_agent_service_uuid() = agent_service_uuid;
     hyd.role->on_connect();
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
 do_star_role_disconnect(const shptr<Implementation>& impl,
                         ::poseidon::Abstract_Fiber& /*fiber*/,
                         const ::poseidon::UUID& /*request_service_uuid*/,
-                        ::taxon::V_object& response_data, const ::taxon::V_object& request_data)
+                        ::taxon::V_object& response, const ::taxon::V_object& request)
   {
-    int64_t roid = request_data.at(&"roid").as_integer();
+    int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
     ////////////////////////////////////////////////////////////
@@ -254,14 +254,14 @@ do_star_role_disconnect(const shptr<Implementation>& impl,
       hyd = *ptr;
 
     if(!hyd.role) {
-      response_data.try_emplace(&"status", &"gs_role_not_logged_in");
+      response.try_emplace(&"status", &"gs_role_not_logged_in");
       return;
     }
 
     hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
     hyd.role->on_disconnect();
 
-    response_data.try_emplace(&"status", &"gs_ok");
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void

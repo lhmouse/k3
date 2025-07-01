@@ -18,7 +18,7 @@ class Service_Future
     ::poseidon::UUID m_target_service_uuid;
     cow_string m_target_service_type;
     phcow_string m_opcode;
-    ::taxon::V_object m_request_data;
+    ::taxon::V_object m_request;
     cow_vector<Service_Response> m_responses;
 
   public:
@@ -29,10 +29,10 @@ class Service_Future
       };
 
     Service_Future(multicast_selector_t&& selector, const phcow_string& opcode,
-                   const ::taxon::V_object& request_data);
+                   const ::taxon::V_object& request);
 
     Service_Future(const ::poseidon::UUID& target_service_uuid,
-                   const phcow_string& opcode, const ::taxon::V_object& request_data);
+                   const phcow_string& opcode, const ::taxon::V_object& request);
 
   private:
     virtual
@@ -66,8 +66,8 @@ class Service_Future
 
     // Gets the request data. This field is set by the constructor.
     const ::taxon::V_object&
-    request_data() const noexcept
-      { return this->m_request_data;  }
+    request() const noexcept
+      { return this->m_request;  }
 
     // Gets a vector of all target services with their responses, after all
     // operations have completed successfully. If `successful()` yields `false`,
