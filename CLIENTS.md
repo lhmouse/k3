@@ -66,9 +66,9 @@ Fields of server-to-client messages are defined as follows:
   only set when a server sends a message actively; when responding to a previous
   request message from the client, this field is not set.
 * `serial` <sub>any value, optional</sub> : If a previous message from the
-  client had a `serial`, this echos the value back, maintaining a one-to-one
-  relationship between a request-response pair. The server never sends a serial
-  with an opcode.
+  client had `serial`, this echos the value back, maintaining a one-to-one
+  relationship between a request-response message pair. The server shall never
+  send both `serial` and `opcode`.
 * `data` <sub>object, optional</sub> : Message-specific data for this opcode.
 
 [back to table of contents](#table-of-contents)
