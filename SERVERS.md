@@ -31,7 +31,6 @@ strings:
 |`gs_user_not_found`         |User not found in database.                    |
 |`gs_nickname_conflict`      |Nickname already exists in database.           |
 |`gs_nickname_not_found`     |Nickname not found in database.                |
-|`gs_nickname_length_error`  |Nickname length out of range.                  |
 |`gs_roid_conflict`          |Role ID already exists in database.            |
 |`gs_roid_not_found`         |Role ID not found in database.                 |
 |`gs_role_not_loaded`        |Role not loaded in Redis.                      |
@@ -44,6 +43,10 @@ strings:
 ## Agent Service Opcodes
 
 ### `*user/ban/set`
+
+* Service Type
+
+  - `"agent"`
 
 * Request Parameters
 
@@ -63,6 +66,10 @@ strings:
 
 ### `*user/ban/lift`
 
+* Service Type
+
+  - `"agent"`
+
 * Request Parameters
 
   - `username` <sub>string</sub> : Name of user to ban.
@@ -78,6 +85,10 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ### `*user/kick`
+
+* Service Type
+
+  - `"agent"`
 
 * Request Parameters
 
@@ -98,6 +109,10 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ### `*nickname/acquire`
+
+* Service Type
+
+  - `"agent"`
 
 * Request Parameters
 
@@ -121,6 +136,10 @@ strings:
 
 ### `*nickname/release`
 
+* Service Type
+
+  - `"agent"`
+
 * Request Parameters
 
   - `nickname` <sub>string</sub> : Nickname to release.
@@ -138,6 +157,10 @@ strings:
 ## Monitor Service Opcodes
 
 ### `*role/list`
+
+* Service Type
+
+  - `"monitor"`
 
 * Request Parameters
 
@@ -158,6 +181,10 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ### `*role/create`
+
+* Service Type
+
+  - `"monitor"`
 
 * Request Parameters
 
@@ -180,6 +207,10 @@ strings:
 
 ### `*role/load`
 
+* Service Type
+
+  - `"monitor"`
+
 * Request Parameters
 
   - `roid` <sub>integer</sub> : ID of role to load.
@@ -198,6 +229,10 @@ strings:
 
 ### `*role/unload`
 
+* Service Type
+
+  - `"monitor"`
+
 * Request Parameters
 
   - `roid` <sub>integer</sub> : ID of role to unload.
@@ -213,6 +248,10 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ### `*role/flush`
+
+* Service Type
+
+  - `"monitor"`
 
 * Request Parameters
 
@@ -231,6 +270,10 @@ strings:
 ## Logic Service Opcodes
 
 ### `*role/login`
+
+* Service Type
+
+  - `"logic"`
 
 * Request Parameters
 
@@ -251,6 +294,10 @@ strings:
 
 ### `*role/logout`
 
+* Service Type
+
+  - `"logic"`
+
 * Request Parameters
 
   - `roid` <sub>integer</sub> : ID of role to unload.
@@ -266,6 +313,10 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ### `*role/reconnect`
+
+* Service Type
+
+  - `"logic"`
 
 * Request Parameters
 
@@ -286,6 +337,10 @@ strings:
 [back to table of contents](#table-of-contents)
 
 ### `*role/disconnect`
+
+* Service Type
+
+  - `"logic"`
 
 * Request Parameters
 

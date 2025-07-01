@@ -81,12 +81,17 @@ strings:
 |Status Code                 |Description                                    |
 |:---------------------------|:----------------------------------------------|
 |`sc_ok`                     |Operation completed successfully.              |
+|`sc_nickname_invalid`       |Nickname not valid.                            |
+|`sc_nickname_length_error`  |Nickname length out of range.                  |
+|`sc_nickname_conflict`      |Nickname already exists.                       |
+|`sc_too_many_roles`         |Max number of roles exceeded.                  |
+|`sc_role_creation_failure`  |Could not create role; internal error.         |
 
 ### `+role/create`
 
 * Request Parameters
 
-  - `roid` <sub>integer</sub> : Unique ID of role to log into.
+  - `nickname` <sub>string</sub> : Nickname of new role.
 
 * Response Parameters
 
