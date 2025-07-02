@@ -364,6 +364,9 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           const phcow_string username = session->session_user_data().as_string();
 
+          if(impl->connections.at(username).weak_session.lock() != session)
+            return;
+
           if(impl->connections.at(username).current_roid != 0) {
             // Notify logic server.
             ::taxon::V_object tx_args;

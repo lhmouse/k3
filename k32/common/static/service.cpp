@@ -223,6 +223,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 
           const ::poseidon::UUID target_service_uuid(session->session_user_data().as_string());
 
+          if(impl->remote_connections.at(target_service_uuid).weak_session.lock() != session)
+            return;
+
           do_remove_remote_connection(impl, target_service_uuid);
 
           POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
@@ -419,11 +422,13 @@ do_server_ws_callback(const shptr<Implementation>& impl,
         break;
 
       case ::poseidon::easy_ws_close:
-        if(session->session_user_data().is_null())
-          return;
+        {
+          if(session->session_user_data().is_null())
+            return;
 
-        POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
-        break;
+          POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
+          break;
+        }
       }
   }
 
