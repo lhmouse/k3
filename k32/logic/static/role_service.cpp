@@ -469,7 +469,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"*role/disconnect", bindw(this->m_impl, do_star_role_disconnect));
 
     // Restart the service.
-    this->m_impl->save_timer.start(900ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
+    this->m_impl->save_timer.start(100ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
     this->m_impl->every_second_timer.start(1s, bindw(this->m_impl, do_every_second_timer_callback));
   }
 
