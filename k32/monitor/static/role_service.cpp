@@ -616,7 +616,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"*role/flush", bindw(this->m_impl, do_star_role_flush));
 
     // Restart the service.
-    this->m_impl->save_timer.start(11001ms, bindw(this->m_impl, do_save_timer_callback));
+    this->m_impl->save_timer.start(100ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
   }
 
 }  // namespace k32::monitor

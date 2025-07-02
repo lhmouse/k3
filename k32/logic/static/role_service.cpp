@@ -45,8 +45,10 @@ do_set_role_record_common_fields(::taxon::V_object& temp_obj, const shptr<Role>&
   }
 
 void
-do_update_role_record(Hydrated_Role& hyd)
+do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, seconds ttl)
   {
+    POSEIDON_LOG_DEBUG(("Saving role `$1`: preparing data"), hyd.roinfo.roid);
+
     ROCKET_ASSERT(hyd.roinfo.roid == hyd.role->roid());
     hyd.roinfo.username = hyd.role->username();
     hyd.roinfo.nickname = hyd.role->nickname();
@@ -66,15 +68,13 @@ do_update_role_record(Hydrated_Role& hyd)
     hyd.role->make_db_record(temp_obj);
     do_set_role_record_common_fields(temp_obj, hyd.role);
     hyd.roinfo.whole = ::taxon::Value(temp_obj).to_string();
-  }
 
-void
-do_save_role_record(::poseidon::Abstract_Fiber& fiber, const Role_Record& roinfo, seconds ttl)
-  {
+    POSEIDON_LOG_DEBUG(("Saving role `$1`: writing to Redis"), hyd.roinfo.roid);
+
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
-    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roinfo.roid));
-    redis_cmd.emplace_back(roinfo.serialize_to_string());
+    redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), hyd.roinfo.roid));
+    redis_cmd.emplace_back(hyd.roinfo.serialize_to_string());
     redis_cmd.emplace_back(&"EX");
     redis_cmd.emplace_back(sformat("$1", ttl.count()));
 
@@ -82,8 +82,7 @@ do_save_role_record(::poseidon::Abstract_Fiber& fiber, const Role_Record& roinfo
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    POSEIDON_LOG_INFO(("Saved role to Redis: role `$1` (`$2`), updated on `$3`"),
-                      roinfo.roid, roinfo.nickname, roinfo.update_time);
+    POSEIDON_LOG_INFO(("Saved role `$1` (`$2`) to Redis"), hyd.roinfo.roid, hyd.roinfo.nickname);
   }
 
 void
@@ -144,13 +143,12 @@ do_save_timer_callback(const shptr<Implementation>& impl,
         }
       }
 
-      do_update_role_record(hyd);
+      do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
       if((hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
           && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration))
         impl->hyd_roles.erase(roid);
-      else
-        impl->hyd_roles.insert_or_assign(roid, hyd);
-      do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
+      else if(auto ptr = impl->hyd_roles.mut_ptr(roid))
+        *ptr = hyd;
     }
   }
 
@@ -240,9 +238,8 @@ do_star_role_logout(const shptr<Implementation>& impl,
     hyd.role->mf_disconnected_since() = steady_clock::now();
     hyd.role->on_logout();
 
-    do_update_role_record(hyd);
+    do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
     impl->hyd_roles.erase(roid);
-    do_save_role_record(fiber, hyd.roinfo, impl->redis_role_ttl);
 
     response.try_emplace(&"status", &"gs_ok");
   }
@@ -469,7 +466,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"*role/disconnect", bindw(this->m_impl, do_star_role_disconnect));
 
     // Restart the service.
-    this->m_impl->save_timer.start(100ms, 11001ms, bindw(this->m_impl, do_save_timer_callback));
+    this->m_impl->save_timer.start(3001ms, bindw(this->m_impl, do_save_timer_callback));
     this->m_impl->every_second_timer.start(1s, bindw(this->m_impl, do_every_second_timer_callback));
   }
 
