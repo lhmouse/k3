@@ -165,29 +165,31 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           }
 
           // Publish my connection.
-          ::taxon::Value redis_uinfo;
-          redis_uinfo.open_object().try_emplace(&"service_uuid", service.service_uuid().to_string());
-          redis_uinfo.open_object().try_emplace(&"login_address", uinfo.login_address.to_string());
-          redis_uinfo.open_object().try_emplace(&"login_time", uinfo.login_time);
+          ::taxon::V_object redis_uinfo;
+          redis_uinfo.try_emplace(&"username", uinfo.username.rdstr());
+          redis_uinfo.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+          redis_uinfo.try_emplace(&"login_address", uinfo.login_address.to_string());
+          redis_uinfo.try_emplace(&"login_time", uinfo.login_time);
 
           cow_vector<cow_string> redis_cmd;
           redis_cmd.emplace_back(&"SET");
           redis_cmd.emplace_back(sformat("$1/user/$2", service.application_name(), uinfo.username));
-          redis_cmd.emplace_back(redis_uinfo.to_string());
+          redis_cmd.emplace_back(::taxon::Value(redis_uinfo).to_string());
           redis_cmd.emplace_back(&"GET");
 
           auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
           ::poseidon::task_scheduler.launch(task2);
           fiber.yield(task2);
 
-          if(task2->result().is_string() && redis_uinfo.parse(task2->result().as_string())) {
-            // Parse previous data on Redis. If it is not my service UUID, then
-            // disconnect the user on that service.
-            auto pval = redis_uinfo.as_object().ptr(&"service_uuid");
-            if(pval && pval->is_string()) {
-              ::poseidon::UUID other_service_uuid(pval->as_string());
+          if(!task2->result().is_nil()) {
+            ::taxon::Value temp_value;
+            if(temp_value.parse(task2->result().as_string())) {
+              // If the user exists a different service, disconnect them.
+              ::poseidon::UUID other_service_uuid;
+              if(auto ptr = temp_value.as_object().ptr(&"agent_service_uuid"))
+                other_service_uuid = ::poseidon::UUID(ptr->as_string());
+
               if(other_service_uuid != service.service_uuid()) {
-                // Disconnect this user from the other service.
                 ::taxon::V_object tx_args;
                 tx_args.try_emplace(&"username", uinfo.username.rdstr());
                 tx_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
