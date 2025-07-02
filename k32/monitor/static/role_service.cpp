@@ -159,8 +159,7 @@ do_star_role_list(const shptr<Implementation>& impl,
 
     POSEIDON_LOG_INFO(("Found $1 role(s) for user `$2`"), db_records.size(), username);
 
-    // If Redis contains role records that have not been flushed to MySQL,
-    // copy them.
+    // See whether Redis contains unflushed role records.
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"MGET");
     for(size_t k = 0;  k < db_records.size();  ++k)
@@ -170,22 +169,17 @@ do_star_role_list(const shptr<Implementation>& impl,
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
+    ::taxon::V_array avatar_list;
+    avatar_list.reserve(db_records.size());
     for(size_t k = 0;  k < db_records.size();  ++k) {
-      const auto& redis_value = task2->result().as_array().at(k);
-      if(!redis_value.is_nil())
-        db_records.at(k).parse_from_string(redis_value.as_string());
+      // Update role records from Redis.
+      if(!task2->result().as_array().at(k).is_nil())
+        db_records.at(k).parse_from_string(task2->result().as_array().at(k).as_string());
+
+      avatar_list.emplace_back(db_records.at(k).avatar);
     }
 
-    ::taxon::V_array role_list;
-    role_list.reserve(db_records.size());
-    for(size_t k = 0;  k < db_records.size();  ++k) {
-      ::taxon::V_object role;
-      role.try_emplace(&"roid", db_records.at(k).roid);
-      role.try_emplace(&"avatar", db_records.at(k).avatar);
-      role_list.emplace_back(move(role));
-    }
-
-    response.try_emplace(&"role_list", role_list);
+    response.try_emplace(&"avatar_list", avatar_list);
     response.try_emplace(&"status", &"gs_ok");
   }
 

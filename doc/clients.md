@@ -143,15 +143,13 @@ strings:
 
 * Notification Parameters
 
-  - `role_list` <sub>array of objects</sub> : List of available roles.
-    - `roid` <sub>number</sub> : Unique ID of role.
-    - `avatar` <sub>object</sub> : Avatar data.
+  - `avatar_list` <sub>array of objects</sub> : List of available roles.
 
 * Description
 
   This notification is sent after a user is authenticated successfully but no
   role is currently online. The client may choose to log into an existing role
-  from `role_list`, or to create a new role.
+  from `avatar_list`, or to create a new role.
 
 [back to table of contents](#table-of-contents)
 

@@ -38,7 +38,7 @@ strings:
 |`gs_role_not_loaded`        |Role not loaded in Redis.                      |
 |`gs_role_foreign`           |Role belongs to another server.                |
 |`gs_role_not_logged_in`     |Role not logged in.                            |
-|`gs_reconnect_clear`        |No role to reconnect.                          |
+|`gs_reconnect_noop`         |No role to reconnect.                          |
 
 [back to table of contents](#table-of-contents)
 
@@ -192,9 +192,7 @@ strings:
 * Response Parameters
 
   - `status` <sub>string</sub> : [General status code.](#general-status-codes)
-  - `role_list` <sub>array of objects</sub> : Roles that have been found.
-    - `roid` <sub>integer</sub> : Unique ID of role.
-    - `avatar` <sub>string</sub> : Avatar data, encoded as a JSON string.
+  - `avatar_list` <sub>array of objects</sub> : Roles that have been found.
 
 * Description
 
@@ -343,17 +341,19 @@ strings:
 
 * Request Parameters
 
-  - `roid` <sub>integer</sub> : ID of role to reconnect.
+  - `roid_list` <sub>array of integers</sub> : List of IDs of roles to check.
   - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
     connection.
 
 * Response Parameters
 
   - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+  - `roid` <sub>integer</sub> : ID of role that has reconnected.
 
 * Description
 
-  Triggers a _reconnect_ event.
+  If a role in `roid_list` has been loaded, triggers a _reconnect_ event.
+  Otherwise no role is loaded, and an error is returned.
 
 [back to table of contents](#table-of-contents)
 
