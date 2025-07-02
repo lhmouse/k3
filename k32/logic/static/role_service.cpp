@@ -45,7 +45,7 @@ do_set_role_record_common_fields(::taxon::V_object& temp_obj, const shptr<Role>&
   }
 
 void
-do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, seconds ttl)
+do_store_role_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, seconds ttl)
   {
     POSEIDON_LOG_DEBUG(("Saving role `$1`: preparing data"), hyd.roinfo.roid);
 
@@ -83,6 +83,19 @@ do_store_role_record_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role
     fiber.yield(task2);
 
     POSEIDON_LOG_INFO(("Saved role `$1` (`$2`) to Redis"), hyd.roinfo.roid, hyd.roinfo.nickname);
+  }
+
+void
+do_flush_role_to_mysql(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd)
+  {
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", hyd.roinfo.roid);
+
+    auto srv_q = new_sh<Service_Future>(hyd.roinfo.home_srv, &"*role/flush", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`) to MySQL"), hyd.roinfo.roid, hyd.roinfo.nickname);
   }
 
 void
@@ -141,23 +154,27 @@ do_save_timer_callback(const shptr<Implementation>& impl,
 
         if(status != "gs_ok") {
           hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
-          hyd.role->mf_disconnected_since() = steady_clock::now();
+          hyd.role->mf_disconnected_since() = now;
           hyd.role->on_disconnect();
         }
       }
 
-      if((hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
-          && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration)) {
+      nanoseconds dc_duration = -1s;
+      if(hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
+        dc_duration = now - hyd.role->mf_disconnected_since();
+
+      if(dc_duration < impl->disconnect_to_logout_duration) {
+        do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
+        if(auto ptr = impl->hyd_roles.mut_ptr(roid))
+          *ptr = hyd;
+      }
+      else {
         POSEIDON_LOG_DEBUG(("Logging out role `$1` due to inactivity"), hyd.roinfo.roid);
         hyd.role->on_logout();
 
-        do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
+        do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
         impl->hyd_roles.erase(roid);
-      }
-      else {
-        do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
-        if(auto ptr = impl->hyd_roles.mut_ptr(roid))
-          *ptr = hyd;
+        do_flush_role_to_mysql(fiber, hyd);
       }
     }
   }
@@ -248,8 +265,9 @@ do_star_role_logout(const shptr<Implementation>& impl,
     hyd.role->mf_disconnected_since() = steady_clock::now();
     hyd.role->on_logout();
 
-    do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
+    do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
     impl->hyd_roles.erase(roid);
+    do_flush_role_to_mysql(fiber, hyd);
 
     response.try_emplace(&"status", &"gs_ok");
   }
