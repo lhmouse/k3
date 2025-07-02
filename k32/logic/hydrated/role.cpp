@@ -13,9 +13,9 @@ Role::
 
 void
 Role::
-hydrate(const ::taxon::V_object& db_data)
+parse_from_db_record(const ::taxon::V_object& db_record)
   {
-    POSEIDON_LOG_FATAL(("HYDRATE: $1: $2"), *this, db_data);
+    POSEIDON_LOG_FATAL(("parse_from_db_record: $1: $2"), *this, db_record);
   }
 
 void
@@ -34,10 +34,10 @@ make_profile(::taxon::V_object& profile)
 
 void
 Role::
-hibernate(::taxon::V_object& db_data)
+make_db_record(::taxon::V_object& db_record)
   {
-    db_data.try_emplace(&"db_data", true);
-    POSEIDON_LOG_FATAL(("HIBERNATE: $1: $2"), *this, db_data);
+    db_record.try_emplace(&"db_record", true);
+    POSEIDON_LOG_FATAL(("make_db_record: $1: $2"), *this, db_record);
   }
 
 void

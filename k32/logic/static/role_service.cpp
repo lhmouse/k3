@@ -37,6 +37,14 @@ struct Implementation
   };
 
 void
+do_set_role_record_common_fields(::taxon::V_object& temp_obj, const shptr<Role>& role)
+  {
+    temp_obj.insert_or_assign(&"roid", role->roid());
+    temp_obj.insert_or_assign(&"username", role->username().rdstr());
+    temp_obj.insert_or_assign(&"nickname", role->nickname());
+  }
+
+void
 do_update_role_record(Hydrated_Role& hyd)
   {
     ROCKET_ASSERT(hyd.roinfo.roid == hyd.role->roid());
@@ -46,14 +54,17 @@ do_update_role_record(Hydrated_Role& hyd)
 
     ::taxon::V_object temp_obj;
     hyd.role->make_avatar(temp_obj);
+    do_set_role_record_common_fields(temp_obj, hyd.role);
     hyd.roinfo.avatar = ::taxon::Value(temp_obj).to_string();
 
     temp_obj.clear();
     hyd.role->make_profile(temp_obj);
+    do_set_role_record_common_fields(temp_obj, hyd.role);
     hyd.roinfo.profile = ::taxon::Value(temp_obj).to_string();
 
     temp_obj.clear();
-    hyd.role->hibernate(temp_obj);
+    hyd.role->make_db_record(temp_obj);
+    do_set_role_record_common_fields(temp_obj, hyd.role);
     hyd.roinfo.whole = ::taxon::Value(temp_obj).to_string();
   }
 
@@ -189,7 +200,7 @@ do_star_role_login(const shptr<Implementation>& impl,
         // For a new role, this value is an empty string and can't be parsed.
         ::taxon::Value temp_value;
         POSEIDON_CHECK(temp_value.parse(hyd.roinfo.whole));
-        hyd.role->hydrate(temp_value.as_object());
+        hyd.role->parse_from_db_record(temp_value.as_object());
       }
 
       auto result = impl->hyd_roles.try_emplace(hyd.roinfo.roid, hyd);

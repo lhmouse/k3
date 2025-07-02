@@ -26,7 +26,7 @@ class Role
     // Load role cultivation data from the database. This is an internal function
     // called by the role service, after basic information has been filled in.
     void
-    hydrate(const ::taxon::V_object& db_data);
+    parse_from_db_record(const ::taxon::V_object& db_record);
 
     // Create an avatar of this role. This is what others can see outdoors.
     void
@@ -39,7 +39,7 @@ class Role
 
     // Serialize role cultivation data which can then be stored into the database.
     void
-    hibernate(::taxon::V_object& db_data);
+    make_db_record(::taxon::V_object& db_record);
 
     // This function is called right after a role has been loaded from Redis.
     void
