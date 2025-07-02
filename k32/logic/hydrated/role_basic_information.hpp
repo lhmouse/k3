@@ -45,6 +45,10 @@ class Role_Basic_Information
     const ::poseidon::UUID&
     agent_service_uuid() const noexcept
       { return this->m_agent_srv;  }
+
+    bool
+    disconnected() const noexcept
+      { return this->m_agent_srv.is_nil();  }
   };
 
 inline
