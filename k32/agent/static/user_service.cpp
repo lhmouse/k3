@@ -271,7 +271,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           impl->users.insert_or_assign(uinfo.username, uinfo);
           impl->connections.insert_or_assign(uinfo.username, uconn);
 
-          POSEIDON_LOG_INFO(("`$1` logged in from `$2`"), uinfo.username, session->remote_address());
+          POSEIDON_LOG_INFO(("`$1` connected from `$2`"), uinfo.username, session->remote_address());
           break;
         }
 
@@ -391,7 +391,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::poseidon::task_scheduler.launch(task2);
           fiber.yield(task2);
 
-          POSEIDON_LOG_INFO(("`$1` logged out from `$2`"), username, session->remote_address());
+          POSEIDON_LOG_INFO(("`$1` disconnected from `$2`"), username, session->remote_address());
           break;
         }
 
