@@ -47,7 +47,7 @@ do_set_role_record_common_fields(::taxon::V_object& temp_obj, const shptr<Role>&
 void
 do_store_role_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, seconds ttl)
   {
-    POSEIDON_LOG_DEBUG(("Saving role `$1`: preparing data"), hyd.roinfo.roid);
+    POSEIDON_LOG_DEBUG(("Storing role `$1`: preparing data"), hyd.roinfo.roid);
 
     ROCKET_ASSERT(hyd.roinfo.roid == hyd.role->roid());
     hyd.roinfo.username = hyd.role->username();
@@ -82,7 +82,7 @@ do_store_role_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, 
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    POSEIDON_LOG_INFO(("Saved role `$1` (`$2`) to Redis"), hyd.roinfo.roid, hyd.roinfo.nickname);
+    POSEIDON_LOG_INFO(("Stored role `$1` (`$2`) to Redis"), hyd.roinfo.roid, hyd.roinfo.nickname);
   }
 
 void
