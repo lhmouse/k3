@@ -132,6 +132,9 @@ do_save_timer_callback(const shptr<Implementation>& impl,
         service.launch(srv_q);
         fiber.yield(srv_q);
 
+        if(!impl->hyd_roles.count(roid))
+          continue;
+
         cow_string status;
         if(auto ptr = srv_q->response(0).obj.ptr(&"status"))
           status = ptr->as_string();
@@ -143,12 +146,19 @@ do_save_timer_callback(const shptr<Implementation>& impl,
         }
       }
 
-      do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
       if((hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
-          && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration))
+          && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration)) {
+        POSEIDON_LOG_DEBUG(("Logging out role `$1` due to inactivity"), hyd.roinfo.roid);
+        hyd.role->on_logout();
+
+        do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
         impl->hyd_roles.erase(roid);
-      else if(auto ptr = impl->hyd_roles.mut_ptr(roid))
-        *ptr = hyd;
+      }
+      else {
+        do_store_role_record_into_redis(fiber, hyd, impl->redis_role_ttl);
+        if(auto ptr = impl->hyd_roles.mut_ptr(roid))
+          *ptr = hyd;
+      }
     }
   }
 
