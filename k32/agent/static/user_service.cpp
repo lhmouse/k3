@@ -59,8 +59,8 @@ struct Implementation
 void
 do_server_hws_callback(const shptr<Implementation>& impl,
                        const shptr<::poseidon::WS_Server_Session>& session,
-                       ::poseidon::Abstract_Fiber& fiber,
-                       ::poseidon::Easy_HWS_Event event, linear_buffer&& data)
+                       ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
+                       linear_buffer&& data)
   {
     switch(event)
       {
@@ -545,8 +545,7 @@ do_mysql_check_table_nickname(::poseidon::Abstract_Fiber& fiber)
   }
 
 void
-do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
-                         ::poseidon::Abstract_Fiber& fiber,
+do_star_nickname_acquire(const shptr<Implementation>& /*impl*/, ::poseidon::Abstract_Fiber& fiber,
                          const ::poseidon::UUID& /*request_service_uuid*/,
                          ::taxon::V_object& response, const ::taxon::V_object& request)
   {
@@ -616,8 +615,7 @@ do_star_nickname_acquire(const shptr<Implementation>& /*impl*/,
   }
 
 void
-do_star_nickname_release(const shptr<Implementation>& /*impl*/,
-                         ::poseidon::Abstract_Fiber& fiber,
+do_star_nickname_release(const shptr<Implementation>& /*impl*/, ::poseidon::Abstract_Fiber& fiber,
                          const ::poseidon::UUID& /*request_service_uuid*/,
                          ::taxon::V_object& response, const ::taxon::V_object& request)
   {
@@ -698,8 +696,7 @@ do_ping_timer_callback(const shptr<Implementation>& impl,
   }
 
 void
-do_star_user_kick(const shptr<Implementation>& impl,
-                  ::poseidon::Abstract_Fiber& /*fiber*/,
+do_star_user_kick(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& /*fiber*/,
                   const ::poseidon::UUID& /*request_service_uuid*/,
                   ::taxon::V_object& response, const ::taxon::V_object& request)
   {
@@ -733,8 +730,7 @@ do_star_user_kick(const shptr<Implementation>& impl,
   }
 
 void
-do_star_user_check_role(const shptr<Implementation>& impl,
-                        ::poseidon::Abstract_Fiber& /*fiber*/,
+do_star_user_check_role(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& /*fiber*/,
                         const ::poseidon::UUID& /*request_service_uuid*/,
                         ::taxon::V_object& response, const ::taxon::V_object& request)
   {
@@ -764,8 +760,7 @@ do_star_user_check_role(const shptr<Implementation>& impl,
   }
 
 void
-do_star_user_ban_set(const shptr<Implementation>& impl,
-                     ::poseidon::Abstract_Fiber& fiber,
+do_star_user_ban_set(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*request_service_uuid*/,
                      ::taxon::V_object& response, const ::taxon::V_object& request)
   {
@@ -815,8 +810,7 @@ do_star_user_ban_set(const shptr<Implementation>& impl,
   }
 
 void
-do_star_user_ban_lift(const shptr<Implementation>& impl,
-                      ::poseidon::Abstract_Fiber& fiber,
+do_star_user_ban_lift(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
                       const ::poseidon::UUID& /*request_service_uuid*/,
                       ::taxon::V_object& response, const ::taxon::V_object& request)
   {
@@ -858,9 +852,9 @@ do_star_user_ban_lift(const shptr<Implementation>& impl,
   }
 
 void
-do_plus_role_create(const shptr<Implementation>& impl,
-                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response, const ::taxon::V_object& request)
+do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                    const phcow_string& username, ::taxon::V_object& response,
+                    const ::taxon::V_object& request)
   {
     cow_string nickname = request.at(&"nickname").as_string();
     POSEIDON_CHECK(nickname != "");
@@ -962,9 +956,9 @@ do_plus_role_create(const shptr<Implementation>& impl,
   }
 
 void
-do_plus_role_login(const shptr<Implementation>& impl,
-                   ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                   ::taxon::V_object& response, const ::taxon::V_object& request)
+do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                   const phcow_string& username, ::taxon::V_object& response,
+                   const ::taxon::V_object& request)
   {
     int64_t roid = clamp_cast<int64_t>(request.at(&"roid").as_number(), -1, INT64_MAX);
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
@@ -1015,9 +1009,9 @@ do_plus_role_login(const shptr<Implementation>& impl,
   }
 
 void
-do_plus_role_logout(const shptr<Implementation>& impl,
-                    ::poseidon::Abstract_Fiber& fiber, const phcow_string& username,
-                    ::taxon::V_object& response, const ::taxon::V_object& /*request*/)
+do_plus_role_logout(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                    const phcow_string& username, ::taxon::V_object& response,
+                    const ::taxon::V_object& /*request*/)
   {
     if(impl->connections.at(username).current_roid == 0) {
       response.try_emplace(&"status", &"sc_no_role_selected");
