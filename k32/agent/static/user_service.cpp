@@ -53,8 +53,24 @@ struct Implementation
     bool db_ready = false;
     cow_dictionary<User_Record> users;
     cow_dictionary<User_Connection> connections;
-    ::std::vector<phcow_string> expired_connections;
+    ::std::vector<phcow_string> expired_username_list;
   };
+
+phcow_string
+do_get_username(const shptr<Implementation>& impl, const shptr<::poseidon::WS_Server_Session>& sp)
+  {
+    if(sp->session_user_data().is_null())
+      return phcow_string();
+
+    auto it = impl->connections.find(sp->session_user_data().as_string());
+    if(it == impl->connections.end())
+      return phcow_string();
+
+    if(sp.owner_before(it->second.weak_session) || it->second.weak_session.owner_before(sp))
+      return phcow_string();
+
+    return it->first;
+  }
 
 ::poseidon::UUID
 do_find_my_monitor()
@@ -312,10 +328,9 @@ do_server_hws_callback(const shptr<Implementation>& impl,
       case ::poseidon::easy_hws_text:
       case ::poseidon::easy_hws_binary:
         {
-          if(session->session_user_data().is_null())
+          const phcow_string username = do_get_username(impl, session);
+          if(username.empty())
             return;
-
-          const phcow_string username = session->session_user_data().as_string();
 
           tinybuf_ln buf(move(data));
           ::taxon::Value temp_value;
@@ -379,10 +394,9 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
       case ::poseidon::easy_hws_pong:
         {
-          if(session->session_user_data().is_null())
+          const phcow_string username = do_get_username(impl, session);
+          if(username.empty())
             return;
-
-          const phcow_string username = session->session_user_data().as_string();
 
           impl->connections.mut(username).pong_time = steady_clock::now();
           POSEIDON_LOG_TRACE(("PONG: username `$1`"), username);
@@ -391,21 +405,20 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
       case ::poseidon::easy_hws_close:
         {
-          if(session->session_user_data().is_null())
+          const phcow_string username = do_get_username(impl, session);
+          if(username.empty())
             return;
 
-          const phcow_string username = session->session_user_data().as_string();
+          User_Connection uconn;
+          impl->connections.find_and_erase(uconn, username);
 
-          if(impl->connections.at(username).weak_session.lock() != session)
-            return;
-
-          if(impl->connections.at(username).current_roid != 0) {
-            // Notify logic server.
+          if(uconn.current_roid != 0) {
+            // Notify the logic server that the client has disconnected. If the
+            // role has been offline for too long, they will be logged out.
             ::taxon::V_object tx_args;
-            tx_args.try_emplace(&"roid", impl->connections.at(username).current_roid);
+            tx_args.try_emplace(&"roid", uconn.current_roid);
 
-            auto srv_q = new_sh<Service_Future>(impl->connections.at(username).current_logic_srv,
-                                                &"*role/disconnect", tx_args);
+            auto srv_q = new_sh<Service_Future>(uconn.current_logic_srv, &"*role/disconnect", tx_args);
             service.launch(srv_q);
             fiber.yield(srv_q);
           }
@@ -691,37 +704,36 @@ do_ping_timer_callback(const shptr<Implementation>& impl,
       impl->db_ready = true;
     }
 
-    // Poll clients.
+    // Ping clients, and mark connections that have been inactive for a couple
+    // of intervals.
     for(auto it = impl->connections.mut_begin();  it != impl->connections.end();  ++it) {
       auto session = it->second.weak_session.lock();
       if(!session) {
-        POSEIDON_LOG_TRACE(("CLOSED: username `$1`"), it->first);
-        impl->expired_connections.emplace_back(it->first);
+        impl->expired_username_list.emplace_back(it->first);
         continue;
       }
 
-      if(now - it->second.pong_time > impl->client_ping_interval * 2) {
+      if(now - it->second.pong_time > impl->client_ping_interval * 3) {
         POSEIDON_LOG_DEBUG(("PING timed out: username `$1`"), it->first);
         session->ws_shut_down(user_ws_status_ping_timeout);
+        impl->expired_username_list.emplace_back(it->first);
         continue;
-      }
-
-      if(now - it->second.pong_time > impl->client_ping_interval) {
-        POSEIDON_LOG_TRACE(("PING: username `$1`"), it->first);
-        session->ws_send(::poseidon::ws_PING, "");
       }
 
       it->second.rate_time = now;
       it->second.rate_counter = 0;
+
+      if(now - it->second.pong_time > impl->client_ping_interval)
+        session->ws_send(::poseidon::ws_PING, "");
     }
 
-    while(impl->expired_connections.size() != 0) {
-      phcow_string username = move(impl->expired_connections.back());
-      impl->expired_connections.pop_back();
+    while(impl->expired_username_list.size() != 0) {
+      phcow_string username = move(impl->expired_username_list.back());
+      impl->expired_username_list.pop_back();
 
-      POSEIDON_LOG_INFO(("Unloading user information: username `$1`"), username);
-      impl->connections.erase(username);
+      POSEIDON_LOG_DEBUG(("Unloading user information: $1"), username);
       impl->users.erase(username);
+      impl->connections.erase(username);
     }
   }
 
