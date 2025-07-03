@@ -6,9 +6,9 @@
 #include <poseidon/base/config_file.hpp>
 namespace k32::agent {
 
-Clock& clock = *new Clock;
-Service& service = *new Service;
-User_Service& user_service = *new User_Service;
+Clock clock;
+Service service;
+User_Service user_service;
 
 }  // namespace k32::agent
 

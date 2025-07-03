@@ -24,7 +24,7 @@ struct Service_Record
     Service_Record& operator=(Service_Record&&) & = default;
     ~Service_Record();
 
-    static const Service_Record& null;
+    static const Service_Record null;
     explicit operator bool() const noexcept { return this->service_uuid.is_nil() == false;  }
   };
 

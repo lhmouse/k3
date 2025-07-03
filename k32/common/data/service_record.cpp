@@ -6,7 +6,7 @@
 #include "service_record.hpp"
 namespace k32 {
 
-const Service_Record& Service_Record::null = *new Service_Record();
+const Service_Record Service_Record::null;
 
 Service_Record::
 ~Service_Record()

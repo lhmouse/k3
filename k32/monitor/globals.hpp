@@ -10,9 +10,9 @@
 #include "static/role_service.hpp"
 namespace k32::monitor {
 
-extern Clock& clock;
-extern Service& service;
-extern Role_Service& role_service;
+extern Clock clock;
+extern Service service;
+extern Role_Service role_service;
 
 }  // namespace k32::monitor
 #endif

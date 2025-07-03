@@ -6,7 +6,7 @@
 #include "user_record.hpp"
 namespace k32 {
 
-const User_Record& User_Record::null = *new User_Record();
+const User_Record User_Record::null;
 
 User_Record::
 ~User_Record()

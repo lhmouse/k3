@@ -25,7 +25,7 @@ struct User_Record
     User_Record& operator=(User_Record&&) & = default;
     ~User_Record();
 
-    static const User_Record& null;
+    static const User_Record null;
     explicit operator bool() const noexcept { return this->username.length() != 0;  }
   };
 

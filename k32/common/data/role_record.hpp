@@ -30,7 +30,7 @@ struct Role_Record
     Role_Record& operator=(Role_Record&&) & = default;
     ~Role_Record();
 
-    static const Role_Record& null;
+    static const Role_Record null;
     explicit operator bool() const noexcept { return this->roid == 0;  }
 
     void

@@ -6,9 +6,9 @@
 #include <poseidon/base/config_file.hpp>
 namespace k32::logic {
 
-Clock& clock = *new Clock;
-Service& service = *new Service;
-Role_Service& role_service = *new Role_Service;
+Clock clock;
+Service service;
+Role_Service role_service;
 
 }  // namespace k32::logic
 

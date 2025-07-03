@@ -6,7 +6,7 @@
 #include "role_record.hpp"
 namespace k32 {
 
-const Role_Record& Role_Record::null = *new Role_Record();
+const Role_Record Role_Record::null;
 
 Role_Record::
 ~Role_Record()
