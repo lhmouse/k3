@@ -41,7 +41,7 @@ struct Implementation
     system_time zone_start_time;
 
     ::poseidon::UUID service_uuid;
-    system_time service_start_time;
+    steady_time service_start_time;
     cow_dictionary<Service::handler_type> handlers;
 
     ::taxon::V_object service_data;
@@ -555,8 +555,8 @@ do_publish_service(const shptr<Implementation>& impl,
     if(impl->appointment.index() < 0)
       return;
 
-    if(impl->service_start_time == system_time())
-      impl->service_start_time = system_clock::now();
+    if(impl->service_start_time == steady_time())
+      impl->service_start_time = now;
 
     impl->service_data.insert_or_assign(&"service_type", impl->service_type);
     impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
@@ -614,7 +614,7 @@ do_publish_service(const shptr<Implementation>& impl,
     POSEIDON_CHECK(task1->status() == "OK");
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
-    if(impl->service_start_time - system_clock::now() <= 60s)
+    if(impl->service_start_time - now <= 60s)
       do_subscribe_services(impl, timer, fiber, now);
   }
 
