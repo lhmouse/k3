@@ -127,9 +127,7 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       // `impl->hyd_roles` may change between iterations. It's crucial that we
       // limit scopes of pointers, references, and iterators.
       Hydrated_Role hyd;
-      if(auto ptr = impl->hyd_roles.ptr(roid))
-        hyd = *ptr;
-
+      impl->hyd_roles.find_and_copy(hyd, roid);
       if(!hyd.role)
         continue;
 
@@ -191,9 +189,7 @@ do_star_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     ////////////////////////////////////////////////////////////
     //
     Hydrated_Role hyd;
-    if(auto ptr = impl->hyd_roles.ptr(roid))
-      hyd = *ptr;
-
+    impl->hyd_roles.find_and_copy(hyd, roid);
     if(!hyd.role) {
       // Load role from Redis.
       cow_vector<cow_string> redis_cmd;
@@ -249,9 +245,7 @@ do_star_role_logout(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
     ////////////////////////////////////////////////////////////
     //
     Hydrated_Role hyd;
-    if(auto ptr = impl->hyd_roles.ptr(roid))
-      hyd = *ptr;
-
+    impl->hyd_roles.find_and_copy(hyd, roid);
     if(!hyd.role) {
       response.try_emplace(&"status", &"gs_role_not_logged_in");
       return;
@@ -287,11 +281,7 @@ do_star_role_reconnect(const shptr<Implementation>& impl, ::poseidon::Abstract_F
     //
     Hydrated_Role hyd;
     for(int64_t roid : roid_list)
-      if(auto ptr = impl->hyd_roles.ptr(roid)) {
-        hyd = *ptr;
-        break;
-      }
-
+      impl->hyd_roles.find_and_copy(hyd, roid);
     if(!hyd.role) {
       response.try_emplace(&"status", &"gs_reconnect_noop");
       return;
@@ -315,9 +305,7 @@ do_star_role_disconnect(const shptr<Implementation>& impl, ::poseidon::Abstract_
     ////////////////////////////////////////////////////////////
     //
     Hydrated_Role hyd;
-    if(auto ptr = impl->hyd_roles.ptr(roid))
-      hyd = *ptr;
-
+    impl->hyd_roles.find_and_copy(hyd, roid);
     if(!hyd.role) {
       response.try_emplace(&"status", &"gs_role_not_logged_in");
       return;

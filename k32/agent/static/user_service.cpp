@@ -773,9 +773,7 @@ do_star_user_check_role(const shptr<Implementation>& impl, ::poseidon::Abstract_
     ////////////////////////////////////////////////////////////
     //
     User_Connection uconn;
-    if(auto ptr = impl->connections.ptr(username))
-      uconn = *ptr;
-
+    impl->connections.find_and_copy(uconn, username);
     if(uconn.weak_session.expired()) {
       response.try_emplace(&"status", &"gs_user_not_online");
       return;
