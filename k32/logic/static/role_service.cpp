@@ -25,8 +25,6 @@ struct Implementation
   {
     seconds redis_role_ttl;
     seconds disconnect_to_logout_duration;
-    int service_zone_id = 0;
-    system_time service_start_time;
 
     ::poseidon::Easy_Timer save_timer;
     ::poseidon::Easy_Timer every_second_timer;
@@ -372,26 +370,6 @@ Role_Service::
   {
   }
 
-int
-Role_Service::
-service_zone_id() const noexcept
-  {
-    if(!this->m_impl)
-      return 0;
-
-    return this->m_impl->service_zone_id;
-  }
-
-system_time
-Role_Service::
-service_start_time() const noexcept
-  {
-    if(!this->m_impl)
-      return system_time();
-
-    return this->m_impl->service_start_time;
-  }
-
 shptr<Role>
 Role_Service::
 find_online_role_opt(int64_t roid) const noexcept
@@ -415,8 +393,6 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Define default values here. The operation shall be atomic.
     int64_t redis_role_ttl = 900, disconnect_to_logout_duration = 60;
-    int64_t service_zone_id = 0;
-    ::poseidon::DateTime service_start_time;
 
     // `redis_role_ttl`
     auto conf_value = conf_file.query(&"redis_role_ttl");
@@ -450,43 +426,9 @@ reload(const ::poseidon::Config_File& conf_file)
           "[in configuration file '$2']"),
           disconnect_to_logout_duration, conf_file.path());
 
-    // `logic.service_zone_id`
-    conf_value = conf_file.query(&"logic.service_zone_id");
-    if(conf_value.is_integer())
-      service_zone_id = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `logic.service_zone_id`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((service_zone_id < 1) || (service_zone_id > 99999999))
-      POSEIDON_THROW((
-          "Invalid `logic.service_zone_id`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          service_zone_id, conf_file.path());
-
-    // `logic.service_start_time`
-    conf_value = conf_file.query(&"logic.service_start_time");
-    if(conf_value.is_string())
-      service_start_time = ::poseidon::DateTime(conf_value.as_string());
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `logic.service_start_time`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if(service_start_time.as_system_time() > system_clock::now())
-      POSEIDON_THROW((
-          "Invalid `logic.service_start_time`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          service_start_time, conf_file.path());
-
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
     this->m_impl->disconnect_to_logout_duration = seconds(disconnect_to_logout_duration);
-    this->m_impl->service_zone_id = static_cast<int>(service_zone_id);
-    this->m_impl->service_start_time = service_start_time.as_system_time();
 
     // Set up request handlers.
     service.set_handler(&"*role/login", bindw(this->m_impl, do_star_role_login));
