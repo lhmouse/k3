@@ -35,6 +35,8 @@ struct Implementation
     ::poseidon::Appointment appointment;
     cow_string application_name;
     cow_string application_password;
+    int zone_id = 0;
+    system_time zone_start_time;
 
     ::poseidon::UUID service_uuid;
     system_time service_start_time;
@@ -554,9 +556,11 @@ do_publish_service(const shptr<Implementation>& impl,
     if(impl->service_start_time == system_time())
       impl->service_start_time = system_clock::now();
 
-    impl->service_data.insert_or_assign(&"application_name", impl->application_name);
     impl->service_data.insert_or_assign(&"service_type", impl->service_type);
     impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
+    impl->service_data.insert_or_assign(&"application_name", impl->application_name);
+    impl->service_data.insert_or_assign(&"zone_id", impl->zone_id);
+    impl->service_data.insert_or_assign(&"zone_start_time", impl->zone_start_time);
 
     auto private_addr = impl->private_server.local_address();
     if(private_addr.port() != 0) {
@@ -670,6 +674,16 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
+const cow_string&
+Service::
+service_type() const noexcept
+  {
+    if(!this->m_impl)
+      return ::poseidon::empty_cow_string;
+
+    return this->m_impl->service_type;
+  }
+
 int
 Service::
 service_index() const noexcept
@@ -688,6 +702,26 @@ application_name() const noexcept
       return ::poseidon::empty_cow_string;
 
     return this->m_impl->application_name;
+  }
+
+int
+Service::
+zone_id() const noexcept
+  {
+    if(!this->m_impl)
+      return 0;
+
+    return this->m_impl->zone_id;
+  }
+
+system_time
+Service::
+zone_start_time() const noexcept
+  {
+    if(!this->m_impl)
+      return system_time();
+
+    return this->m_impl->zone_start_time;
   }
 
 const Service_Record&
@@ -712,8 +746,9 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
-    ::asteria::V_string application_name, application_password;
-    ::asteria::V_string lock_directory;
+    ::asteria::V_string application_name, application_password, lock_directory;
+    int64_t zone_id = 0;
+    ::poseidon::DateTime zone_start_time;
 
     // `application_name`
     auto conf_value = conf_file.query(&"application_name");
@@ -752,6 +787,38 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
+    // `zone_id`
+    conf_value = conf_file.query(&"zone_id");
+    if(conf_value.is_integer())
+      zone_id = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `zone_id`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((zone_id < 1) || (zone_id > 99999999))
+      POSEIDON_THROW((
+          "Invalid `zone_id`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          zone_id, conf_file.path());
+
+    // `zone_start_time`
+    conf_value = conf_file.query(&"zone_start_time");
+    if(conf_value.is_string())
+      zone_start_time = ::poseidon::DateTime(conf_value.as_string());
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `zone_start_time`: expecting a `string`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if(zone_start_time.as_system_time() > system_clock::now())
+      POSEIDON_THROW((
+          "Invalid `zone_start_time`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          zone_start_time, conf_file.path());
+
     // `lock_directory`
     conf_value = conf_file.query(&"lock_directory");
     if(conf_value.is_string())
@@ -766,6 +833,8 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
     this->m_impl->service_type = service_type;
     this->m_impl->application_name = application_name;
     this->m_impl->application_password = application_password;
+    this->m_impl->zone_id = static_cast<int>(zone_id);
+    this->m_impl->zone_start_time = zone_start_time.as_system_time();
 
     // Set up constants.
     if(this->m_impl->service_uuid.is_nil())
