@@ -56,8 +56,23 @@ struct Implementation
     // remote data from redis
     cow_uuid_dictionary<Service_Record> remote_services;
     cow_uuid_dictionary<Remote_Service_Connection_Record> remote_connections;
-    ::std::vector<::poseidon::UUID> expired_service_uuids;
+    ::std::vector<::poseidon::UUID> expired_remote_service_uuid_list;
   };
+
+::poseidon::UUID
+do_get_service_uuid(const ::poseidon::TCP_Socket& socket)
+  {
+    ::poseidon::UUID service_uuid;
+    if(socket.session_user_data().is_binary())
+      ::memcpy(&service_uuid, socket.session_user_data().as_binary_data(), 16);
+    return service_uuid;
+  }
+
+void
+do_set_service_uuid(::poseidon::TCP_Socket& socket, const ::poseidon::UUID& service_uuid)
+  {
+    socket.mut_session_user_data() = cow_bstring(service_uuid.data(), 16);
+  }
 
 void
 do_salt_password(char* pw, const ::poseidon::UUID& s, int64_t ts, const cow_string& password)
@@ -73,29 +88,6 @@ do_salt_password(char* pw, const ::poseidon::UUID& s, int64_t ts, const cow_stri
     uint8_t checksum[16];
     ::MD5_Final(checksum, &ctx);
     ::poseidon::hex_encode_16_partial(pw, checksum);
-  }
-
-void
-do_remove_remote_connection(const shptr<Implementation>& impl, const ::poseidon::UUID& service_uuid)
-  {
-    POSEIDON_LOG_DEBUG(("Removing service connection: service_uuid `$1`"), service_uuid);
-    auto conn = move(impl->remote_connections.open(service_uuid));
-    impl->remote_connections.erase(service_uuid);
-
-    for(const auto& r : conn.weak_futures)
-      if(auto req = r.first.lock()) {
-        bool all_received = true;
-        for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
-          if(p->service_uuid != service_uuid)
-            all_received &= p->complete;
-          else {
-            p->error = &"Connection lost";
-            p->complete = true;
-          }
-
-        if(all_received)
-          req->mf_abstract_future_complete();
-      }
   }
 
 void
@@ -186,10 +178,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
       case ::poseidon::easy_ws_text:
       case ::poseidon::easy_ws_binary:
         {
-          if(session->session_user_data().is_null())
+          const ::poseidon::UUID remote_service_uuid = do_get_service_uuid(*session);
+          if(remote_service_uuid.is_nil())
             return;
-
-          const ::poseidon::UUID target_service_uuid(session->session_user_data().as_string());
 
           tinybuf_ln buf(move(data));
           ::taxon::Value temp_value;
@@ -206,7 +197,9 @@ do_client_ws_callback(const shptr<Implementation>& impl,
             error = ptr->as_string();
 
           // Set the request future.
-          auto& conn = impl->remote_connections.open(target_service_uuid);
+          Remote_Service_Connection_Record conn;
+          impl->remote_connections.find_and_copy(conn, remote_service_uuid);
+
           for(const auto& r : conn.weak_futures)
             if(r.second == request_uuid) {
               do_set_response(r.first, request_uuid, response, error);
@@ -222,15 +215,27 @@ do_client_ws_callback(const shptr<Implementation>& impl,
 
       case ::poseidon::easy_ws_close:
         {
-          if(session->session_user_data().is_null())
+          const ::poseidon::UUID remote_service_uuid = do_get_service_uuid(*session);
+          if(remote_service_uuid.is_nil())
             return;
 
-          const ::poseidon::UUID target_service_uuid(session->session_user_data().as_string());
+          Remote_Service_Connection_Record conn;
+          impl->remote_connections.find_and_erase(conn, remote_service_uuid);
 
-          if(impl->remote_connections.at(target_service_uuid).weak_session.lock() != session)
-            return;
+          for(const auto& r : conn.weak_futures)
+            if(auto req = r.first.lock()) {
+              bool all_received = true;
+              for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
+                if(p->service_uuid != remote_service_uuid)
+                  all_received &= p->complete;
+                else {
+                  p->error = &"Connection lost";
+                  p->complete = true;
+                }
 
-          do_remove_remote_connection(impl, target_service_uuid);
+              if(all_received)
+                req->mf_abstract_future_complete();
+            }
 
           POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
           break;
@@ -311,7 +316,9 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!session)
           return;
 
-        const ::poseidon::UUID request_service_uuid(session->session_user_data().as_string());
+        const ::poseidon::UUID request_service_uuid = do_get_service_uuid(*session);
+        if(request_service_uuid.is_nil())
+          return;
 
         // Copy the handler, in case of fiber context switches.
         static_vector<Service::handler_type, 1> handler;
@@ -391,7 +398,7 @@ do_server_ws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          session->mut_session_user_data() = request_service_uuid.to_string();
+          do_set_service_uuid(*session, request_service_uuid);
           POSEIDON_LOG_INFO(("Accepted service from `$1`: $2"), session->remote_address(), data);
           break;
         }
@@ -399,7 +406,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
       case ::poseidon::easy_ws_text:
       case ::poseidon::easy_ws_binary:
         {
-          if(session->session_user_data().is_null())
+          const ::poseidon::UUID request_service_uuid = do_get_service_uuid(*session);
+          if(request_service_uuid.is_nil())
             return;
 
           tinybuf_ln buf(move(data));
@@ -427,7 +435,8 @@ do_server_ws_callback(const shptr<Implementation>& impl,
 
       case ::poseidon::easy_ws_close:
         {
-          if(session->session_user_data().is_null())
+          const ::poseidon::UUID request_service_uuid = do_get_service_uuid(*session);
+          if(request_service_uuid.is_nil())
             return;
 
           POSEIDON_LOG_INFO(("Disconnected from `$1`: $2"), session->remote_address(), data);
@@ -542,14 +551,31 @@ do_subscribe_services(const shptr<Implementation>& impl,
         session->ws_shut_down(::poseidon::ws_status_normal);
 
       POSEIDON_LOG_INFO(("Purging expired service `$1`"), r.first);
-      impl->expired_service_uuids.emplace_back(r.first);
+      impl->expired_remote_service_uuid_list.emplace_back(r.first);
     }
 
-    while(impl->expired_service_uuids.size() != 0) {
-      ::poseidon::UUID service_uuid = impl->expired_service_uuids.back();
-      impl->expired_service_uuids.pop_back();
+    while(impl->expired_remote_service_uuid_list.size() != 0) {
+      const ::poseidon::UUID remote_service_uuid = impl->expired_remote_service_uuid_list.back();
+      impl->expired_remote_service_uuid_list.pop_back();
 
-      do_remove_remote_connection(impl, service_uuid);
+      Remote_Service_Connection_Record conn;
+      impl->remote_connections.find_and_erase(conn, remote_service_uuid);
+
+      for(const auto& r : conn.weak_futures)
+        if(auto req = r.first.lock()) {
+          bool all_received = true;
+          for(auto p = req->mf_responses().mut_begin();  p != req->mf_responses().end();  ++p)
+            if(p->service_uuid != remote_service_uuid)
+              all_received &= p->complete;
+            else {
+              p->error = &"Connection lost";
+              p->complete = true;
+            }
+
+          if(all_received)
+            req->mf_abstract_future_complete();
+        }
+
     }
   }
 
@@ -937,7 +963,7 @@ launch(const shptr<Service_Future>& req)
           cow_string saddr = saddr_fmt.get_string();
           session = this->m_impl->private_client.connect(saddr, bindw(this->m_impl, do_client_ws_callback));
 
-          session->mut_session_user_data() = srv.service_uuid.to_string();
+          do_set_service_uuid(*session, srv.service_uuid);
           conn.weak_session = session;
           POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
         }
