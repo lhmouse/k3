@@ -892,9 +892,34 @@ do_star_user_ban_lift(const shptr<Implementation>& impl, ::poseidon::Abstract_Fi
   }
 
 void
+do_role_logout_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                      const phcow_string& username)
+  {
+    int64_t roid = impl->connections.at(username).current_roid;
+    ::poseidon::UUID logic_service_uuid = impl->connections.at(username).current_logic_srv;
+
+    // Bring this role offline. In order to prevent multiple logins, `current_roid`
+    // must not be cleared until the request completes.
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", roid);
+
+    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/logout", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    // Unlock the connection.
+    impl->connections.mut(username).current_roid = 0;
+    impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
+  }
+
+void
 do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
                      const phcow_string& username, int64_t roid)
   {
+    if(impl->connections.at(username).current_roid != 0)
+      do_role_logout_common(impl, fiber, username);
+
+    // Select a logic server with lowest load factor.
     ::poseidon::UUID logic_service_uuid;
     double load_factor = HUGE_VAL;
 
@@ -907,20 +932,28 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     if(logic_service_uuid == ::poseidon::UUID::min())
       POSEIDON_THROW(("No logic service online"));
 
-    // Request login.
-    ::taxon::V_object tx_args;
-    tx_args.try_emplace(&"roid", roid);
-    tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
-
-    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
-    service.launch(srv_q);
-    fiber.yield(srv_q);
-
-    auto status = srv_q->response(0).obj.at(&"status").as_string();
-    POSEIDON_CHECK(status == "gs_ok");
-
+    // Lock the connection.
     impl->connections.mut(username).current_roid = roid;
-    impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
+    impl->connections.mut(username).current_logic_srv = logic_service_uuid;
+
+    try {
+      ::taxon::V_object tx_args;
+      tx_args.try_emplace(&"roid", roid);
+      tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+
+      auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
+      service.launch(srv_q);
+      fiber.yield(srv_q);
+
+      auto status = srv_q->response(0).obj.at(&"status").as_string();
+      POSEIDON_CHECK(status == "gs_ok");
+    }
+    catch(exception& stdex) {
+      POSEIDON_LOG_ERROR(("User `$1` failed to log into role `$2`: $3"), username, roid, stdex);
+      impl->connections.mut(username).current_roid = 0;
+      impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
+      throw;
+    }
   }
 
 void
@@ -933,11 +966,6 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
 
     ////////////////////////////////////////////////////////////
     //
-    if(impl->connections.at(username).current_roid != 0) {
-      response.try_emplace(&"status", &"sc_role_selected");
-      return;
-    }
-
     if(impl->connections.at(username).avail_roid_set.size() >= impl->max_number_of_roles_per_user) {
       response.try_emplace(&"status", &"sc_too_many_roles");
       return;
@@ -987,6 +1015,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
     }
 
     int64_t roid = srv_q->response(0).obj.at(&"serial").as_integer();
+    POSEIDON_LOG_DEBUG(("User `$1` created role `$2`(`$3`)"), username, roid, nickname);
 
     // Create the role in database.
     tx_args.clear();
@@ -1022,7 +1051,7 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
 
     ////////////////////////////////////////////////////////////
     //
-    if(impl->connections.at(username).current_roid != 0) {
+    if(impl->connections.at(username).current_roid == roid) {
       response.try_emplace(&"status", &"sc_role_selected");
       return;
     }
@@ -1056,22 +1085,14 @@ do_plus_role_logout(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
                     const phcow_string& username, ::taxon::V_object& response,
                     const ::taxon::V_object& /*request*/)
   {
+    ////////////////////////////////////////////////////////////
+    //
     if(impl->connections.at(username).current_roid == 0) {
       response.try_emplace(&"status", &"sc_no_role_selected");
       return;
     }
 
-    // Bring this role offline.
-    ::taxon::V_object tx_args;
-    tx_args.try_emplace(&"roid", impl->connections.at(username).current_roid);
-
-    auto srv_q = new_sh<Service_Future>(impl->connections.at(username).current_logic_srv,
-                                        &"*role/logout", tx_args);
-    service.launch(srv_q);
-    fiber.yield(srv_q);
-
-    impl->connections.mut(username).current_roid = 0;
-    impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
+    do_role_logout_common(impl, fiber, username);
 
     response.try_emplace(&"status", &"sc_ok");
   }
