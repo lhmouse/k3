@@ -56,6 +56,22 @@ struct Implementation
     ::std::vector<phcow_string> expired_connections;
   };
 
+::poseidon::UUID
+do_find_my_monitor()
+  {
+    ::poseidon::UUID monitor_service_uuid;
+
+    for(const auto& r : service.all_service_records())
+      if((r.second.zone_id == service.zone_id())
+            && (r.second.service_type == "monitor"))
+        monitor_service_uuid = r.first;
+
+    if(monitor_service_uuid == ::poseidon::UUID::min())
+      POSEIDON_THROW(("No monitor service online"));
+
+    return monitor_service_uuid;
+  }
+
 void
 do_server_hws_callback(const shptr<Implementation>& impl,
                        const shptr<::poseidon::WS_Server_Session>& session,
@@ -207,7 +223,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           ::taxon::V_object tx_args;
           tx_args.try_emplace(&"username", uinfo.username.rdstr());
 
-          auto srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/list", tx_args);
+          auto srv_q = new_sh<Service_Future>(do_find_my_monitor(), &"*role/list", tx_args);
           service.launch(srv_q);
           fiber.yield(srv_q);
 
@@ -239,7 +255,12 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             tx_args.open(&"roid_list").open_array().emplace_back(roid);
           tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
 
-          srv_q = new_sh<Service_Future>(multicast(&"logic"), &"*role/reconnect", tx_args);
+          cow_vector<::poseidon::UUID> multicast_list;
+          for(const auto& r : service.all_service_records())
+            if(r.second.service_type == "logic")
+              multicast_list.emplace_back(r.first);
+
+          srv_q = new_sh<Service_Future>(multicast_list, &"*role/reconnect", tx_args);
           service.launch(srv_q);
           fiber.yield(srv_q);
 
@@ -852,6 +873,38 @@ do_star_user_ban_lift(const shptr<Implementation>& impl, ::poseidon::Abstract_Fi
   }
 
 void
+do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                     const phcow_string& username, int64_t roid)
+  {
+    ::poseidon::UUID logic_service_uuid;
+    double load_factor = HUGE_VAL;
+
+    for(const auto& r : service.all_service_records())
+      if((r.second.zone_id == service.zone_id())
+            && (r.second.service_type == "logic")
+            && (r.second.load_factor <= load_factor))
+        logic_service_uuid = r.first;
+
+    if(logic_service_uuid == ::poseidon::UUID::min())
+      POSEIDON_THROW(("No logic service online"));
+
+    // Request login.
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", roid);
+    tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+
+    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    auto status = srv_q->response(0).obj.at(&"status").as_string();
+    POSEIDON_CHECK(status == "gs_ok");
+
+    impl->connections.mut(username).current_roid = roid;
+    impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
+  }
+
+void
 do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
                     const phcow_string& username, ::taxon::V_object& response,
                     const ::taxon::V_object& request)
@@ -903,7 +956,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
     tx_args.try_emplace(&"nickname", nickname);
     tx_args.try_emplace(&"username", username.rdstr());
 
-    auto srv_q = new_sh<Service_Future>(loopback_uuid, &"*nickname/acquire", tx_args);
+    auto srv_q = new_sh<Service_Future>(service.service_uuid(), &"*nickname/acquire", tx_args);
     service.launch(srv_q);
     fiber.yield(srv_q);
 
@@ -922,12 +975,9 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
     tx_args.try_emplace(&"nickname", nickname);
     tx_args.try_emplace(&"username", username.rdstr());
 
-    srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/create", tx_args);
+    srv_q = new_sh<Service_Future>(do_find_my_monitor(), &"*role/create", tx_args);
     service.launch(srv_q);
     fiber.yield(srv_q);
-
-    if(srv_q->response_count() == 0)
-      POSEIDON_THROW(("No monitor service is online"));
 
     status = srv_q->response(0).obj.at(&"status").as_string();
     if(status != "gs_ok") {
@@ -938,20 +988,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
 
     impl->connections.mut(username).avail_roid_set.insert(roid);
 
-    // Log into this role.
-    tx_args.clear();
-    tx_args.try_emplace(&"roid", roid);
-    tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
-
-    srv_q = new_sh<Service_Future>(randomcast(&"logic"), &"*role/login", tx_args);
-    service.launch(srv_q);
-    fiber.yield(srv_q);
-
-    status = srv_q->response(0).obj.at(&"status").as_string();
-    POSEIDON_CHECK(status == "gs_ok");
-
-    impl->connections.mut(username).current_roid = roid;
-    impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
+    do_role_login_common(impl, fiber, username, roid);
 
     response.try_emplace(&"status", &"sc_ok");
   }
@@ -980,7 +1017,7 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     ::taxon::V_object tx_args;
     tx_args.try_emplace(&"roid", roid);
 
-    auto srv_q = new_sh<Service_Future>(randomcast(&"monitor"), &"*role/load", tx_args);
+    auto srv_q = new_sh<Service_Future>(do_find_my_monitor(), &"*role/load", tx_args);
     service.launch(srv_q);
     fiber.yield(srv_q);
 
@@ -990,20 +1027,7 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
       return;
     }
 
-    // Log into this role.
-    tx_args.clear();
-    tx_args.try_emplace(&"roid", roid);
-    tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
-
-    srv_q = new_sh<Service_Future>(randomcast(&"logic"), &"*role/login", tx_args);
-    service.launch(srv_q);
-    fiber.yield(srv_q);
-
-    status = srv_q->response(0).obj.at(&"status").as_string();
-    POSEIDON_CHECK(status == "gs_ok");
-
-    impl->connections.mut(username).current_roid = roid;
-    impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
+    do_role_login_common(impl, fiber, username, roid);
 
     response.try_emplace(&"status", &"sc_ok");
   }
