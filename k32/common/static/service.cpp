@@ -918,6 +918,7 @@ launch(const shptr<Service_Future>& req)
     if(!this->m_impl)
       POSEIDON_THROW(("Service not initialized"));
 
+    bool all_received = true;
     for(size_t k = 0;  k != req->mf_responses().size();  ++k) {
       auto& resp = req->mf_responses().mut(k);
       resp.request_uuid = ::poseidon::UUID::random();
@@ -927,33 +928,42 @@ launch(const shptr<Service_Future>& req)
         auto fiber3 = new_sh<Local_Request_Fiber>(this->m_impl, req, resp.request_uuid, req->opcode(),
                                                   req->request());
         ::poseidon::fiber_scheduler.launch(fiber3);
+        all_received = false;
       }
       else {
+        auto srv = this->m_impl->remote_services.ptr(resp.service_uuid);
+        if(!srv) {
+          POSEIDON_LOG_DEBUG(("Service `$1` not found"), resp.service_uuid);
+          resp.error = &"Service not found";
+          resp.complete = true;
+          continue;
+        }
+
         // Send the request asynchronously.
-        const auto& srv = this->m_impl->remote_services.at(resp.service_uuid);
-        auto& conn = this->m_impl->remote_connections.open(srv.service_uuid);
+        auto& conn = this->m_impl->remote_connections.open(resp.service_uuid);
         auto session = conn.weak_session.lock();
         if(!session) {
           // Find an address to connect to. If the address is loopback, it shall
           // only be accepted if the target service is on the same machine, and in
           // this case it takes precedence over a private address.
-          const ::poseidon::IPv6_Address* use_addr = nullptr;
-          for(const auto& addr : srv.addresses)
+          auto use_addr = ::poseidon::ipv6_invalid;
+          for(const auto& addr : srv->addresses)
             if(addr.classify() != ::poseidon::ip_address_loopback)
-              use_addr = &addr;
-            else if(srv.hostname == ::poseidon::hostname) {
-              use_addr = &addr;
+              use_addr = addr;
+            else if(srv->hostname == ::poseidon::hostname) {
+              use_addr = addr;
               break;
             }
 
-          if(!use_addr) {
-            POSEIDON_LOG_ERROR(("No viable address to service `$1`"), srv.service_uuid);
-            resp.error = &"No viable address";
+          if(use_addr == ::poseidon::ipv6_invalid) {
+            POSEIDON_LOG_ERROR(("Service `$1` has no address"), resp.service_uuid);
+            resp.error = &"Service unreachable";
+            resp.complete = true;
             continue;
           }
 
           tinyfmt_str saddr_fmt;
-          format(saddr_fmt, "$1/$2?s=$3", *use_addr, srv.service_uuid, this->m_impl->service_uuid);
+          format(saddr_fmt, "$1/$2?s=$3", use_addr, resp.service_uuid, this->m_impl->service_uuid);
           int64_t now = ::time(nullptr);
           format(saddr_fmt, "&ts=$1", now);
           char auth_pw[33];
@@ -963,9 +973,9 @@ launch(const shptr<Service_Future>& req)
           cow_string saddr = saddr_fmt.get_string();
           session = this->m_impl->private_client.connect(saddr, bindw(this->m_impl, do_client_ws_callback));
 
-          do_set_service_uuid(*session, srv.service_uuid);
+          do_set_service_uuid(*session, resp.service_uuid);
           conn.weak_session = session;
-          POSEIDON_LOG_INFO(("Connecting to `$1`: use_addr = $2"), srv.service_uuid, *use_addr);
+          POSEIDON_LOG_INFO(("Connecting to `$1` at `$2`"), resp.service_uuid, use_addr);
         }
 
         // Add this future to the waiting list.
@@ -985,10 +995,11 @@ launch(const shptr<Service_Future>& req)
         auto task2 = new_sh<Remote_Request_Task>(session, req, resp.request_uuid, req->opcode(),
                                                  req->request());
         ::poseidon::task_scheduler.launch(task2);
+        all_received = false;
       }
     }
 
-    if(req->mf_responses().empty())
+    if(all_received)
       req->mf_abstract_future_complete();
   }
 
