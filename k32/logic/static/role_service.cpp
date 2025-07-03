@@ -7,10 +7,10 @@
 #include "../globals.hpp"
 #include "../../common/data/role_record.hpp"
 #include <poseidon/base/config_file.hpp>
+#include <poseidon/base/datetime.hpp>
 #include <poseidon/easy/easy_timer.hpp>
 #include <poseidon/fiber/redis_query_future.hpp>
 #include <poseidon/static/task_scheduler.hpp>
-#include <asteria/library/chrono.hpp>
 #include <list>
 namespace k32::logic {
 namespace {
@@ -415,7 +415,8 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Define default values here. The operation shall be atomic.
     int64_t redis_role_ttl = 900, disconnect_to_logout_duration = 60;
-    int64_t service_zone_id = 0, service_start_time_ms = 0;
+    int64_t service_zone_id = 0;
+    ::poseidon::DateTime service_start_time;
 
     // `redis_role_ttl`
     auto conf_value = conf_file.query(&"redis_role_ttl");
@@ -468,24 +469,24 @@ reload(const ::poseidon::Config_File& conf_file)
     // `logic.service_start_time`
     conf_value = conf_file.query(&"logic.service_start_time");
     if(conf_value.is_string())
-      service_start_time_ms = ::asteria::std_chrono_parse(conf_value.as_string());
+      service_start_time = ::poseidon::DateTime(conf_value.as_string());
     else if(!conf_value.is_null())
       POSEIDON_THROW((
           "Invalid `logic.service_start_time`: expecting a `string`, got `$1`",
           "[in configuration file '$2']"),
           conf_value, conf_file.path());
 
-    if((service_start_time_ms < 915148800'000) || (service_start_time_ms > 4102444800'000))
+    if(service_start_time.as_system_time() > system_clock::now())
       POSEIDON_THROW((
           "Invalid `logic.service_start_time`: value `$1` out of range",
           "[in configuration file '$2']"),
-          service_start_time_ms, conf_file.path());
+          service_start_time, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
     this->m_impl->disconnect_to_logout_duration = seconds(disconnect_to_logout_duration);
     this->m_impl->service_zone_id = static_cast<int>(service_zone_id);
-    this->m_impl->service_start_time = system_time(milliseconds(service_start_time_ms));
+    this->m_impl->service_start_time = service_start_time.as_system_time();
 
     // Set up request handlers.
     service.set_handler(&"*role/login", bindw(this->m_impl, do_star_role_login));
