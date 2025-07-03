@@ -93,17 +93,26 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
           }
 
+          // Copy the authenticator, in case of fiber context switches.
+          static_vector<User_Service::ws_authenticator_type, 1> authenticator;
+          if(auto ptr = impl->ws_authenticators.ptr(path))
+            authenticator.emplace_back(*ptr);
+
+          if(authenticator.empty()) {
+            session->ws_shut_down(user_ws_status_authentication_failure);
+            return;
+          }
+
           // Call the user-defined authenticator to get the username.
           User_Record uinfo;
-          if(auto ptr = impl->ws_authenticators.ptr(path))
-            try {
-              auto authenticator = *ptr;
-              authenticator(fiber, uinfo.username, cow_string(uri.query));
-            }
-            catch(exception& stdex) {
-              POSEIDON_LOG_ERROR(("Authentication error from `$1`"), session->remote_address());
-              uinfo.username.clear();
-            }
+          try {
+            authenticator.front() (fiber, uinfo.username, cow_string(uri.query));
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2\n$3"), path, uri.query, stdex);
+            session->ws_shut_down(::poseidon::ws_status_unexpected_error);
+            return;
+          }
 
           if(uinfo.username.size() < 3) {
             POSEIDON_LOG_DEBUG(("Authenticated for `$1`"), path);
