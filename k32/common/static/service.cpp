@@ -50,6 +50,9 @@ struct Implementation
     ::poseidon::Easy_WS_Server private_server;
     ::poseidon::Easy_WS_Client private_client;
 
+    int64_t perf_time = 0;
+    int64_t perf_cpu_time = 0;
+
     // remote data from redis
     cow_uuid_dictionary<Service_Record> remote_services_by_uuid;
     cow_dictionary<cow_vector<Service_Record>> remote_services_by_type;
@@ -499,6 +502,9 @@ do_subscribe_services(const shptr<Implementation>& impl,
         remote.service_type = root.at(&"service_type").as_string();
         remote.service_index = static_cast<int>(root.at(&"service_index").as_integer());
 
+        if(auto load_factor = root.ptr(&"load_factor"))
+          remote.load_factor = static_cast<float>(load_factor->as_number());
+
         if(auto hostname = root.ptr(&"hostname"))
           remote.hostname = hostname->as_string();
 
@@ -558,11 +564,26 @@ do_publish_service(const shptr<Implementation>& impl,
     if(impl->service_start_time == steady_time())
       impl->service_start_time = now;
 
+    // Update my service data.
     impl->service_data.insert_or_assign(&"service_type", impl->service_type);
     impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
     impl->service_data.insert_or_assign(&"application_name", impl->application_name);
     impl->service_data.insert_or_assign(&"zone_id", impl->zone_id);
     impl->service_data.insert_or_assign(&"zone_start_time", impl->zone_start_time);
+
+    // Estimate my load factor.
+    struct timespec ts;
+    ::clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    int64_t t0 = ts.tv_sec * 1000000000 + ts.tv_nsec;
+    double perf_duration = clamp_cast<double>(t0 - impl->perf_time, 1, INT64_MAX);
+    impl->perf_time = t0;
+
+    ::clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    t0 = ts.tv_sec * 1000000000 + ts.tv_nsec;
+    double perf_cpu_duration = clamp_cast<double>(t0 - impl->perf_cpu_time, 0, INT64_MAX);
+    impl->perf_cpu_time = t0;
+
+    impl->service_data.insert_or_assign(&"load_factor", perf_cpu_duration / perf_duration);
 
     auto private_addr = impl->private_server.local_address();
     if(private_addr.port() != 0) {

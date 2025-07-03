@@ -12,6 +12,7 @@ struct Service_Record
     ::poseidon::UUID service_uuid;
     cow_string service_type;
     int service_index = 0;
+    float load_factor = 0;
     cow_string hostname;
     cow_vector<::poseidon::IPv6_Address> addresses;
 
