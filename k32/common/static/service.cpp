@@ -502,14 +502,20 @@ do_subscribe_services(const shptr<Implementation>& impl,
         remote.service_type = root.at(&"service_type").as_string();
         remote.service_index = static_cast<int>(root.at(&"service_index").as_integer());
 
-        if(auto load_factor = root.ptr(&"load_factor"))
-          remote.load_factor = static_cast<float>(load_factor->as_number());
+        if(auto ptr = root.ptr(&"zone_id"))
+          remote.zone_id = static_cast<int>(ptr->as_integer());
 
-        if(auto hostname = root.ptr(&"hostname"))
-          remote.hostname = hostname->as_string();
+        if(auto ptr = root.ptr(&"zone_start_time"))
+          remote.zone_start_time = ptr->as_time();
 
-        if(auto addresses = root.ptr(&"addresses"))
-          for(const auto& t : addresses->as_array())
+        if(auto ptr = root.ptr(&"load_factor"))
+          remote.load_factor = ptr->as_number();
+
+        if(auto ptr = root.ptr(&"hostname"))
+          remote.hostname = ptr->as_string();
+
+        if(auto ptr = root.ptr(&"addresses"))
+          for(const auto& t : ptr->as_array())
             remote.addresses.emplace_back(t.as_string());
 
         if(!impl->remote_services_by_uuid.count(remote.service_uuid))
