@@ -31,7 +31,7 @@ struct User_Connection
 
     int64_t current_roid = 0;
     ::poseidon::UUID current_logic_srv;
-    ::std::unordered_set<int64_t> available_roid_set;
+    ::std::unordered_set<int64_t> avail_roid_set;
   };
 
 struct Implementation
@@ -216,7 +216,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           uconn.rate_time = steady_clock::now();
           uconn.pong_time = uconn.rate_time;
 
-          ::taxon::V_array available_avatar_list;
+          ::taxon::V_array avail_avatar_list;
 
           for(const auto& r : srv_q->response(0).obj.at(&"avatar_list").as_array()) {
             // For intermediate servers, an avatar is transferred as a JSON
@@ -229,13 +229,13 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             int64_t roid = avatar.as_object().at(&"roid").as_integer();
             POSEIDON_LOG_DEBUG(("Found role `$1` of user `$2`"), roid, uinfo.username);
 
-            uconn.available_roid_set.insert(roid);
-            available_avatar_list.emplace_back(move(avatar));
+            uconn.avail_roid_set.insert(roid);
+            avail_avatar_list.emplace_back(move(avatar));
           }
 
           // In case there's an online role, try reconnecting.
           tx_args.clear();
-          for(int64_t roid : uconn.available_roid_set)
+          for(int64_t roid : uconn.avail_roid_set)
             tx_args.open(&"roid_list").open_array().emplace_back(roid);
           tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
 
@@ -261,7 +261,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             // may select an existing one, or create a new one.
             tx_args.clear();
             tx_args.try_emplace(&"@opcode", &"=role/list");
-            tx_args.try_emplace(&"avatar", available_avatar_list);
+            tx_args.try_emplace(&"avatar", avail_avatar_list);
 
             tinybuf_ln buf;
             ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
@@ -866,7 +866,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       return;
     }
 
-    if(impl->connections.at(username).available_roid_set.size() >= impl->max_number_of_roles_per_user) {
+    if(impl->connections.at(username).avail_roid_set.size() >= impl->max_number_of_roles_per_user) {
       response.try_emplace(&"status", &"sc_too_many_roles");
       return;
     }
@@ -936,6 +936,8 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       return;
     }
 
+    impl->connections.mut(username).avail_roid_set.insert(roid);
+
     // Log into this role.
     tx_args.clear();
     tx_args.try_emplace(&"roid", roid);
@@ -950,7 +952,6 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
 
     impl->connections.mut(username).current_roid = roid;
     impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
-    impl->connections.mut(username).available_roid_set.insert(roid);
 
     response.try_emplace(&"status", &"sc_ok");
   }
@@ -970,7 +971,7 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
       return;
     }
 
-    if(impl->connections.at(username).available_roid_set.count(roid) == 0) {
+    if(impl->connections.at(username).avail_roid_set.count(roid) == 0) {
       response.try_emplace(&"status", &"sc_role_unavailable");
       return;
     }
@@ -1003,7 +1004,6 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
 
     impl->connections.mut(username).current_roid = roid;
     impl->connections.mut(username).current_logic_srv = srv_q->response(0).service_uuid;
-    impl->connections.mut(username).available_roid_set.insert(roid);
 
     response.try_emplace(&"status", &"sc_ok");
   }
