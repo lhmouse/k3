@@ -22,6 +22,10 @@ class Role_Service
     Role_Service& operator=(const Role_Service&) & = delete;
     ~Role_Service();
 
+    // Gets all online roles.
+    const cow_int64_dictionary<Role_Record>&
+    all_role_records() const noexcept;
+
     // Gets properties of a role.
     const Role_Record&
     find_role_record(int64_t roid) const noexcept;

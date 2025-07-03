@@ -18,6 +18,8 @@
 namespace k32::monitor {
 namespace {
 
+const cow_int64_dictionary<Role_Record> empty_role_record_map;
+
 struct Implementation
   {
     seconds redis_role_ttl;
@@ -563,6 +565,16 @@ Role_Service()
 Role_Service::
 ~Role_Service()
   {
+  }
+
+const cow_int64_dictionary<Role_Record>&
+Role_Service::
+all_role_records() const noexcept
+  {
+    if(!this->m_impl)
+      return empty_role_record_map;
+
+    return this->m_impl->role_records;
   }
 
 const Role_Record&

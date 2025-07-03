@@ -20,6 +20,8 @@
 namespace k32::agent {
 namespace {
 
+const cow_dictionary<User_Record> empty_user_map;
+
 struct User_Connection
   {
     wkptr<::poseidon::WS_Server_Session> weak_session;
@@ -1151,9 +1153,19 @@ remove_ws_handler(const phcow_string& opcode) noexcept
     return this->m_impl->ws_handlers.erase(opcode);
   }
 
+const cow_dictionary<User_Record>&
+User_Service::
+all_user_records() const noexcept
+  {
+    if(!this->m_impl)
+      return empty_user_map;
+
+    return this->m_impl->users;
+  }
+
 const User_Record&
 User_Service::
-find_user(const phcow_string& username) const noexcept
+find_user_record(const phcow_string& username) const noexcept
   {
     if(!this->m_impl)
       return User_Record::null;

@@ -23,6 +23,8 @@
 namespace k32 {
 namespace {
 
+const cow_uuid_dictionary<Service_Record> empty_service_record_map;
+
 struct Remote_Service_Connection_Record
   {
     wkptr<::poseidon::WS_Client_Session> weak_session;
@@ -724,9 +726,19 @@ zone_start_time() const noexcept
     return this->m_impl->zone_start_time;
   }
 
+const cow_uuid_dictionary<Service_Record>&
+Service::
+all_service_records() const noexcept
+  {
+    if(!this->m_impl)
+      return empty_service_record_map;
+
+    return this->m_impl->remote_services_by_uuid;
+  }
+
 const Service_Record&
 Service::
-find_remote_service(const ::poseidon::UUID& remote_service_uuid) const noexcept
+find_service_record(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {
     if(!this->m_impl)
       return Service_Record::null;

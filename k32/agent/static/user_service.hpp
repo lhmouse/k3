@@ -93,9 +93,13 @@ class User_Service
     bool
     remove_ws_handler(const phcow_string& opcode) noexcept;
 
+    // Gets all online users.
+    const cow_dictionary<User_Record>&
+    all_user_records() const noexcept;
+
     // Gets properties of a user.
     const User_Record&
-    find_user(const phcow_string& username) const noexcept;
+    find_user_record(const phcow_string& username) const noexcept;
 
     // Reloads configuration.
     void
