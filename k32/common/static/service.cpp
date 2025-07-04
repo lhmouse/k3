@@ -270,7 +270,10 @@ struct Remote_Response_Task final : ::poseidon::Abstract_Task
         this->m_response.try_emplace(&"@uuid", this->m_request_uuid.to_string());
         if(!this->m_error.empty())
           this->m_response.try_emplace(&"@error", this->m_error);
-        session->ws_send(::poseidon::ws_TEXT, ::taxon::Value(this->m_response).to_string());
+
+        tinybuf_ln buf;
+        ::taxon::Value(this->m_response).print_to(buf);
+        session->ws_send(::poseidon::ws_TEXT, buf);
       }
   };
 
@@ -473,7 +476,10 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
         this->m_request.try_emplace(&"@opcode", this->m_opcode);
         if(!this->m_weak_req.expired())
           this->m_request.try_emplace(&"@uuid", this->m_request_uuid.to_string());
-        session->ws_send(::poseidon::ws_TEXT, ::taxon::Value(this->m_request).to_string());
+
+        tinybuf_ln buf;
+        ::taxon::Value(this->m_request).print_to(buf);
+        session->ws_send(::poseidon::ws_TEXT, buf);
       }
   };
 
