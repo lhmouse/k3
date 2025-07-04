@@ -48,6 +48,7 @@ struct Implementation
     cow_dictionary<User_Service::ws_handler_type> ws_handlers;
 
     ::poseidon::Easy_Timer ping_timer;
+    ::poseidon::Easy_Timer check_user_timer;
     ::poseidon::Easy_HWS_Server user_server;
 
     // connections from clients
@@ -90,6 +91,41 @@ do_find_my_monitor()
   }
 
 void
+do_publish_user_on_redis(::poseidon::Abstract_Fiber& fiber, const User_Record& uinfo, seconds ttl)
+  {
+    cow_vector<cow_string> redis_cmd;
+    redis_cmd.emplace_back(&"SET");
+    redis_cmd.emplace_back(sformat("$1/user/$2", service.application_name(), uinfo.username));
+    redis_cmd.emplace_back(uinfo.serialize_to_string());
+    redis_cmd.emplace_back(&"GET");
+    redis_cmd.emplace_back(&"EX");
+    redis_cmd.emplace_back(sformat("$1", ttl.count()));
+
+    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+    ::poseidon::task_scheduler.launch(task2);
+    fiber.yield(task2);
+
+    if(!task2->result().is_nil()) {
+      User_Record old_uinfo;
+      old_uinfo.parse_from_string(task2->result().as_string());
+      if(old_uinfo._agent_srv != uinfo._agent_srv) {
+        // If the user exists a different service, disconnect them.
+        POSEIDON_LOG_DEBUG(("`$1` login conflict with `$2`"), uinfo.username, old_uinfo._agent_srv);
+
+        ::taxon::V_object tx_args;
+        tx_args.try_emplace(&"username", old_uinfo.username.rdstr());
+        tx_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
+
+        auto srv_q = new_sh<Service_Future>(old_uinfo._agent_srv, &"*user/kick", tx_args);
+        service.launch(srv_q);
+        fiber.yield(srv_q);
+      }
+    }
+
+    POSEIDON_LOG_TRACE(("Published user `$1` on Redis"), uinfo.username);
+  }
+
+void
 do_server_hws_callback(const shptr<Implementation>& impl,
                        const shptr<::poseidon::WS_Server_Session>& session,
                        ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
@@ -122,6 +158,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           // Call the user-defined authenticator to get the username.
           User_Record uinfo;
+          uinfo._agent_srv = service.service_uuid();
           try {
             authenticator.front() (fiber, uinfo.username, cow_string(uri.query));
           }
@@ -208,42 +245,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          // Publish my connection.
-          ::taxon::V_object redis_uinfo;
-          redis_uinfo.try_emplace(&"username", uinfo.username.rdstr());
-          redis_uinfo.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
-          redis_uinfo.try_emplace(&"login_address", uinfo.login_address.to_string());
-          redis_uinfo.try_emplace(&"login_time", uinfo.login_time);
-
-          cow_vector<cow_string> redis_cmd;
-          redis_cmd.emplace_back(&"SET");
-          redis_cmd.emplace_back(sformat("$1/user/$2", service.application_name(), uinfo.username));
-          redis_cmd.emplace_back(::taxon::Value(redis_uinfo).to_string());
-          redis_cmd.emplace_back(&"GET");
-
-          auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
-          ::poseidon::task_scheduler.launch(task2);
-          fiber.yield(task2);
-
-          if(!task2->result().is_nil()) {
-            ::taxon::Value temp_value;
-            if(temp_value.parse(task2->result().as_string())) {
-              // If the user exists a different service, disconnect them.
-              ::poseidon::UUID other_service_uuid;
-              if(auto ptr = temp_value.as_object().ptr(&"agent_service_uuid"))
-                other_service_uuid = ::poseidon::UUID(ptr->as_string());
-
-              if(other_service_uuid != service.service_uuid()) {
-                ::taxon::V_object tx_args;
-                tx_args.try_emplace(&"username", uinfo.username.rdstr());
-                tx_args.try_emplace(&"ws_status", static_cast<int>(user_ws_status_login_conflict));
-
-                auto srv_q = new_sh<Service_Future>(other_service_uuid, &"*user/kick", tx_args);
-                service.launch(srv_q);
-                fiber.yield(srv_q);
-              }
-            }
-          }
+          do_publish_user_on_redis(fiber, uinfo, impl->redis_role_ttl);
 
           // Find my roles.
           ::taxon::V_object tx_args;
@@ -735,6 +737,28 @@ do_ping_timer_callback(const shptr<Implementation>& impl,
       POSEIDON_LOG_DEBUG(("Unloading user information: $1"), username);
       impl->users.erase(username);
       impl->connections.erase(username);
+    }
+  }
+
+void
+do_check_user_timer_callback(const shptr<Implementation>& impl,
+                             const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                             ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+  {
+    ::std::vector<phcow_string> username_list;
+    username_list.reserve(impl->users.size());
+    for(const auto& r : impl->users)
+      username_list.emplace_back(r.first);
+
+    while(!username_list.empty()) {
+      auto username = move(username_list.back());
+      username_list.pop_back();
+
+      User_Record uinfo;
+      if(!impl->users.find_and_copy(uinfo, username))
+        continue;
+
+      do_publish_user_on_redis(fiber, uinfo, impl->redis_role_ttl);
     }
   }
 
@@ -1420,6 +1444,7 @@ reload(const ::poseidon::Config_File& conf_file)
 
     // Restart the service.
     this->m_impl->ping_timer.start(150ms, 7001ms, bindw(this->m_impl, do_ping_timer_callback));
+    this->m_impl->check_user_timer.start(2min, bindw(this->m_impl, do_check_user_timer_callback));
     this->m_impl->user_server.start(this->m_impl->client_port, bindw(this->m_impl, do_server_hws_callback));
   }
 
