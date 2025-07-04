@@ -802,7 +802,7 @@ do_star_user_check_role(const shptr<Implementation>& impl, ::poseidon::Abstract_
 void
 do_star_user_push_message(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& /*fiber*/,
                           const ::poseidon::UUID& /*request_service_uuid*/,
-                          ::taxon::V_object& response, const ::taxon::V_object& request)
+                          ::taxon::V_object& /*response*/, const ::taxon::V_object& request)
   {
     ::std::vector<phcow_string> username_list;
     if(auto plist = request.ptr(&"username_list"))
