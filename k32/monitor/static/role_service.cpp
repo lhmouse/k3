@@ -340,7 +340,7 @@ do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
                                 uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
                                 Role_Record& roinfo)
   {
-    POSEIDON_LOG_INFO(("#sav Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
+    POSEIDON_LOG_INFO(("#sav# Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
 
     static constexpr char update_role[] =
@@ -369,7 +369,7 @@ do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    POSEIDON_LOG_INFO(("#sav Stored into MySQL: role `$1` (`$2`), updated on `$3`"),
+    POSEIDON_LOG_INFO(("#sav# Stored into MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
   }
 
@@ -457,7 +457,7 @@ do_star_role_flush(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     //
     POSEIDON_CHECK(impl->db_ready);
 
-    POSEIDON_LOG_INFO(("#sav Flushing role `$1`"), roid);
+    POSEIDON_LOG_INFO(("#sav# Flushing role `$1`"), roid);
 
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"GET");
