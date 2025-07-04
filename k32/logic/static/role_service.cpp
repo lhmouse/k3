@@ -155,22 +155,20 @@ do_save_timer_callback(const shptr<Implementation>& impl,
         }
       }
 
-      nanoseconds dc_duration = -1s;
-      if(hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
-        dc_duration = now - hyd.role->mf_disconnected_since();
-
-      if(dc_duration < impl->disconnect_to_logout_duration) {
-        do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
-        if(auto ptr = impl->hyd_roles.mut_ptr(roid))
-          *ptr = hyd;
-      }
-      else {
+      if((hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
+            && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration)) {
+        // Role has been disconnected for too long.
         POSEIDON_LOG_DEBUG(("Logging out role `$1` due to inactivity"), hyd.roinfo.roid);
         hyd.role->on_logout();
 
         do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
         impl->hyd_roles.erase(roid);
         do_flush_role_to_mysql(fiber, hyd);
+      }
+      else {
+        do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
+        if(auto ptr = impl->hyd_roles.mut_ptr(roid))
+          *ptr = hyd;
       }
     }
   }
