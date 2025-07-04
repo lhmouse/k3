@@ -37,6 +37,7 @@ do_set_single_response(const shptr<Implementation>& impl, const cow_string& defa
 
     auto req = conn.request_queue.front().lock();
     conn.request_queue.pop_front();
+
     if(!req)
       return;
 
@@ -58,6 +59,7 @@ do_remove_connection(const shptr<Implementation>& impl, const cow_string& defaul
     while(!conn.request_queue.empty()) {
       auto req = conn.request_queue.front().lock();
       conn.request_queue.pop_front();
+
       if(!req)
         continue;
 
