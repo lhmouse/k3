@@ -69,6 +69,8 @@ Fields of server-to-client messages are defined as follows:
   relationship between a request-response message pair. The server shall never
   send both `serial` and `opcode`.
 
+Field names without `@` are free for any protocol-specific use.
+
 [back to table of contents](#table-of-contents)
 
 ## Client-to-Server Opcodes
