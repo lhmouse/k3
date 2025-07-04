@@ -33,12 +33,12 @@ struct Remote_Service_Connection_Record
 
 struct Implementation
   {
-    cow_string service_type;
     ::poseidon::Appointment appointment;
     cow_string application_name;
     cow_string application_password;
     int zone_id = 0;
     system_time zone_start_time;
+    cow_string service_type;
 
     ::poseidon::UUID service_uuid;
     steady_time service_start_time;
@@ -731,16 +731,6 @@ service_uuid() const noexcept
     return this->m_impl->service_uuid;
   }
 
-const cow_string&
-Service::
-service_type() const noexcept
-  {
-    if(!this->m_impl)
-      return ::poseidon::empty_cow_string;
-
-    return this->m_impl->service_type;
-  }
-
 int
 Service::
 service_index() const noexcept
@@ -779,6 +769,16 @@ zone_start_time() const noexcept
       return system_time();
 
     return this->m_impl->zone_start_time;
+  }
+
+const cow_string&
+Service::
+service_type() const noexcept
+  {
+    if(!this->m_impl)
+      return ::poseidon::empty_cow_string;
+
+    return this->m_impl->service_type;
   }
 
 const cow_uuid_dictionary<Service_Record>&

@@ -10,10 +10,10 @@ namespace k32 {
 struct Service_Record
   {
     ::poseidon::UUID service_uuid;
-    cow_string service_type;
     int service_index = 0;
     int zone_id = 0;
     system_time zone_start_time;
+    cow_string service_type;
     double load_factor = 0;
     cow_string hostname;
     cow_vector<::poseidon::IPv6_Address> addresses;

@@ -52,11 +52,6 @@ class Service
     const ::poseidon::UUID&
     service_uuid() const noexcept;
 
-    // Returns the type of the active service. If there is no active service, an
-    // empty string is returned.
-    const cow_string&
-    service_type() const noexcept;
-
     // Returns the 0-based index of the active service. This value is unique in
     // all instances sharing the same configuration file. If there is no active
     // service, -1 is returned.
@@ -78,6 +73,11 @@ class Service
     // '1970-01-01 00:00:00 UTC' is returned.
     system_time
     zone_start_time() const noexcept;
+
+    // Returns the type of the active service. If there is no active service, an
+    // empty string is returned.
+    const cow_string&
+    service_type() const noexcept;
 
     // Gets all service records, cached from Redis.
     const cow_uuid_dictionary<Service_Record>&
