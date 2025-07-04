@@ -52,8 +52,8 @@ do_set_single_response(const shptr<Implementation>& impl, const cow_string& defa
 void
 do_remove_connection(const shptr<Implementation>& impl, const cow_string& default_host)
   {
-    auto conn = move(impl->connections_by_host.open(default_host));
-    impl->connections_by_host.erase(default_host);
+    Connection_to_Host conn;
+    impl->connections_by_host.find_and_erase(conn, default_host);
 
     while(!conn.request_queue.empty()) {
       auto req = conn.request_queue.front().lock();
