@@ -508,10 +508,10 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
 
         Service_Record remote;
         remote.service_uuid = ::poseidon::UUID(root.at(&"service_uuid").as_string());
-        remote.service_index = static_cast<int>(root.at(&"service_index").as_integer());
         remote.zone_id = static_cast<int>(root.at(&"zone_id").as_integer());
         remote.zone_start_time = root.at(&"zone_start_time").as_time();
         remote.service_type = root.at(&"service_type").as_string();
+        remote.service_index = static_cast<int>(root.at(&"service_index").as_integer());
 
         remote.load_factor = root.at(&"load_factor").as_number();
         remote.hostname = root.at(&"hostname").as_string();
@@ -528,13 +528,16 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
 
     for(const auto& r : impl->remote_services)
       if(remote_services.count(r.first) == 0)
-        POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2 $3"), r.first, r.second.service_type, r.second.zone_id);
+        POSEIDON_LOG_WARN(("Service DOWN: `$1`: $2 $3 $4"),
+                          r.first, r.second.zone_id, r.second.service_type,
+                          r.second.service_index);
 
     for(const auto& r : remote_services)
       if(impl->remote_services.count(r.first) == 0)
-        POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, r.second.service_type);
+        POSEIDON_LOG_INFO(("Service UP: `$1`: $2 $3 $4"),
+                          r.first, r.second.zone_id, r.second.service_type,
+                          r.second.service_index);
 
-    // Update services as an atomic operation.
     impl->remote_services = remote_services;
 
     // Purge connections that have been lost, as well as services that have
@@ -589,11 +592,11 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
 
     // Update my service data.
     impl->service_data.insert_or_assign(&"service_uuid", impl->service_uuid.to_string());
-    impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
     impl->service_data.insert_or_assign(&"application_name", impl->application_name);
     impl->service_data.insert_or_assign(&"zone_id", impl->zone_id);
     impl->service_data.insert_or_assign(&"zone_start_time", impl->zone_start_time);
     impl->service_data.insert_or_assign(&"service_type", impl->service_type);
+    impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
 
     // Estimate my load factor.
     struct timespec ts;
