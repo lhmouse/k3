@@ -5,12 +5,10 @@
 #define K32_MONITOR_GLOBALS_
 
 #include "../fwd.hpp"
-#include "../common/static/clock.hpp"
 #include "../common/static/service.hpp"
 #include "static/role_service.hpp"
 namespace k32::monitor {
 
-extern Clock clock;
 extern Service service;
 extern Role_Service role_service;
 

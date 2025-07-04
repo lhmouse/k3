@@ -6,7 +6,6 @@
 #include <poseidon/base/config_file.hpp>
 namespace k32::monitor {
 
-Clock clock;
 Service service;
 Role_Service role_service;
 
