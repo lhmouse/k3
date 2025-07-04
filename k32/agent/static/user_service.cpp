@@ -1385,7 +1385,7 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->nickname_length_limits[0] = static_cast<uint8_t>(nickname_length_limits_0);
     this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
 
-    // Set up default client request handlers.
+    // Set up builtin handlers.
     this->m_impl->ws_handlers.insert_or_assign(&"+role/create", bindw(this->m_impl, do_plus_role_create));
     this->m_impl->ws_handlers.insert_or_assign(&"+role/login", bindw(this->m_impl, do_plus_role_login));
     this->m_impl->ws_handlers.insert_or_assign(&"+role/logout", bindw(this->m_impl, do_plus_role_logout));
