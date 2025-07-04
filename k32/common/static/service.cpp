@@ -529,9 +529,6 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
           for(const auto& t : ptr->as_array())
             remote.addresses.emplace_back(t.as_string());
 
-        if(!impl->remote_services.count(remote.service_uuid))
-          POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, root);
-
         remote_services.try_emplace(remote.service_uuid, remote);
       }
       catch(exception& stdex) {
@@ -540,8 +537,12 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
       }
 
     for(const auto& r : impl->remote_services)
-      if(!remote_services.count(r.first))
+      if(remote_services.count(r.first) == 0)
         POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2"), r.first, r.second.service_type);
+
+    for(const auto& r : remote_services)
+      if(impl->remote_services.count(r.first) == 0)
+        POSEIDON_LOG_INFO(("Discovered NEW service `$1`: $2"), r.first, r.second.service_type);
 
     // Update services as an atomic operation.
     impl->remote_services = remote_services;
@@ -617,9 +618,10 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
 
     impl->service_data.insert_or_assign(&"load_factor", perf_cpu_duration / perf_duration);
 
-    auto private_addr = impl->private_server.local_address();
-    if(private_addr.port() != 0) {
-      // Get all running network interfaces.
+    // Get all running network interfaces.
+    ::taxon::V_array addresses;
+    uint16_t private_port = impl->private_server.local_address().port();
+    if(private_port != 0) {
       ::ifaddrs* ifa;
       if(::getifaddrs(&ifa) != 0) {
         POSEIDON_LOG_ERROR(("Network configuration error: ${errno:full}]"));
@@ -627,10 +629,6 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
       }
 
       const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
-
-      impl->service_data.insert_or_assign(&"hostname", ::poseidon::hostname);
-      ::taxon::V_array& addresses = impl->service_data.open(&"addresses").open_array();
-      addresses.clear();
 
       for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
         if(!(ifa->ifa_flags & IFF_RUNNING) || !ifa->ifa_addr)
@@ -641,7 +639,7 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
           ::poseidon::IPv6_Address addr;
           ::memcpy(addr.mut_data(), ::poseidon::ipv4_unspecified.data(), 16);
           ::memcpy(addr.mut_data() + 12, &(sa->sin_addr), 4);
-          addr.set_port(private_addr.port());
+          addr.set_port(private_port);
           addresses.emplace_back(addr.to_string());
         }
         else if(ifa->ifa_addr->sa_family == AF_INET6) {
@@ -649,11 +647,15 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
           auto sa = reinterpret_cast<::sockaddr_in6*>(ifa->ifa_addr);
           ::poseidon::IPv6_Address addr;
           addr.set_addr(sa->sin6_addr);
-          addr.set_port(private_addr.port());
+          addr.set_port(private_port);
           addresses.emplace_back(addr.to_string());
         }
     }
 
+    impl->service_data.insert_or_assign(&"hostname", ::poseidon::hostname);
+    impl->service_data.insert_or_assign(&"addresses", move(addresses));
+
+    // Publish my service information on Redis.
     cow_vector<cow_string> cmd;
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1/service/$2", impl->application_name, impl->service_uuid));
