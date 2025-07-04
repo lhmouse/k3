@@ -89,7 +89,7 @@ do_flush_role_to_mysql(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd)
     ::taxon::V_object tx_args;
     tx_args.try_emplace(&"roid", hyd.roinfo.roid);
 
-    auto srv_q = new_sh<Service_Future>(hyd.roinfo.home_srv, &"*role/flush", tx_args);
+    auto srv_q = new_sh<Service_Future>(hyd.roinfo._home_srv, &"*role/flush", tx_args);
     service.launch(srv_q);
     fiber.yield(srv_q);
 

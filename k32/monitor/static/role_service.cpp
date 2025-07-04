@@ -209,9 +209,9 @@ do_star_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
     roinfo.update_time = system_clock::now();
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
-    roinfo.home_host = ::poseidon::hostname;
-    roinfo.home_db = mysql_conn->service_uri();
-    roinfo.home_srv = service.service_uuid();
+    roinfo._home_host = ::poseidon::hostname;
+    roinfo._home_db = mysql_conn->service_uri();
+    roinfo._home_srv = service.service_uuid();
 
     static constexpr char insert_into_role[] =
         R"!!!(
@@ -293,9 +293,9 @@ do_star_role_load(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber&
     roinfo.roid = roid;
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
-    roinfo.home_host = ::poseidon::hostname;
-    roinfo.home_db = mysql_conn->service_uri();
-    roinfo.home_srv = service.service_uuid();
+    roinfo._home_host = ::poseidon::hostname;
+    roinfo._home_db = mysql_conn->service_uri();
+    roinfo._home_srv = service.service_uuid();
 
     static constexpr char select_from_role[] =
         R"!!!(
@@ -409,7 +409,7 @@ do_star_role_unload(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       roinfo.parse_from_string(task2->result().as_string());
 
       auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
-      if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
+      if((roinfo._home_host != ::poseidon::hostname) || (roinfo._home_db != mysql_conn->service_uri())) {
         ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
         response.try_emplace(&"status", &"gs_role_foreign");
         return;
@@ -478,7 +478,7 @@ do_star_role_flush(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     roinfo.parse_from_string(task2->result().as_string());
 
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
-    if((roinfo.home_host != ::poseidon::hostname) || (roinfo.home_db != mysql_conn->service_uri())) {
+    if((roinfo._home_host != ::poseidon::hostname) || (roinfo._home_db != mysql_conn->service_uri())) {
       ::poseidon::mysql_connector.pool_connection(move(mysql_conn));
       response.try_emplace(&"status", &"gs_role_foreign");
       return;

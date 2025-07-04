@@ -17,9 +17,9 @@ struct Role_Record
     cow_string profile;
     cow_string whole;
 
-    cow_string home_host;
-    cow_string home_db;
-    ::poseidon::UUID home_srv;
+    cow_string _home_host;
+    cow_string _home_db;
+    ::poseidon::UUID _home_srv;
 
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     Role_Record() noexcept = default;
