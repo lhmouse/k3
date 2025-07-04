@@ -281,7 +281,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           tx_args.clear();
           for(int64_t roid : uconn.avail_roid_set)
             tx_args.open(&"roid_list").open_array().emplace_back(roid);
-          tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+          tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
 
           cow_vector<::poseidon::UUID> multicast_list;
           for(const auto& r : service.all_service_records())
@@ -999,7 +999,7 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     try {
       ::taxon::V_object tx_args;
       tx_args.try_emplace(&"roid", roid);
-      tx_args.try_emplace(&"agent_service_uuid", service.service_uuid().to_string());
+      tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
 
       auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
       service.launch(srv_q);

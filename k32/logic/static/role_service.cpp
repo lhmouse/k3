@@ -183,7 +183,7 @@ do_star_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     int64_t roid = request.at(&"roid").as_integer();
     POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
 
-    ::poseidon::UUID agent_service_uuid(request.at(&"agent_service_uuid").as_string());
+    ::poseidon::UUID agent_service_uuid(request.at(&"agent_srv").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
 
     ////////////////////////////////////////////////////////////
@@ -278,7 +278,7 @@ do_star_role_reconnect(const shptr<Implementation>& impl, ::poseidon::Abstract_F
       roid_list.push_back(roid);
     }
 
-    ::poseidon::UUID agent_service_uuid(request.at(&"agent_service_uuid").as_string());
+    ::poseidon::UUID agent_service_uuid(request.at(&"agent_srv").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
 
     ////////////////////////////////////////////////////////////

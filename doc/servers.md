@@ -324,8 +324,7 @@ strings:
 * Request Parameters
 
   - `roid` <sub>integer</sub> : ID of role to load.
-  - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
-    connection.
+  - `agent_srv` <sub>string</sub> : UUID of _agent_ that holds client connection.
 
 * Response Parameters
 
@@ -367,8 +366,7 @@ strings:
 * Request Parameters
 
   - `roid_list` <sub>array of integers</sub> : List of IDs of roles to check.
-  - `agent_service_uuid` <sub>string</sub> : UUID of _agent_ that holds client
-    connection.
+  - `agent_srv` <sub>string</sub> : UUID of _agent_ that holds client connection.
 
 * Response Parameters
 
