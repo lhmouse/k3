@@ -44,7 +44,6 @@ struct Implementation
     steady_time service_start_time;
     cow_dictionary<Service::handler_type> handlers;
 
-    ::taxon::V_object service_data;
     ::poseidon::Easy_Timer publish_timer;
     ::poseidon::Easy_Timer subscribe_timer;
     ::poseidon::Easy_WS_Server private_server;
@@ -496,35 +495,22 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
     fiber.yield(task2);
     POSEIDON_LOG_TRACE(("Fetched $1 services"), task2->result().size());
 
-    for(const auto& r : task2->result())
+    for(const auto& r : task2->result()) {
+      Service_Record remote;
       try {
-        ::taxon::Value temp_value;
-        POSEIDON_CHECK(temp_value.parse(r.second));
-        ::taxon::V_object root = temp_value.as_object();
-        temp_value.clear();
-
-        if(root.at(&"application_name").as_string() != impl->application_name)
-          continue;
-
-        Service_Record remote;
-        remote.service_uuid = ::poseidon::UUID(root.at(&"service_uuid").as_string());
-        remote.zone_id = static_cast<int>(root.at(&"zone_id").as_integer());
-        remote.zone_start_time = root.at(&"zone_start_time").as_time();
-        remote.service_type = root.at(&"service_type").as_string();
-        remote.service_index = static_cast<int>(root.at(&"service_index").as_integer());
-
-        remote.load_factor = root.at(&"load_factor").as_number();
-        remote.hostname = root.at(&"hostname").as_string();
-        for(const auto& st : root.at(&"addresses").as_array())
-          remote.addresses.emplace_back(st.as_string());
-
-        remote_services.try_emplace(remote.service_uuid, remote);
-        POSEIDON_LOG_TRACE(("Received service `$1`: $2"), r.first, r.second);
+        remote.parse_from_string(r.second);
       }
       catch(exception& stdex) {
         POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, stdex);
         continue;
       }
+
+      if(remote.application_name != impl->application_name)
+        continue;
+
+      remote_services.try_emplace(remote.service_uuid, remote);
+      POSEIDON_LOG_TRACE(("Received service `$1`: $2"), r.first, r.second);
+    }
 
     for(const auto& r : impl->remote_services)
       if(remote_services.count(r.first) == 0)
@@ -590,32 +576,33 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
     if(impl->service_start_time == steady_time())
       impl->service_start_time = now;
 
-    // Update my service data.
-    impl->service_data.insert_or_assign(&"service_uuid", impl->service_uuid.to_string());
-    impl->service_data.insert_or_assign(&"application_name", impl->application_name);
-    impl->service_data.insert_or_assign(&"zone_id", impl->zone_id);
-    impl->service_data.insert_or_assign(&"zone_start_time", impl->zone_start_time);
-    impl->service_data.insert_or_assign(&"service_type", impl->service_type);
-    impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
+    // Compose my service data.
+    Service_Record local;
+    local.service_uuid = impl->service_uuid;
+    local.application_name = impl->application_name;
+    local.zone_id = impl->zone_id;
+    local.service_index = impl->appointment.index();
+    local.zone_start_time = impl->zone_start_time;
+    local.service_type = impl->service_type;
+    local.hostname = ::poseidon::hostname;
 
     // Estimate my load factor.
     struct timespec ts;
-    ::clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    int64_t t0 = ts.tv_sec * 1000000000 + ts.tv_nsec;
-    double perf_duration = clamp_cast<double>(t0 - impl->perf_time, 1, INT64_MAX);
-    impl->perf_time = t0;
-
     ::clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-    t0 = ts.tv_sec * 1000000000 + ts.tv_nsec;
+    int64_t t0 = ts.tv_sec * 1000000000 + ts.tv_nsec;
     double perf_cpu_duration = clamp_cast<double>(t0 - impl->perf_cpu_time, 0, INT64_MAX);
     impl->perf_cpu_time = t0;
 
-    impl->service_data.insert_or_assign(&"load_factor", perf_cpu_duration / perf_duration);
+    ::clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    t0 = ts.tv_sec * 1000000000 + ts.tv_nsec;
+    double perf_duration = clamp_cast<double>(t0 - impl->perf_time, 1, INT64_MAX);
+    impl->perf_time = t0;
+
+    local.load_factor = perf_cpu_duration / perf_duration;
 
     // Get all running network interfaces.
-    ::taxon::V_array addresses;
-    uint16_t private_port = impl->private_server.local_address().port();
-    if(private_port != 0) {
+    ::poseidon::IPv6_Address addr = impl->private_server.local_address();
+    if(addr.port() != 0) {
       ::rocket::unique_ptr<::ifaddrs, void (::ifaddrs*)> guard(nullptr, ::freeifaddrs);
       ::ifaddrs* ifa = nullptr;
       if(::getifaddrs(&ifa) == 0)
@@ -629,30 +616,23 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
         else if(ifa->ifa_addr->sa_family == AF_INET) {
           // IPv4
           auto sa = reinterpret_cast<::sockaddr_in*>(ifa->ifa_addr);
-          ::poseidon::IPv6_Address addr;
           ::memcpy(addr.mut_data(), ::poseidon::ipv4_unspecified.data(), 16);
           ::memcpy(addr.mut_data() + 12, &(sa->sin_addr), 4);
-          addr.set_port(private_port);
-          addresses.emplace_back(addr.to_string());
+          local.addresses.emplace_back(addr.to_string());
         }
         else if(ifa->ifa_addr->sa_family == AF_INET6) {
           // IPv6
           auto sa = reinterpret_cast<::sockaddr_in6*>(ifa->ifa_addr);
-          ::poseidon::IPv6_Address addr;
           addr.set_addr(sa->sin6_addr);
-          addr.set_port(private_port);
-          addresses.emplace_back(addr.to_string());
+          local.addresses.emplace_back(addr.to_string());
         }
     }
-
-    impl->service_data.insert_or_assign(&"hostname", ::poseidon::hostname);
-    impl->service_data.insert_or_assign(&"addresses", move(addresses));
 
     // Publish my service information on Redis.
     cow_vector<cow_string> cmd;
     cmd.emplace_back(&"SET");
     cmd.emplace_back(sformat("$1/service/$2", impl->application_name, impl->service_uuid));
-    cmd.emplace_back(::taxon::Value(impl->service_data).to_string());
+    cmd.emplace_back(local.serialize_to_string());
     cmd.emplace_back(&"EX");
     cmd.emplace_back("10");
 
