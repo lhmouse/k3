@@ -105,7 +105,7 @@ strings:
 
 * Response Parameters
 
-  - <i>None</i>
+  - _None_
 
 * Description
 

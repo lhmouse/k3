@@ -129,7 +129,7 @@ strings:
 
 * Request Parameters
 
-  - <i>None</i>
+  - _None_
 
 * Response Parameters
 
