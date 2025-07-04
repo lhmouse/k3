@@ -45,10 +45,6 @@ class Role
     void
     on_login();
 
-    // This function is called just before a role is unloaded.
-    void
-    on_logout();
-
     // This function is called right after a role has been loaded from Redis, or
     // right after a client has reconnected.
     void
@@ -58,6 +54,10 @@ class Role
     // before a role is unloaded.
     void
     on_disconnect();
+
+    // This function is called just before a role is unloaded.
+    void
+    on_logout();
 
     // This function is called for every clock tick.
     void

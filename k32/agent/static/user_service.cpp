@@ -800,6 +800,41 @@ do_star_user_check_role(const shptr<Implementation>& impl, ::poseidon::Abstract_
   }
 
 void
+do_star_user_push_message(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& /*fiber*/,
+                          const ::poseidon::UUID& /*request_service_uuid*/,
+                          ::taxon::V_object& response, const ::taxon::V_object& request)
+  {
+    ::std::vector<phcow_string> username_list;
+    if(auto plist = request.ptr(&"username_list"))
+      for(const auto& r : plist->as_array())
+        username_list.emplace_back(r.as_string());
+
+    if(auto ptr = request.ptr(&"username"))
+      username_list.emplace_back(ptr->as_string());
+
+    ::taxon::V_object client_data;
+    if(auto ptr = request.ptr(&"client_data"))
+      client_data = ptr->as_object();
+
+    cow_string client_opcode = request.at(&"client_opcode").as_string();
+    POSEIDON_CHECK(client_opcode != "");
+
+    ////////////////////////////////////////////////////////////
+    //
+    tinybuf_ln buf;
+    for(const auto& username : username_list)
+      if(auto uconn = impl->connections.ptr(username))
+        if(auto session = uconn->weak_session.lock()) {
+          if(buf.size() == 0) {
+            ::taxon::V_object obj = client_data;
+            obj.try_emplace(&"@opcode", client_opcode);
+            ::taxon::Value(obj).print_to(buf, ::taxon::option_json_mode);
+          }
+          session->ws_send(::poseidon::ws_TEXT, buf);
+        }
+  }
+
+void
 do_star_user_ban_set(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
                      const ::poseidon::UUID& /*request_service_uuid*/,
                      ::taxon::V_object& response, const ::taxon::V_object& request)
@@ -1358,6 +1393,7 @@ reload(const ::poseidon::Config_File& conf_file)
     // Set up request handlers.
     service.set_handler(&"*user/kick", bindw(this->m_impl, do_star_user_kick));
     service.set_handler(&"*user/check_role", bindw(this->m_impl, do_star_user_check_role));
+    service.set_handler(&"*user/push_message", bindw(this->m_impl, do_star_user_push_message));
     service.set_handler(&"*user/ban/set", bindw(this->m_impl, do_star_user_ban_set));
     service.set_handler(&"*user/ban/lift", bindw(this->m_impl, do_star_user_ban_lift));
     service.set_handler(&"*nickname/acquire", bindw(this->m_impl, do_star_nickname_acquire));

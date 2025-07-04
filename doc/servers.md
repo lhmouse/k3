@@ -4,10 +4,11 @@
 2. [Agent Service Opcodes](#agent-service-opcodes)
    1. [`*user/kick`](#userkick)
    2. [`*user/check_role`](#usercheck_role)
-   3. [`*user/ban/set`](#userbanset)
-   4. [`*user/ban/lift`](#userbanlift)
-   5. [`*nickname/acquire`](#nicknameacquire)
-   6. [`*nickname/release`](#nicknamerelease)
+   3. [`*user/push_message`](#userpush_message)
+   4. [`*user/ban/set`](#userbanset)
+   5. [`*user/ban/lift`](#userbanlift)
+   6. [`*nickname/acquire`](#nicknameacquire)
+   7. [`*nickname/release`](#nicknamerelease)
 3. [Monitor Service Opcodes](#monitor-service-opcodes)
    1. [`*role/list`](#rolelist)
    2. [`*role/create`](#rolecreate)
@@ -88,6 +89,28 @@ strings:
   Checks whether the specified user is online with the specified role.
 
 [back to table of contents](#table-of-contents)
+
+### `*user/push_message`
+
+* Service Type
+
+  - `"agent"`
+
+* Request Parameters
+
+  - `username` <sub>strings, optional</sub> : A single target user.
+  - `username_list` <sub>array of strings, optional</sub> : List of target users.
+  - `client_opcode` <sub>string</sub> : Opcode to send to clients.
+  - `client_data` <sub>object, optional</sub> : Additional data for this opcode.
+
+* Response Parameters
+
+  - <i>None</i>
+
+* Description
+
+  Sends a message to all clients in `username` and `username_list`. If a user is
+  not online on this service, they are silently ignored.
 
 ### `*user/ban/set`
 
