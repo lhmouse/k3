@@ -88,14 +88,28 @@ do_store_role_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, 
 void
 do_flush_role_to_mysql(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd)
   {
+    ::poseidon::UUID monitor_service_uuid;
+    for(const auto& r : service.all_service_records())
+      if(r.second.service_type == "monitor") {
+        monitor_service_uuid = r.first;
+        if(r.first == hyd.role->mf_monitor_service_uuid())
+          break;
+      }
+
+    if(monitor_service_uuid != hyd.role->mf_monitor_service_uuid()) {
+      // Switch to new monitor.
+      POSEIDON_LOG_ERROR(("Monitor `$1` seems to be down"), hyd.role->mf_monitor_service_uuid());
+      hyd.role->mf_monitor_service_uuid() = monitor_service_uuid;
+    }
+
     ::taxon::V_object tx_args;
     tx_args.try_emplace(&"roid", hyd.roinfo.roid);
 
-    auto srv_q = new_sh<Service_Future>(hyd.roinfo._home_srv, &"*role/flush", tx_args);
+    auto srv_q = new_sh<Service_Future>(monitor_service_uuid, &"*role/flush", tx_args);
     service.launch(srv_q);
     fiber.yield(srv_q);
 
-    POSEIDON_LOG_INFO(("#sav Requested flush: role `$1` (`$2`), updated on `$3`"),
+    POSEIDON_LOG_INFO(("#sav Flushed to MySQL: role `$1` (`$2`), updated on `$3`"),
                       hyd.roinfo.roid, hyd.roinfo.nickname, hyd.roinfo.update_time);
   }
 
@@ -186,6 +200,9 @@ do_star_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     ::poseidon::UUID agent_service_uuid(request.at(&"agent_srv").as_string());
     POSEIDON_CHECK(!agent_service_uuid.is_nil());
 
+    ::poseidon::UUID monitor_service_uuid(request.at(&"monitor_srv").as_string());
+    POSEIDON_CHECK(!monitor_service_uuid.is_nil());
+
     ////////////////////////////////////////////////////////////
     //
     Hydrated_Role hyd;
@@ -229,6 +246,7 @@ do_star_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     }
 
     hyd.role->mf_agent_service_uuid() = agent_service_uuid;
+    hyd.role->mf_monitor_service_uuid() = monitor_service_uuid;
     hyd.role->on_connect();
 
     response.try_emplace(&"status", &"gs_ok");

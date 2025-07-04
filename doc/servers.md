@@ -325,6 +325,7 @@ strings:
 
   - `roid` <sub>integer</sub> : ID of role to load.
   - `agent_srv` <sub>string</sub> : UUID of _agent_ that holds client connection.
+  - `monitor_srv` <sub>string</sub> : UUID of _monitor_ that holds client data.
 
 * Response Parameters
 

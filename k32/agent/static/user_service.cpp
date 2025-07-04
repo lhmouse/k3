@@ -1000,6 +1000,7 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
       ::taxon::V_object tx_args;
       tx_args.try_emplace(&"roid", roid);
       tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
+      tx_args.try_emplace(&"monitor_srv", do_find_my_monitor().to_string());
 
       auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
       service.launch(srv_q);

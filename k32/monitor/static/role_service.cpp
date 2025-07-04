@@ -457,6 +457,8 @@ do_star_role_flush(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     //
     POSEIDON_CHECK(impl->db_ready);
 
+    POSEIDON_LOG_INFO(("#sav Flushing role `$1`"), roid);
+
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"GET");
     redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), roid));
