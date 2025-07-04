@@ -67,7 +67,8 @@ do_store_role_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, 
     do_set_role_record_common_fields(temp_obj, hyd.role);
     hyd.roinfo.whole = ::taxon::Value(temp_obj).to_string();
 
-    POSEIDON_LOG_DEBUG(("Saving role `$1`: writing to Redis"), hyd.roinfo.roid);
+    POSEIDON_LOG_INFO(("#sav Saving into Redis: role `$1` (`$2`), updated on `$3`"),
+                      hyd.roinfo.roid, hyd.roinfo.nickname, hyd.roinfo.update_time);
 
     cow_vector<cow_string> redis_cmd;
     redis_cmd.emplace_back(&"SET");
@@ -80,7 +81,8 @@ do_store_role_into_redis(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd, 
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    POSEIDON_LOG_INFO(("Stored role `$1` (`$2`) to Redis"), hyd.roinfo.roid, hyd.roinfo.nickname);
+    POSEIDON_LOG_INFO(("#sav Saved into Redis: role `$1` (`$2`), updated on `$3`"),
+                      hyd.roinfo.roid, hyd.roinfo.nickname, hyd.roinfo.update_time);
   }
 
 void
@@ -93,7 +95,8 @@ do_flush_role_to_mysql(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd)
     service.launch(srv_q);
     fiber.yield(srv_q);
 
-    POSEIDON_LOG_INFO(("Flushed role `$1` (`$2`) to MySQL"), hyd.roinfo.roid, hyd.roinfo.nickname);
+    POSEIDON_LOG_INFO(("#sav Requested flush: role `$1` (`$2`), updated on `$3`"),
+                      hyd.roinfo.roid, hyd.roinfo.nickname, hyd.roinfo.update_time);
   }
 
 void

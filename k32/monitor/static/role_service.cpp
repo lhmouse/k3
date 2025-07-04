@@ -342,7 +342,7 @@ do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
                                 uniptr<::poseidon::MySQL_Connection>&& mysql_conn_opt,
                                 Role_Record& roinfo)
   {
-    POSEIDON_LOG_INFO(("Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
+    POSEIDON_LOG_INFO(("#sav Storing into MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
 
     static constexpr char update_role[] =
@@ -371,7 +371,7 @@ do_store_role_record_into_mysql(::poseidon::Abstract_Fiber& fiber,
     ::poseidon::task_scheduler.launch(task1);
     fiber.yield(task1);
 
-    POSEIDON_LOG_INFO(("Stored into MySQL: role `$1` (`$2`), updated on `$3`"),
+    POSEIDON_LOG_INFO(("#sav Stored into MySQL: role `$1` (`$2`), updated on `$3`"),
                       roinfo.roid, roinfo.nickname, roinfo.update_time);
   }
 
