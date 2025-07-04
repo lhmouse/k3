@@ -249,8 +249,12 @@ do_star_role_logout(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       return;
     }
 
-    hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
-    hyd.role->mf_disconnected_since() = steady_clock::now();
+    if(hyd.role->agent_service_uuid() != ::poseidon::UUID::min()) {
+      hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
+      hyd.role->mf_disconnected_since() = steady_clock::now();
+      hyd.role->on_disconnect();
+    }
+
     hyd.role->on_logout();
 
     do_store_role_into_redis(fiber, hyd, impl->redis_role_ttl);
