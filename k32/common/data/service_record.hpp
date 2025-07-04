@@ -10,6 +10,7 @@ namespace k32 {
 struct Service_Record
   {
     ::poseidon::UUID service_uuid;
+    cow_string application_name;
     int zone_id = 0;
     int service_index = 0;
     system_time zone_start_time;
@@ -29,7 +30,13 @@ struct Service_Record
     ~Service_Record();
 
     static const Service_Record null;
-    explicit operator bool() const noexcept { return this->service_uuid.is_nil() == false;  }
+    explicit operator bool() const noexcept { return not this->service_uuid.is_nil();  }
+
+    void
+    parse_from_string(const cow_string& str);
+
+    cow_string
+    serialize_to_string() const;
   };
 
 }  // namespace k32

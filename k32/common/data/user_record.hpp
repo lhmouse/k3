@@ -16,6 +16,8 @@ struct User_Record
     system_time logout_time;
     system_time banned_until;
 
+    ::poseidon::UUID _agent_srv;
+
 #ifdef K32_FRIENDS_6A8BAC8C_B8F6_4BDA_BD7F_B90D5BF07B81_
     User_Record() noexcept = default;
 #endif
@@ -26,7 +28,13 @@ struct User_Record
     ~User_Record();
 
     static const User_Record null;
-    explicit operator bool() const noexcept { return this->username.length() != 0;  }
+    explicit operator bool() const noexcept { return not this->username.empty();  }
+
+    void
+    parse_from_string(const cow_string& str);
+
+    cow_string
+    serialize_to_string() const;
   };
 
 }  // namespace k32
