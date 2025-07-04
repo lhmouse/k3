@@ -498,10 +498,6 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
 
     for(const auto& r : task2->result())
       try {
-        Service_Record remote;
-        POSEIDON_CHECK(r.first.size() == pattern.size() + 35);  // note `*` in pattern
-        POSEIDON_CHECK(remote.service_uuid.parse_partial(r.first.data() + pattern.size() - 1) == 36);
-
         ::taxon::Value temp_value;
         POSEIDON_CHECK(temp_value.parse(r.second));
         ::taxon::V_object root = temp_value.as_object();
@@ -510,24 +506,17 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
         if(root.at(&"application_name").as_string() != impl->application_name)
           continue;
 
-        remote.service_type = root.at(&"service_type").as_string();
+        Service_Record remote;
+        remote.service_uuid = ::poseidon::UUID(root.at(&"service_uuid").as_string());
         remote.service_index = static_cast<int>(root.at(&"service_index").as_integer());
+        remote.zone_id = static_cast<int>(root.at(&"zone_id").as_integer());
+        remote.zone_start_time = root.at(&"zone_start_time").as_time();
+        remote.service_type = root.at(&"service_type").as_string();
 
-        if(auto ptr = root.ptr(&"zone_id"))
-          remote.zone_id = static_cast<int>(ptr->as_integer());
-
-        if(auto ptr = root.ptr(&"zone_start_time"))
-          remote.zone_start_time = ptr->as_time();
-
-        if(auto ptr = root.ptr(&"load_factor"))
-          remote.load_factor = ptr->as_number();
-
-        if(auto ptr = root.ptr(&"hostname"))
-          remote.hostname = ptr->as_string();
-
-        if(auto ptr = root.ptr(&"addresses"))
-          for(const auto& t : ptr->as_array())
-            remote.addresses.emplace_back(t.as_string());
+        remote.load_factor = root.at(&"load_factor").as_number();
+        remote.hostname = root.at(&"hostname").as_string();
+        for(const auto& st : root.at(&"addresses").as_array())
+          remote.addresses.emplace_back(st.as_string());
 
         remote_services.try_emplace(remote.service_uuid, remote);
       }
@@ -538,7 +527,7 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
 
     for(const auto& r : impl->remote_services)
       if(remote_services.count(r.first) == 0)
-        POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2"), r.first, r.second.service_type);
+        POSEIDON_LOG_INFO(("Forgot DOWN service `$1`: $2 $3"), r.first, r.second.service_type, r.second.zone_id);
 
     for(const auto& r : remote_services)
       if(impl->remote_services.count(r.first) == 0)
@@ -598,11 +587,12 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
       impl->service_start_time = now;
 
     // Update my service data.
-    impl->service_data.insert_or_assign(&"service_type", impl->service_type);
+    impl->service_data.insert_or_assign(&"service_uuid", impl->service_uuid.to_string());
     impl->service_data.insert_or_assign(&"service_index", impl->appointment.index());
     impl->service_data.insert_or_assign(&"application_name", impl->application_name);
     impl->service_data.insert_or_assign(&"zone_id", impl->zone_id);
     impl->service_data.insert_or_assign(&"zone_start_time", impl->zone_start_time);
+    impl->service_data.insert_or_assign(&"service_type", impl->service_type);
 
     // Estimate my load factor.
     struct timespec ts;
@@ -622,15 +612,14 @@ do_publish_timer_callback(const shptr<Implementation>& impl,
     ::taxon::V_array addresses;
     uint16_t private_port = impl->private_server.local_address().port();
     if(private_port != 0) {
-      ::ifaddrs* ifa;
-      if(::getifaddrs(&ifa) != 0) {
+      ::rocket::unique_ptr<::ifaddrs, void (::ifaddrs*)> guard(nullptr, ::freeifaddrs);
+      ::ifaddrs* ifa = nullptr;
+      if(::getifaddrs(&ifa) == 0)
+        guard.reset(ifa);
+      else
         POSEIDON_LOG_ERROR(("Network configuration error: ${errno:full}]"));
-        return;
-      }
 
-      const auto ifa_guard = ::rocket::make_unique_handle(ifa, ::freeifaddrs);
-
-      for(ifa = ifa_guard;  ifa;  ifa = ifa->ifa_next)
+      for(ifa = guard;  ifa;  ifa = ifa->ifa_next)
         if(!(ifa->ifa_flags & IFF_RUNNING) || !ifa->ifa_addr)
           continue;
         else if(ifa->ifa_addr->sa_family == AF_INET) {
