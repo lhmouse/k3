@@ -484,9 +484,9 @@ struct Remote_Request_Task final : ::poseidon::Abstract_Task
   };
 
 void
-do_subscribe_services(const shptr<Implementation>& impl,
-                      const shptr<::poseidon::Abstract_Timer>& /*timer*/,
-                      ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
+do_subscribe_timer_callback(const shptr<Implementation>& impl,
+                            const shptr<::poseidon::Abstract_Timer>& /*timer*/,
+                            ::poseidon::Abstract_Fiber& fiber, steady_time /*now*/)
   {
     cow_uuid_dictionary<Service_Record> remote_services;
 
@@ -586,9 +586,9 @@ do_subscribe_services(const shptr<Implementation>& impl,
   }
 
 void
-do_publish_service(const shptr<Implementation>& impl,
-                   const shptr<::poseidon::Abstract_Timer>& timer,
-                   ::poseidon::Abstract_Fiber& fiber, steady_time now)
+do_publish_timer_callback(const shptr<Implementation>& impl,
+                          const shptr<::poseidon::Abstract_Timer>& timer,
+                          ::poseidon::Abstract_Fiber& fiber, steady_time now)
   {
     if(impl->appointment.index() < 0)
       return;
@@ -668,7 +668,7 @@ do_publish_service(const shptr<Implementation>& impl,
     POSEIDON_LOG_TRACE(("Published service `$1`: $2"), cmd.at(1), cmd.at(2));
 
     if(impl->service_start_time - now <= 60s)
-      do_subscribe_services(impl, timer, fiber, now);
+      do_subscribe_timer_callback(impl, timer, fiber, now);
   }
 
 }  // namespace
@@ -909,8 +909,8 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
       this->m_impl->appointment.enroll(sformat("$1/$2.lock", lock_directory, service_type));
 
     // Restart the service.
-    this->m_impl->publish_timer.start(1500ms, 6101ms, bindw(this->m_impl, do_publish_service));
-    this->m_impl->subscribe_timer.start(31001ms, bindw(this->m_impl, do_subscribe_services));
+    this->m_impl->publish_timer.start(1500ms, 6101ms, bindw(this->m_impl, do_publish_timer_callback));
+    this->m_impl->subscribe_timer.start(31001ms, bindw(this->m_impl, do_subscribe_timer_callback));
     this->m_impl->private_server.start(0, bindw(this->m_impl, do_server_ws_callback));
   }
 
