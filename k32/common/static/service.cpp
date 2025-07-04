@@ -171,7 +171,7 @@ do_client_ws_callback(const shptr<Implementation>& impl,
     switch(event)
       {
       case ::poseidon::easy_ws_open:
-        POSEIDON_LOG_INFO(("Connected to `$1`: $2"), session->remote_address(), data);
+        POSEIDON_LOG_INFO(("Connected to service `$1`: $2"), session->remote_address(), data);
         break;
 
       case ::poseidon::easy_ws_text:
@@ -956,7 +956,7 @@ launch(const shptr<Service_Future>& req)
 
           do_set_service_uuid(*session, resp.service_uuid);
           conn.weak_session = session;
-          POSEIDON_LOG_INFO(("Connecting to `$1` at `$2`"), resp.service_uuid, use_addr);
+          POSEIDON_LOG_INFO(("Connecting to service `$1` at `$2`"), resp.service_uuid, use_addr);
         }
 
         // Add this future to the waiting list.
