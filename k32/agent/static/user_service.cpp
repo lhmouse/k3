@@ -147,11 +147,9 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           }
 
           // Copy the authenticator, in case of fiber context switches.
-          static_vector<User_Service::ws_authenticator_type, 1> authenticator;
-          if(auto ptr = impl->ws_authenticators.ptr(path))
-            authenticator.emplace_back(*ptr);
-
-          if(authenticator.empty()) {
+          User_Service::ws_authenticator_type authenticator;
+          impl->ws_authenticators.find_and_copy(authenticator, path);
+          if(!authenticator) {
             session->ws_shut_down(user_ws_status_authentication_failure);
             return;
           }
@@ -160,7 +158,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           User_Record uinfo;
           uinfo._agent_srv = service.service_uuid();
           try {
-            authenticator.front() (fiber, uinfo.username, cow_string(uri.query));
+            authenticator(fiber, uinfo.username, cow_string(uri.query));
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), path, uri.query, stdex);
@@ -349,16 +347,6 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           if(auto ptr = request.ptr(&"@serial"))
             serial = *ptr;
 
-          // Copy the handler, in case of fiber context switches.
-          static_vector<User_Service::ws_handler_type, 1> handler;
-          if(auto ptr = impl->ws_handlers.ptr(opcode))
-            handler.emplace_back(*ptr);
-
-          if(handler.empty()) {
-            session->ws_shut_down(user_ws_status_unknown_opcode);
-            return;
-          }
-
           // Check message rate.
           double rate_limit = impl->client_rate_limit;
           auto rate_duration = steady_clock::now() - impl->connections.at(username).rate_time;
@@ -370,10 +358,18 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
           }
 
+          // Copy the handler, in case of fiber context switches.
+          User_Service::ws_handler_type handler;
+          impl->ws_handlers.find_and_copy(handler, opcode);
+          if(!handler) {
+            session->ws_shut_down(user_ws_status_unknown_opcode);
+            return;
+          }
+
           // Call the user-defined handler to get response data.
           ::taxon::V_object response;
           try {
-            handler.front() (fiber, username, response, request);
+            handler(fiber, username, response, request);
             impl->connections.mut(username).pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
@@ -456,19 +452,18 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           phcow_string path = ::poseidon::decode_and_canonicalize_uri_path(uri.path);
 
           // Copy the handler, in case of fiber context switches.
-          static_vector<User_Service::http_handler_type, 1> handler;
-          if(auto ptr = impl->http_handlers.ptr(path))
-            handler.emplace_back(*ptr);
-
-          if(handler.empty()) {
+          User_Service::http_handler_type handler;
+          impl->http_handlers.find_and_copy(handler, path);
+          if(!handler) {
             session->http_shut_down(::poseidon::http_status_not_found);
             return;
           }
 
           // Call the user-defined handler to get response data.
-          cow_string response_content_type, response_payload;
+          cow_string response_content_type;
+          cow_string response_payload;
           try {
-            handler.front() (fiber, response_content_type, response_payload, cow_string(uri.query));
+            handler(fiber, response_content_type, response_payload, cow_string(uri.query));
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), path, uri.query, stdex);

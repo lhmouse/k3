@@ -139,18 +139,17 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(!impl)
           return;
 
-        // Copy the handler, in case of fiber context switches.
-        static_vector<Service::handler_type, 1> handler;
-        if(auto ptr = impl->handlers.ptr(this->m_opcode))
-          handler.emplace_back(*ptr);
-
         ::taxon::V_object response;
         tinyfmt_str error_fmt;
-        if(handler.empty())
+
+        // Copy the handler, in case of fiber context switches.
+        Service::handler_type handler;
+        impl->handlers.find_and_copy(handler, this->m_opcode);
+        if(!handler)
           format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
         else
           try {
-            handler.front() (*this, impl->service_uuid, response, this->m_request);
+            handler(*this, impl->service_uuid, response, this->m_request);
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), this->m_opcode, this->m_request, stdex);
@@ -322,18 +321,17 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         if(request_service_uuid.is_nil())
           return;
 
-        // Copy the handler, in case of fiber context switches.
-        static_vector<Service::handler_type, 1> handler;
-        if(auto ptr = impl->handlers.ptr(this->m_opcode))
-          handler.emplace_back(*ptr);
-
         ::taxon::V_object response;
         tinyfmt_str error_fmt;
-        if(handler.empty())
+
+        // Copy the handler, in case of fiber context switches.
+        Service::handler_type handler;
+        impl->handlers.find_and_copy(handler, this->m_opcode);
+        if(!handler)
           format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
         else
           try {
-            handler.front() (*this, request_service_uuid, response, this->m_request);
+            handler(*this, request_service_uuid, response, this->m_request);
           }
           catch(exception& stdex) {
             POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), this->m_opcode, this->m_request, stdex);
