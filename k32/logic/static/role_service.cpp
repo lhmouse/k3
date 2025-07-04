@@ -131,8 +131,8 @@ do_save_timer_callback(const shptr<Implementation>& impl,
       if(!hyd.role)
         continue;
 
-      if(hyd.role->agent_service_uuid() != ::poseidon::UUID::min()) {
-        // Check agent connection.
+      if(!hyd.role->disconnected()) {
+        // Check client connection with agent.
         ::taxon::V_object tx_args;
         tx_args.try_emplace(&"username", hyd.role->username().rdstr());
         tx_args.try_emplace(&"roid", hyd.role->roid());
@@ -155,8 +155,7 @@ do_save_timer_callback(const shptr<Implementation>& impl,
         }
       }
 
-      if((hyd.role->agent_service_uuid() == ::poseidon::UUID::min())
-            && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration)) {
+      if(hyd.role->disconnected() && (now - hyd.role->mf_disconnected_since() >= impl->disconnect_to_logout_duration)) {
         // Role has been disconnected for too long.
         POSEIDON_LOG_DEBUG(("Logging out role `$1` due to inactivity"), hyd.roinfo.roid);
         hyd.role->on_logout();
@@ -249,7 +248,7 @@ do_star_role_logout(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       return;
     }
 
-    if(hyd.role->agent_service_uuid() != ::poseidon::UUID::min()) {
+    if(!hyd.role->disconnected()) {
       hyd.role->mf_agent_service_uuid() = ::poseidon::UUID::min();
       hyd.role->mf_disconnected_since() = steady_clock::now();
       hyd.role->on_disconnect();
