@@ -519,6 +519,7 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
           remote.addresses.emplace_back(st.as_string());
 
         remote_services.try_emplace(remote.service_uuid, remote);
+        POSEIDON_LOG_TRACE(("Received service `$1`: $2"), r.first, r.second);
       }
       catch(exception& stdex) {
         POSEIDON_LOG_WARN(("Invalid service `$1`: $2"), r.first, stdex);
