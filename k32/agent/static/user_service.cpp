@@ -36,6 +36,7 @@ struct User_Connection
 
 struct Implementation
   {
+    seconds redis_role_ttl;
     uint16_t client_port;
     uint16_t client_rate_limit;
     uint16_t max_number_of_roles_per_user = 0;
@@ -1278,12 +1279,29 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // Define default values here. The operation shall be atomic.
+    int64_t redis_role_ttl = 900;
     int64_t client_port = 0, client_rate_limit = 10, client_ping_interval = 0;
     int64_t max_number_of_roles_per_user = 4;
     int64_t nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
 
+    // `redis_role_ttl`
+    auto conf_value = conf_file.query(&"redis_role_ttl");
+    if(conf_value.is_integer())
+      redis_role_ttl = conf_value.as_integer();
+    else if(!conf_value.is_null())
+      POSEIDON_THROW((
+          "Invalid `redis_role_ttl`: expecting an `integer`, got `$1`",
+          "[in configuration file '$2']"),
+          conf_value, conf_file.path());
+
+    if((redis_role_ttl < 600) || (redis_role_ttl > 999999999))
+      POSEIDON_THROW((
+          "Invalid `redis_role_ttl`: value `$1` out of range",
+          "[in configuration file '$2']"),
+          redis_role_ttl, conf_file.path());
+
     // `agent.client_port_list`
-    auto conf_value = conf_file.query(sformat("agent.client_port_list[$1]", service.service_index()));
+    conf_value = conf_file.query(sformat("agent.client_port_list[$1]", service.service_index()));
     if(conf_value.is_integer())
       client_port = conf_value.as_integer();
     else if(!conf_value.is_null())
@@ -1378,6 +1396,7 @@ reload(const ::poseidon::Config_File& conf_file)
           nickname_length_limits_1, conf_file.path());
 
     // Set up new configuration. This operation shall be atomic.
+    this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
     this->m_impl->client_port = static_cast<uint16_t>(client_port);
     this->m_impl->client_rate_limit = static_cast<uint16_t>(client_rate_limit);
     this->m_impl->client_ping_interval = seconds(client_ping_interval);
