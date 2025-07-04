@@ -112,6 +112,8 @@ strings:
   Sends a message to all clients in `username` and `username_list`. If a user is
   not online on this service, they are silently ignored.
 
+[back to table of contents](#table-of-contents)
+
 ### `*user/ban/set`
 
 * Service Type

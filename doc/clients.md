@@ -90,6 +90,8 @@ strings:
 |`sc_too_many_roles`         |Max number of roles exceeded.                  |
 |`sc_role_creation_failure`  |Could not create role; internal error.         |
 
+[back to table of contents](#table-of-contents)
+
 ### `+role/create`
 
 * Request Parameters
