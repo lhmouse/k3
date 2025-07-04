@@ -148,7 +148,7 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
         tinyfmt_str error_fmt;
         try {
           if(handler.empty())
-            format(error_fmt, "No handler for `$1`", this->m_opcode);
+            format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
           else
             handler.front() (*this, impl->service_uuid, response, this->m_request);
         }
@@ -331,7 +331,7 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
         tinyfmt_str error_fmt;
         try {
           if(handler.empty())
-            format(error_fmt, "No handler for `$1`", this->m_opcode);
+            format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
           else
             handler.front() (*this, request_service_uuid, response, this->m_request);
         }
