@@ -163,7 +163,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             authenticator.front() (fiber, uinfo.username, cow_string(uri.query));
           }
           catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2\n$3"), path, uri.query, stdex);
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), path, uri.query, stdex);
             session->ws_shut_down(::poseidon::ws_status_unexpected_error);
             return;
           }
@@ -377,7 +377,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             impl->connections.mut(username).pong_time = steady_clock::now();
           }
           catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2\n$3"), opcode, request, stdex);
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), opcode, request, stdex);
             session->ws_shut_down(::poseidon::ws_status_unexpected_error);
             return;
           }
@@ -471,7 +471,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             handler.front() (fiber, response_content_type, response_payload, cow_string(uri.query));
           }
           catch(exception& stdex) {
-            POSEIDON_LOG_ERROR(("Unhandled exception in `$1`: $2\n$3"), path, uri.query, stdex);
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), path, uri.query, stdex);
             session->http_shut_down(::poseidon::http_status_bad_request);
             return;
           }

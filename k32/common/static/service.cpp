@@ -146,16 +146,16 @@ struct Local_Request_Fiber final : ::poseidon::Abstract_Fiber
 
         ::taxon::V_object response;
         tinyfmt_str error_fmt;
-        try {
-          if(handler.empty())
-            format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
-          else
+        if(handler.empty())
+          format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
+        else
+          try {
             handler.front() (*this, impl->service_uuid, response, this->m_request);
-        }
-        catch(exception& stdex) {
-          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request, stdex);
-          POSEIDON_LOG_ERROR(("Unhandled exception: $1"), error_fmt.get_string());
-        }
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), this->m_opcode, this->m_request, stdex);
+            format(error_fmt, "$1", stdex);
+          }
 
         // If the caller will be waiting, set the response.
         do_set_response(this->m_weak_req, this->m_request_uuid, response, error_fmt.get_string());
@@ -329,16 +329,16 @@ struct Remote_Request_Fiber final : ::poseidon::Abstract_Fiber
 
         ::taxon::V_object response;
         tinyfmt_str error_fmt;
-        try {
-          if(handler.empty())
-            format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
-          else
+        if(handler.empty())
+          format(error_fmt, "No handler for `$1` on $2", this->m_opcode, impl->service_type);
+        else
+          try {
             handler.front() (*this, request_service_uuid, response, this->m_request);
-        }
-        catch(exception& stdex) {
-          format(error_fmt, "`$1`: $2\n$3", this->m_opcode, this->m_request, stdex);
-          POSEIDON_LOG_ERROR(("Unhandled exception: $1"), error_fmt.get_string());
-        }
+          }
+          catch(exception& stdex) {
+            POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), this->m_opcode, this->m_request, stdex);
+            format(error_fmt, "$1", stdex);
+          }
 
         // If the caller will be waiting, set the response.
         do_send_remote_response(session, this->m_request_uuid, response, error_fmt.get_string());
