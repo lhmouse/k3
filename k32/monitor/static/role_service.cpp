@@ -160,19 +160,21 @@ do_star_role_list(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber&
 
     POSEIDON_LOG_INFO(("Found $1 role(s) for user `$2`"), db_records.size(), username);
 
-    // See whether Redis contains unflushed role records.
-    cow_vector<cow_string> redis_cmd;
-    redis_cmd.emplace_back(&"MGET");
-    for(size_t k = 0;  k < db_records.size();  ++k)
-      redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), db_records.at(k).roid));
+    if(db_records.size() > 0) {
+      // See whether Redis contains unflushed role records.
+      cow_vector<cow_string> redis_cmd;
+      redis_cmd.emplace_back(&"MGET");
+      for(size_t k = 0;  k < db_records.size();  ++k)
+        redis_cmd.emplace_back(sformat("$1/role/$2", service.application_name(), db_records.at(k).roid));
 
-    auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
-    ::poseidon::task_scheduler.launch(task2);
-    fiber.yield(task2);
+      auto task2 = new_sh<::poseidon::Redis_Query_Future>(::poseidon::redis_connector, redis_cmd);
+      ::poseidon::task_scheduler.launch(task2);
+      fiber.yield(task2);
 
-    for(size_t k = 0;  k < db_records.size();  ++k)
-      if(!task2->result().as_array().at(k).is_nil())
-        db_records.at(k).parse_from_string(task2->result().as_array().at(k).as_string());
+      for(size_t k = 0;  k < db_records.size();  ++k)
+        if(!task2->result().as_array().at(k).is_nil())
+          db_records.at(k).parse_from_string(task2->result().as_array().at(k).as_string());
+    }
 
     // Encode avatars in an object, and return it.
     ::taxon::V_object raw_avatars;
