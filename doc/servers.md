@@ -217,7 +217,9 @@ strings:
 * Response Parameters
 
   - `status` <sub>string</sub> : [General status code.](#general-status-codes)
-  - `avatar_list` <sub>array of objects</sub> : Roles that have been found.
+  - `raw_avatars` <sub>array of strings</sub> : Roles that have been found. Keys
+    are role IDs in decimal, and values are raw avatar data as JSON-encoded
+    strings from database.
 
 * Description
 

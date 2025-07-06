@@ -170,17 +170,16 @@ do_star_role_list(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber&
     ::poseidon::task_scheduler.launch(task2);
     fiber.yield(task2);
 
-    ::taxon::V_array avatar_list;
-    avatar_list.reserve(db_records.size());
-    for(size_t k = 0;  k < db_records.size();  ++k) {
-      // Update role records from Redis.
+    for(size_t k = 0;  k < db_records.size();  ++k)
       if(!task2->result().as_array().at(k).is_nil())
         db_records.at(k).parse_from_string(task2->result().as_array().at(k).as_string());
 
-      avatar_list.emplace_back(db_records.at(k).avatar);
-    }
+    // Encode avatars in an object, and return it.
+    ::taxon::V_object raw_avatars;
+    for(const auto& roinfo : db_records)
+      raw_avatars.try_emplace(sformat("$1", roinfo.roid), roinfo.avatar);
 
-    response.try_emplace(&"avatar_list", avatar_list);
+    response.try_emplace(&"raw_avatars", raw_avatars);
     response.try_emplace(&"status", &"gs_ok");
   }
 

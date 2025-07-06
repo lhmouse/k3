@@ -30,7 +30,7 @@ struct User_Connection
 
     int64_t current_roid = 0;
     ::poseidon::UUID current_logic_srv;
-    cow_int64_dictionary<::taxon::V_object> avail_avatar_list;
+    cow_int64_dictionary<::taxon::V_object> cached_raw_avatars;
   };
 
 struct Implementation
@@ -244,6 +244,10 @@ do_server_hws_callback(const shptr<Implementation>& impl,
 
           do_publish_user_on_redis(fiber, uinfo, impl->redis_role_ttl);
 
+          if(auto ptr = impl->connections.ptr(uinfo.username))
+            if(auto old_session = ptr->weak_session.lock())
+              old_session->ws_shut_down(user_ws_status_login_conflict);
+
           // Find my roles.
           ::taxon::V_object tx_args;
           tx_args.try_emplace(&"username", uinfo.username.rdstr());
@@ -257,23 +261,31 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           uconn.rate_time = steady_clock::now();
           uconn.pong_time = uconn.rate_time;
 
-          for(const auto& r : srv_q->response(0).obj.at(&"avatar_list").as_array()) {
+          for(const auto& r : srv_q->response(0).obj.at(&"raw_avatars").as_object()) {
             // For intermediate servers, an avatar is transferred as a JSON
             // string. We will not send a raw string to the client, so parse it.
-            if(r.as_string_length() == 0)
-              continue;
+            // Mind a fresh role (that has just been created but has not been
+            // loaded yet), whose avatar is an empty string.
+            int64_t roid = 0;
+            ::rocket::ascii_numget numg;
+            POSEIDON_CHECK(numg.parse_DI(r.first.data(), r.first.length()) == r.first.length());
+            numg.cast_I(roid, 0, INT64_MAX);
 
-            ::taxon::Value avatar;
-            POSEIDON_CHECK(avatar.parse(r.as_string()));
-            int64_t roid = avatar.as_object().at(&"roid").as_integer();
+            ::taxon::V_object avatar;
+            if(r.second.as_string_length() > 0) {
+              ::taxon::Value temp_value;
+              POSEIDON_CHECK(temp_value.parse(r.second.as_string()));
+              avatar = temp_value.as_object();
+            }
+
             POSEIDON_LOG_DEBUG(("Found role `$1` of user `$2`"), roid, uinfo.username);
-            uconn.avail_avatar_list.try_emplace(roid, avatar.as_object());
+            uconn.cached_raw_avatars.try_emplace(roid, avatar);
           }
 
-          if(uconn.avail_avatar_list.size() > 0) {
+          if(uconn.cached_raw_avatars.size() > 0) {
             // In case there's an online role, try reconnecting.
             tx_args.clear();
-            for(const auto& r : uconn.avail_avatar_list)
+            for(const auto& r : uconn.cached_raw_avatars)
               tx_args.open(&"roid_list").open_array().emplace_back(r.first);
             tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
 
@@ -301,7 +313,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             // No role is online, so send my role list to the client. The user
             // may select an existing one, or create a new one.
             ::taxon::V_array avatar_list;
-            for(const auto& r : uconn.avail_avatar_list)
+            for(const auto& r : uconn.cached_raw_avatars)
               avatar_list.emplace_back(r.second);
 
             tx_args.clear();
@@ -1020,7 +1032,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
 
     ////////////////////////////////////////////////////////////
     //
-    if(impl->connections.at(username).avail_avatar_list.size() >= impl->max_number_of_roles_per_user) {
+    if(impl->connections.at(username).cached_raw_avatars.size() >= impl->max_number_of_roles_per_user) {
       response.try_emplace(&"status", &"sc_too_many_roles");
       return;
     }
@@ -1088,7 +1100,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       return;
     }
 
-    impl->connections.mut(username).avail_avatar_list.try_emplace(roid);
+    impl->connections.mut(username).cached_raw_avatars.try_emplace(roid);
 
     do_role_login_common(impl, fiber, username, roid);
 
@@ -1110,7 +1122,7 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
       return;
     }
 
-    if(impl->connections.at(username).avail_avatar_list.count(roid) == 0) {
+    if(impl->connections.at(username).cached_raw_avatars.count(roid) == 0) {
       response.try_emplace(&"status", &"sc_role_unavailable");
       return;
     }

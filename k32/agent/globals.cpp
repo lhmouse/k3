@@ -30,7 +30,7 @@ user_service.add_ws_authenticator(
       phcow_string& username, const cow_string& request_raw_query)
     {
       POSEIDON_LOG_FATAL(("WS AUTH: $1"), request_raw_query);
-      username = &"test01001";
+      username = &"test01005";
     });
 
 /*TEST*/
