@@ -172,25 +172,17 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     impl->connections.mut(username).current_roid = roid;
     impl->connections.mut(username).current_logic_srv = logic_service_uuid;
 
-    try {
-      ::taxon::V_object tx_args;
-      tx_args.try_emplace(&"roid", roid);
-      tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
-      tx_args.try_emplace(&"monitor_srv", do_find_my_monitor().to_string());
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", roid);
+    tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
+    tx_args.try_emplace(&"monitor_srv", do_find_my_monitor().to_string());
 
-      auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
-      service.launch(srv_q);
-      fiber.yield(srv_q);
+    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
 
-      auto status = srv_q->response(0).obj.at(&"status").as_string();
-      POSEIDON_CHECK(status == "gs_ok");
-    }
-    catch(exception& stdex) {
-      POSEIDON_LOG_ERROR(("User `$1` failed to log into role `$2`: $3"), username, roid, stdex);
-      impl->connections.mut(username).current_roid = 0;
-      impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
-      throw;
-    }
+    auto status = srv_q->response(0).obj.at(&"status").as_string();
+    POSEIDON_CHECK(status == "gs_ok");
   }
 
 void
