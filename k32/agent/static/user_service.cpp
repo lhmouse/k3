@@ -125,6 +125,72 @@ do_publish_user_on_redis(::poseidon::Abstract_Fiber& fiber, const User_Record& u
   }
 
 void
+do_role_logout_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                      const phcow_string& username)
+  {
+    int64_t roid = impl->connections.at(username).current_roid;
+    ::poseidon::UUID logic_service_uuid = impl->connections.at(username).current_logic_srv;
+
+    // Bring this role offline. In order to prevent multiple logins, `current_roid`
+    // must not be cleared until the request completes.
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", roid);
+
+    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/logout", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    // Unlock the connection.
+    impl->connections.mut(username).current_roid = 0;
+    impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
+  }
+
+void
+do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                     const phcow_string& username, int64_t roid)
+  {
+    if(impl->connections.at(username).current_roid != 0)
+      do_role_logout_common(impl, fiber, username);
+
+    // Select a logic server with lowest load factor.
+    ::poseidon::UUID logic_service_uuid;
+    double load_factor = HUGE_VAL;
+
+    for(const auto& r : service.all_service_records())
+      if((r.second.zone_id == service.zone_id())
+            && (r.second.service_type == "logic")
+            && (r.second.load_factor <= load_factor))
+        logic_service_uuid = r.first;
+
+    if(logic_service_uuid == ::poseidon::UUID::min())
+      POSEIDON_THROW(("No logic service online"));
+
+    // Lock the connection.
+    impl->connections.mut(username).current_roid = roid;
+    impl->connections.mut(username).current_logic_srv = logic_service_uuid;
+
+    try {
+      ::taxon::V_object tx_args;
+      tx_args.try_emplace(&"roid", roid);
+      tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
+      tx_args.try_emplace(&"monitor_srv", do_find_my_monitor().to_string());
+
+      auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
+      service.launch(srv_q);
+      fiber.yield(srv_q);
+
+      auto status = srv_q->response(0).obj.at(&"status").as_string();
+      POSEIDON_CHECK(status == "gs_ok");
+    }
+    catch(exception& stdex) {
+      POSEIDON_LOG_ERROR(("User `$1` failed to log into role `$2`: $3"), username, roid, stdex);
+      impl->connections.mut(username).current_roid = 0;
+      impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
+      throw;
+    }
+  }
+
+void
 do_server_hws_callback(const shptr<Implementation>& impl,
                        const shptr<::poseidon::WS_Server_Session>& session,
                        ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
@@ -954,72 +1020,6 @@ do_star_user_ban_lift(const shptr<Implementation>& impl, ::poseidon::Abstract_Fi
     POSEIDON_LOG_INFO(("Lift ban on `$1`"), username);
 
     response.try_emplace(&"status", &"gs_ok");
-  }
-
-void
-do_role_logout_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
-                      const phcow_string& username)
-  {
-    int64_t roid = impl->connections.at(username).current_roid;
-    ::poseidon::UUID logic_service_uuid = impl->connections.at(username).current_logic_srv;
-
-    // Bring this role offline. In order to prevent multiple logins, `current_roid`
-    // must not be cleared until the request completes.
-    ::taxon::V_object tx_args;
-    tx_args.try_emplace(&"roid", roid);
-
-    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/logout", tx_args);
-    service.launch(srv_q);
-    fiber.yield(srv_q);
-
-    // Unlock the connection.
-    impl->connections.mut(username).current_roid = 0;
-    impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
-  }
-
-void
-do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
-                     const phcow_string& username, int64_t roid)
-  {
-    if(impl->connections.at(username).current_roid != 0)
-      do_role_logout_common(impl, fiber, username);
-
-    // Select a logic server with lowest load factor.
-    ::poseidon::UUID logic_service_uuid;
-    double load_factor = HUGE_VAL;
-
-    for(const auto& r : service.all_service_records())
-      if((r.second.zone_id == service.zone_id())
-            && (r.second.service_type == "logic")
-            && (r.second.load_factor <= load_factor))
-        logic_service_uuid = r.first;
-
-    if(logic_service_uuid == ::poseidon::UUID::min())
-      POSEIDON_THROW(("No logic service online"));
-
-    // Lock the connection.
-    impl->connections.mut(username).current_roid = roid;
-    impl->connections.mut(username).current_logic_srv = logic_service_uuid;
-
-    try {
-      ::taxon::V_object tx_args;
-      tx_args.try_emplace(&"roid", roid);
-      tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
-      tx_args.try_emplace(&"monitor_srv", do_find_my_monitor().to_string());
-
-      auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/login", tx_args);
-      service.launch(srv_q);
-      fiber.yield(srv_q);
-
-      auto status = srv_q->response(0).obj.at(&"status").as_string();
-      POSEIDON_CHECK(status == "gs_ok");
-    }
-    catch(exception& stdex) {
-      POSEIDON_LOG_ERROR(("User `$1` failed to log into role `$2`: $3"), username, roid, stdex);
-      impl->connections.mut(username).current_roid = 0;
-      impl->connections.mut(username).current_logic_srv = ::poseidon::UUID();
-      throw;
-    }
   }
 
 void
