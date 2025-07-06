@@ -16,7 +16,6 @@
 #include <poseidon/fiber/mysql_query_future.hpp>
 #include <poseidon/mysql/mysql_connection.hpp>
 #include <poseidon/static/mysql_connector.hpp>
-#include <unordered_set>
 namespace k32::agent {
 namespace {
 
@@ -31,7 +30,7 @@ struct User_Connection
 
     int64_t current_roid = 0;
     ::poseidon::UUID current_logic_srv;
-    ::std::unordered_set<int64_t> avail_roid_set;
+    cow_int64_dictionary<::taxon::V_object> avail_avatar_list;
   };
 
 struct Implementation
@@ -258,8 +257,6 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           uconn.rate_time = steady_clock::now();
           uconn.pong_time = uconn.rate_time;
 
-          ::taxon::V_array avail_avatar_list;
-
           for(const auto& r : srv_q->response(0).obj.at(&"avatar_list").as_array()) {
             // For intermediate servers, an avatar is transferred as a JSON
             // string. We will not send a raw string to the client, so parse it.
@@ -270,45 +267,46 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             POSEIDON_CHECK(avatar.parse(r.as_string()));
             int64_t roid = avatar.as_object().at(&"roid").as_integer();
             POSEIDON_LOG_DEBUG(("Found role `$1` of user `$2`"), roid, uinfo.username);
-
-            uconn.avail_roid_set.insert(roid);
-            avail_avatar_list.emplace_back(move(avatar));
+            uconn.avail_avatar_list.try_emplace(roid, avatar.as_object());
           }
 
-          // In case there's an online role, try reconnecting.
-          tx_args.clear();
-          for(int64_t roid : uconn.avail_roid_set)
-            tx_args.open(&"roid_list").open_array().emplace_back(roid);
-          tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
+          if(uconn.avail_avatar_list.size() > 0) {
+            // In case there's an online role, try reconnecting.
+            tx_args.clear();
+            for(const auto& r : uconn.avail_avatar_list)
+              tx_args.open(&"roid_list").open_array().emplace_back(r.first);
+            tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
 
-          cow_vector<::poseidon::UUID> multicast_list;
-          for(const auto& r : service.all_service_records())
-            if(r.second.service_type == "logic")
-              multicast_list.emplace_back(r.first);
+            cow_vector<::poseidon::UUID> multicast_list;
+            for(const auto& r : service.all_service_records())
+              if(r.second.service_type == "logic")
+                multicast_list.emplace_back(r.first);
 
-          srv_q = new_sh<Service_Future>(multicast_list, &"*role/reconnect", tx_args);
-          service.launch(srv_q);
-          fiber.yield(srv_q);
+            srv_q = new_sh<Service_Future>(multicast_list, &"*role/reconnect", tx_args);
+            service.launch(srv_q);
+            fiber.yield(srv_q);
 
-          for(size_t k = 0;  k < srv_q->response_count();  ++k) {
-            cow_string status;
-            if(auto ptr = srv_q->response(k).obj.ptr(&"status"))
-              status = ptr->as_string();
-
-            if(status == "gs_ok") {
-              // Use the existent role.
-              uconn.current_roid = srv_q->response(k).obj.at(&"roid").as_integer();
-              uconn.current_logic_srv = ::poseidon::UUID(srv_q->response(k).service_uuid);
-              break;
+            for(const auto& resp : srv_q->responses()) {
+              auto ptr = resp.obj.ptr(&"status");
+              if(ptr && ptr->is_string() && (ptr->as_string() == "gs_ok")) {
+                // Use the existent role.
+                uconn.current_roid = resp.obj.at(&"roid").as_integer();
+                uconn.current_logic_srv = ::poseidon::UUID(resp.service_uuid);
+                break;
+              }
             }
           }
 
           if(uconn.current_roid == 0) {
             // No role is online, so send my role list to the client. The user
             // may select an existing one, or create a new one.
+            ::taxon::V_array avatar_list;
+            for(const auto& r : uconn.avail_avatar_list)
+              avatar_list.emplace_back(r.second);
+
             tx_args.clear();
             tx_args.try_emplace(&"@opcode", &"=role/list");
-            tx_args.try_emplace(&"avatar", avail_avatar_list);
+            tx_args.try_emplace(&"avatar_list", avatar_list);
 
             tinybuf_ln buf;
             ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
@@ -1022,7 +1020,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
 
     ////////////////////////////////////////////////////////////
     //
-    if(impl->connections.at(username).avail_roid_set.size() >= impl->max_number_of_roles_per_user) {
+    if(impl->connections.at(username).avail_avatar_list.size() >= impl->max_number_of_roles_per_user) {
       response.try_emplace(&"status", &"sc_too_many_roles");
       return;
     }
@@ -1090,7 +1088,7 @@ do_plus_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
       return;
     }
 
-    impl->connections.mut(username).avail_roid_set.insert(roid);
+    impl->connections.mut(username).avail_avatar_list.try_emplace(roid);
 
     do_role_login_common(impl, fiber, username, roid);
 
@@ -1112,7 +1110,7 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
       return;
     }
 
-    if(impl->connections.at(username).avail_roid_set.count(roid) == 0) {
+    if(impl->connections.at(username).avail_avatar_list.count(roid) == 0) {
       response.try_emplace(&"status", &"sc_role_unavailable");
       return;
     }
