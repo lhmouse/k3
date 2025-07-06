@@ -149,6 +149,9 @@ void
 do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
                      const phcow_string& username, int64_t roid)
   {
+    if(impl->connections.at(username).current_roid == roid)
+      return;
+
     if(impl->connections.at(username).current_roid != 0)
       do_role_logout_common(impl, fiber, username);
 
@@ -388,6 +391,11 @@ do_server_hws_callback(const shptr<Implementation>& impl,
               old_session->ws_shut_down(user_ws_status_login_conflict);
 
           // Find my roles.
+          User_Connection uconn;
+          uconn.weak_session = session;
+          uconn.rate_time = steady_clock::now();
+          uconn.pong_time = uconn.rate_time;
+
           ::taxon::V_object tx_args;
           tx_args.try_emplace(&"username", uinfo.username.rdstr());
 
@@ -395,10 +403,11 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           service.launch(srv_q);
           fiber.yield(srv_q);
 
-          User_Connection uconn;
-          uconn.weak_session = session;
-          uconn.rate_time = steady_clock::now();
-          uconn.pong_time = uconn.rate_time;
+          if(srv_q->response(0).error != "") {
+            POSEIDON_LOG_WARN(("Could not list roles of `$1`: $2"), uinfo.username, srv_q->response(0).error);
+            session->ws_shut_down(::poseidon::ws_status_try_again_later);
+            return;
+          }
 
           for(const auto& r : srv_q->response(0).obj.at(&"raw_avatars").as_object()) {
             // For intermediate servers, an avatar is transferred as a JSON
