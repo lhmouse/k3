@@ -191,6 +191,79 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
   }
 
 void
+do_welcome_client(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                  const phcow_string& username, const shptr<::poseidon::WS_Server_Session>& session)
+  {
+    if(impl->connections.at(username).current_roid != 0)
+      return;
+
+    if(impl->connections.at(username).cached_raw_avatars.size() > 0) {
+      // In case there's an online role, try reconnecting.
+      ::taxon::V_object tx_args;
+      tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
+      for(const auto& r : impl->connections.at(username).cached_raw_avatars)
+        tx_args.open(&"roid_list").open_array().emplace_back(r.first);
+
+      cow_vector<::poseidon::UUID> multicast_list;
+      for(const auto& r : service.all_service_records())
+        if(r.second.service_type == "logic")
+          multicast_list.emplace_back(r.first);
+
+      auto srv_q = new_sh<Service_Future>(multicast_list, &"*role/reconnect", tx_args);
+      service.launch(srv_q);
+      fiber.yield(srv_q);
+
+      for(const auto& resp : srv_q->responses()) {
+        auto ptr = resp.obj.ptr(&"status");
+        if(ptr && ptr->is_string() && (ptr->as_string() == "gs_ok")) {
+          // Use the online role.
+          impl->connections.mut(username).current_roid = resp.obj.at(&"roid").as_integer();
+          impl->connections.mut(username).current_logic_srv = resp.service_uuid;
+          break;
+        }
+      }
+    }
+
+    if(impl->connections.at(username).current_roid != 0)
+      return;
+
+    // No role is online. If a fresh role exists, resume creation.
+    int64_t fresh_roid = 0;
+    for(const auto& r : impl->connections.at(username).cached_raw_avatars)
+      if(r.second.empty())
+        fresh_roid = r.first;
+
+    if(fresh_roid != 0) {
+      // Load this role into Redis, in case it's been unloaded.
+      ::taxon::V_object tx_args;
+      tx_args.try_emplace(&"roid", fresh_roid);
+
+      auto srv_q = new_sh<Service_Future>(do_find_my_monitor(), &"*role/load", tx_args);
+      service.launch(srv_q);
+      fiber.yield(srv_q);
+
+      do_role_login_common(impl, fiber, username, fresh_roid);
+    }
+
+    if(impl->connections.at(username).current_roid != 0)
+      return;
+
+    // No role is online. No role is being created. Send my role list to the
+    // client, so the user may select an existing role, or create a new one.
+    ::taxon::V_array avatar_list;
+    for(const auto& r : impl->connections.at(username).cached_raw_avatars)
+      avatar_list.emplace_back(r.second);
+
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"@opcode", &"=role/list");
+    tx_args.try_emplace(&"avatar_list", avatar_list);
+
+    tinybuf_ln buf;
+    ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
+    session->ws_send(::poseidon::ws_TEXT, buf);
+  }
+
+void
 do_server_hws_callback(const shptr<Implementation>& impl,
                        const shptr<::poseidon::WS_Server_Session>& session,
                        ::poseidon::Abstract_Fiber& fiber, ::poseidon::Easy_HWS_Event event,
@@ -348,57 +421,15 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             uconn.cached_raw_avatars.try_emplace(roid, avatar);
           }
 
-          if(uconn.cached_raw_avatars.size() > 0) {
-            // In case there's an online role, try reconnecting.
-            tx_args.clear();
-            for(const auto& r : uconn.cached_raw_avatars)
-              tx_args.open(&"roid_list").open_array().emplace_back(r.first);
-            tx_args.try_emplace(&"agent_srv", service.service_uuid().to_string());
-
-            cow_vector<::poseidon::UUID> multicast_list;
-            for(const auto& r : service.all_service_records())
-              if(r.second.service_type == "logic")
-                multicast_list.emplace_back(r.first);
-
-            srv_q = new_sh<Service_Future>(multicast_list, &"*role/reconnect", tx_args);
-            service.launch(srv_q);
-            fiber.yield(srv_q);
-
-            for(const auto& resp : srv_q->responses()) {
-              auto ptr = resp.obj.ptr(&"status");
-              if(ptr && ptr->is_string() && (ptr->as_string() == "gs_ok")) {
-                // Use the existent role.
-                uconn.current_roid = resp.obj.at(&"roid").as_integer();
-                uconn.current_logic_srv = ::poseidon::UUID(resp.service_uuid);
-                break;
-              }
-            }
-          }
-
-          if(uconn.current_roid == 0) {
-            // No role is online, so send my role list to the client. The user
-            // may select an existing one, or create a new one.
-            ::taxon::V_array avatar_list;
-            for(const auto& r : uconn.cached_raw_avatars)
-              avatar_list.emplace_back(r.second);
-
-            tx_args.clear();
-            tx_args.try_emplace(&"@opcode", &"=role/list");
-            tx_args.try_emplace(&"avatar_list", avatar_list);
-
-            tinybuf_ln buf;
-            ::taxon::Value(tx_args).print_to(buf, ::taxon::option_json_mode);
-            session->ws_send(::poseidon::ws_TEXT, buf);
-          }
-
           if(auto ptr = impl->connections.ptr(uinfo.username))
             if(auto old_session = ptr->weak_session.lock())
               old_session->ws_shut_down(user_ws_status_login_conflict);
 
           impl->users.insert_or_assign(uinfo.username, uinfo);
           impl->connections.insert_or_assign(uinfo.username, uconn);
-
           POSEIDON_LOG_INFO(("`$1` connected from `$2`"), uinfo.username, session->remote_address());
+
+          do_welcome_client(impl, fiber, uinfo.username, session);
           break;
         }
 
@@ -1134,12 +1165,6 @@ do_plus_role_login(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber
     auto srv_q = new_sh<Service_Future>(do_find_my_monitor(), &"*role/load", tx_args);
     service.launch(srv_q);
     fiber.yield(srv_q);
-
-    auto status = srv_q->response(0).obj.at(&"status").as_string();
-    if(status != "gs_ok") {
-      response.try_emplace(&"status", &"sc_role_unavailable");
-      return;
-    }
 
     do_role_login_common(impl, fiber, username, roid);
 
