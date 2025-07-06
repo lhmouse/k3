@@ -20,6 +20,7 @@
    2. [`*role/logout`](#rolelogout)
    3. [`*role/reconnect`](#rolereconnect)
    4. [`*role/disconnect`](#roledisconnect)
+   5. [`*clock/set_virtual_offset`](#clockset_virtual_offset)
 
 ## General Status Codes
 
@@ -400,5 +401,25 @@ strings:
 * Description
 
   Triggers a _disconnect_ event.
+
+[back to table of contents](#table-of-contents)
+
+### `*clock/set_virtual_offset`
+
+* Service Type
+
+  - `"logic"`
+
+* Request Parameters
+
+  - `offset` <sub>integer</sub> : Virtual offset in seconds.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Sets virtual offset of the logic clock.
 
 [back to table of contents](#table-of-contents)
