@@ -543,7 +543,8 @@ do_subscribe_timer_callback(const shptr<Implementation>& impl,
       impl->expired_remote_service_uuid_list.pop_back();
 
       Remote_Service_Connection_Record conn;
-      impl->remote_connections.find_and_erase(conn, remote_service_uuid);
+      if(!impl->remote_connections.find_and_erase(conn, remote_service_uuid))
+        continue;
 
       for(const auto& r : conn.weak_futures)
         if(auto req = r.first.lock()) {
