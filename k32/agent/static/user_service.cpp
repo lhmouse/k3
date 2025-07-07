@@ -1211,9 +1211,8 @@ add_http_handler(const phcow_string& path, const http_handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->http_handlers.try_emplace(path, handler);
-    if(!r.second)
-      POSEIDON_THROW(("An HTTP handler for `$1` already exists"), path);
+    if(this->m_impl->http_handlers.try_emplace(path, handler).second == false)
+      POSEIDON_THROW(("Handler for `$1` already exists"), path);
   }
 
 bool
@@ -1223,8 +1222,7 @@ set_http_handler(const phcow_string& path, const http_handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->http_handlers.insert_or_assign(path, handler);
-    return r.second;
+    return this->m_impl->http_handlers.insert_or_assign(path, handler).second;
   }
 
 bool
@@ -1244,9 +1242,8 @@ add_ws_authenticator(const phcow_string& path, const ws_authenticator_type& hand
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->ws_authenticators.try_emplace(path, handler);
-    if(!r.second)
-      POSEIDON_THROW(("A WebSocket authenticator for `$1` already exists"), path);
+    if(this->m_impl->ws_authenticators.try_emplace(path, handler).second == false)
+      POSEIDON_THROW(("Handler for `$1` already exists"), path);
   }
 
 bool
@@ -1256,8 +1253,7 @@ set_ws_authenticator(const phcow_string& path, const ws_authenticator_type& hand
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->ws_authenticators.try_emplace(path, handler);
-    return r.second;
+    return this->m_impl->ws_authenticators.try_emplace(path, handler).second;
   }
 
 bool
@@ -1277,9 +1273,8 @@ add_ws_handler(const phcow_string& opcode, const ws_handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->ws_handlers.try_emplace(opcode, handler);
-    if(!r.second)
-      POSEIDON_THROW(("A WebSocket handler for `$1` already exists"), opcode);
+    if(this->m_impl->ws_handlers.try_emplace(opcode, handler).second == false)
+      POSEIDON_THROW(("Handler for `$1` already exists"), opcode);
   }
 
 bool
@@ -1289,8 +1284,7 @@ set_ws_handler(const phcow_string& opcode, const ws_handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->ws_handlers.insert_or_assign(opcode, handler);
-    return r.second;
+    return this->m_impl->ws_handlers.insert_or_assign(opcode, handler).second;
   }
 
 bool

@@ -667,9 +667,8 @@ add_handler(const phcow_string& opcode, const handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->handlers.try_emplace(opcode, handler);
-    if(!r.second)
-      POSEIDON_THROW(("A handler for `$1` already exists"), opcode);
+    if(this->m_impl->handlers.try_emplace(opcode, handler).second == false)
+      POSEIDON_THROW(("Handler for `$1` already exists"), opcode);
   }
 
 bool
@@ -679,8 +678,7 @@ set_handler(const phcow_string& opcode, const handler_type& handler)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    auto r = this->m_impl->handlers.insert_or_assign(opcode, handler);
-    return r.second;
+    return this->m_impl->handlers.insert_or_assign(opcode, handler).second;
   }
 
 bool
