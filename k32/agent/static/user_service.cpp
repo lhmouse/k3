@@ -991,6 +991,9 @@ do_relay_forward_to_logic(const shptr<Implementation>& impl, ::poseidon::Abstrac
     service.launch(srv_q);
     fiber.yield(srv_q);
 
+    if(srv_q->response(0).error != "")
+      POSEIDON_THROW(("Could not forward client request: $1"), srv_q->response(0).error);
+
     if(auto ptr = srv_q->response(0).obj.ptr(&"client_resp"))
       response = ptr->as_object();
   }
