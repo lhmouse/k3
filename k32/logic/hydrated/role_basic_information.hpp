@@ -22,9 +22,9 @@ class Role_Basic_Information
     int64_t& mf_roid() noexcept { return this->m_roid;  }
     cow_string& mf_nickname() noexcept { return this->m_nickname;  }
     phcow_string& mf_username() noexcept { return this->m_username;  }
-    ::poseidon::UUID& mf_agent_service_uuid() noexcept { return this->m_agent_srv;  }
-    ::poseidon::UUID& mf_monitor_service_uuid() noexcept { return this->m_monitor_srv;  }
-    steady_time& mf_disconnected_since() noexcept { return this->m_dc_since;  }
+    ::poseidon::UUID& mf_agent_srv() noexcept { return this->m_agent_srv;  }
+    ::poseidon::UUID& mf_monitor_srv() noexcept { return this->m_monitor_srv;  }
+    steady_time& mf_dc_since() noexcept { return this->m_dc_since;  }
     Role_Basic_Information() noexcept = default;
 #endif
     Role_Basic_Information(const Role_Basic_Information&) = delete;
