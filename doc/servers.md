@@ -20,27 +20,30 @@
    2. [`*role/logout`](#rolelogout)
    3. [`*role/reconnect`](#rolereconnect)
    4. [`*role/disconnect`](#roledisconnect)
-   5. [`*clock/set_virtual_offset`](#clockset_virtual_offset)
+   5. [`*role/on_client_request`](#roleon_client_request)
+   6. [`*clock/set_virtual_offset`](#clockset_virtual_offset)
 
 ## General Status Codes
 
 Whenever `status` occurs as a response parameter, it may be one of the following
 strings:
 
-|Status Code                 |Description                                    |
-|:---------------------------|:----------------------------------------------|
-|`gs_ok`                     |Operation completed successfully.              |
-|`gs_user_not_online`        |User not online.                               |
-|`gs_user_not_found`         |User not found in database.                    |
-|`gs_nickname_conflict`      |Nickname already exists in database.           |
-|`gs_nickname_not_found`     |Nickname not found in database.                |
-|`gs_roid_conflict`          |Role ID already exists in database.            |
-|`gs_roid_not_found`         |Role ID not found in database.                 |
-|`gs_roid_not_match`         |Role ID not match.                             |
-|`gs_role_not_loaded`        |Role not loaded in Redis.                      |
-|`gs_role_foreign`           |Role belongs to another server.                |
-|`gs_role_not_logged_in`     |Role not logged in.                            |
-|`gs_reconnect_noop`         |No role to reconnect.                          |
+|Status Code                  |Description                                   |
+|:----------------------------|:---------------------------------------------|
+|`gs_ok`                      |Operation completed successfully.             |
+|`gs_user_not_online`         |User not online.                              |
+|`gs_user_not_found`          |User not found in database.                   |
+|`gs_nickname_conflict`       |Nickname already exists in database.          |
+|`gs_nickname_not_found`      |Nickname not found in database.               |
+|`gs_roid_conflict`           |Role ID already exists in database.           |
+|`gs_roid_not_found`          |Role ID not found in database.                |
+|`gs_roid_not_match`          |Role ID not match.                            |
+|`gs_role_not_loaded`         |Role not loaded in Redis.                     |
+|`gs_role_foreign`            |Role belongs to another server.               |
+|`gs_role_not_logged_in`      |Role not logged in.                           |
+|`gs_reconnect_noop`          |No role to reconnect.                         |
+|`gs_role_handler_not_found`  |No handler for client opcode.                 |
+|`gs_role_handler_except`     |Exception in handler for client opcode.       |
 
 [back to table of contents](#table-of-contents)
 
@@ -401,6 +404,29 @@ strings:
 * Description
 
   Triggers a _disconnect_ event.
+
+[back to table of contents](#table-of-contents)
+
+### `*role/on_client_request`
+
+* Service Type
+
+  - `"logic"`
+
+* Request Parameters
+
+  - `roid` <sub>integer</sub> : ID of role on this client.
+  - `client_opcode` <sub>string</sub> : Opcode from client.
+  - `client_req` <sub>object, optional</sub> : Additional data for this opcode.
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+  - `client_resp` <sub>object, optional</sub> : Additional response data.
+
+* Description
+
+  Handles a request message from a client.
 
 [back to table of contents](#table-of-contents)
 

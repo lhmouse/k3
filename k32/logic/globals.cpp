@@ -22,4 +22,19 @@ poseidon_module_main(void)
     conf_file.reload(&"k32.conf");
     service.reload(conf_file, &"logic");
     role_service.reload(conf_file);
+
+
+/*TEST*/
+
+role_service.add_handler(
+  &"/t0",
+  +[](::poseidon::Abstract_Fiber& fiber,
+      int64_t roid, ::taxon::V_object& resp, const ::taxon::V_object& req)
+    {
+      POSEIDON_LOG_FATAL(("ROLE $1 REQ: $2"), roid, req);
+      resp.try_emplace(&"meow", 42);
+    });
+
+/*TEST*/
+
   }

@@ -343,6 +343,45 @@ do_star_role_disconnect(const shptr<Implementation>& impl, ::poseidon::Abstract_
   }
 
 void
+do_star_role_on_client_request(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                               const ::poseidon::UUID& /*request_service_uuid*/,
+                               ::taxon::V_object& response, const ::taxon::V_object& request)
+  {
+    int64_t roid = request.at(&"roid").as_integer();
+    POSEIDON_CHECK((roid >= 1) && (roid <= 8'99999'99999'99999));
+
+    phcow_string client_opcode = request.at(&"client_opcode").as_string();
+    POSEIDON_CHECK(client_opcode != "");
+
+    ::taxon::V_object client_req;
+    if(auto ptr = request.ptr(&"client_req"))
+      client_req = ptr->as_object();
+
+    ////////////////////////////////////////////////////////////
+    //
+    Role_Service::handler_type handler;
+    impl->handlers.find_and_copy(handler, client_opcode);
+    if(!handler) {
+      response.try_emplace(&"status", &"gs_role_handler_not_found");
+      return;
+    }
+
+    // Call the user-defined handler to get response data.
+    ::taxon::V_object client_resp;
+    try {
+      handler(fiber, roid, client_resp, client_req);
+    }
+    catch(exception& stdex) {
+      POSEIDON_LOG_ERROR(("Unhandled exception in `$1 $2`: $3"), client_opcode, client_req, stdex);
+      response.try_emplace(&"status", &"gs_role_handler_except");
+      return;
+    }
+
+    response.try_emplace(&"client_resp", client_resp);
+    response.try_emplace(&"status", &"gs_ok");
+  }
+
+void
 do_star_clock_set_virtual_offset(const shptr<Implementation>& /*impl*/, ::poseidon::Abstract_Fiber& /*fiber*/,
                                  const ::poseidon::UUID& /*request_service_uuid*/,
                                  ::taxon::V_object& response, const ::taxon::V_object& request)
@@ -489,6 +528,7 @@ reload(const ::poseidon::Config_File& conf_file)
     service.set_handler(&"*role/logout", bindw(this->m_impl, do_star_role_logout));
     service.set_handler(&"*role/reconnect", bindw(this->m_impl, do_star_role_reconnect));
     service.set_handler(&"*role/disconnect", bindw(this->m_impl, do_star_role_disconnect));
+    service.set_handler(&"*role/on_client_request", bindw(this->m_impl, do_star_role_on_client_request));
     service.set_handler(&"*clock/set_virtual_offset", bindw(this->m_impl, do_star_clock_set_virtual_offset));
 
     // Restart the service.
