@@ -55,21 +55,21 @@ Both a client and a server shall send messages as JSON objects, encoded as
 either text or binary WebSocket frames. Fields of client-to-server messages are
 defined as follows:
 
-* `@opcode` <sub>string, required</sub> : Functionality of this message.
-* `@serial` <sub>any value, optional</sub> : An arbitrary value which, if not
+* `%opcode` <sub>string, required</sub> : Functionality of this message.
+* `%serial` <sub>any value, optional</sub> : An arbitrary value which, if not
   `null`, will be echoed back to the client in a subsequent response message.
 
 Fields of server-to-client messages are defined as follows:
 
-* `@opcode` <sub>string, optional</sub> : Functionality of this message. This is
+* `%opcode` <sub>string, optional</sub> : Functionality of this message. This is
   only set when a server sends a message actively; when responding to a previous
   request message from the client, this field is not set.
-* `@serial` <sub>any value, optional</sub> : If a previous message from the
+* `%serial` <sub>any value, optional</sub> : If a previous message from the
   client had `serial`, this echos the value back, maintaining a one-to-one
   relationship between a request-response message pair. The server shall never
   send both `serial` and `opcode`.
 
-Field names without `@` are free for any protocol-specific use.
+Field names without `%` are free for any protocol-specific use.
 
 [back to table of contents](#table-of-contents)
 

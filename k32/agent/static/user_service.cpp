@@ -250,7 +250,7 @@ do_welcome_client(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber&
       avatar_list.emplace_back(r.second);
 
     ::taxon::V_object tx_args;
-    tx_args.try_emplace(&"@opcode", &"=role/list");
+    tx_args.try_emplace(&"%opcode", &"=role/list");
     tx_args.try_emplace(&"avatar_list", avatar_list);
 
     tinybuf_ln buf;
@@ -448,11 +448,11 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           temp_value.clear();
 
           phcow_string opcode;
-          if(auto ptr = request.ptr(&"@opcode"))
+          if(auto ptr = request.ptr(&"%opcode"))
             opcode = ptr->as_string();
 
           ::taxon::Value serial;
-          if(auto ptr = request.ptr(&"@serial"))
+          if(auto ptr = request.ptr(&"%serial"))
             serial = *ptr;
 
           // Check message rate.
@@ -490,7 +490,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             break;
 
           // The client expects a response, so send it.
-          response.try_emplace(&"@serial", serial);
+          response.try_emplace(&"%serial", serial);
           temp_value = response;
 
           buf.clear_buffer();
@@ -955,7 +955,7 @@ do_star_user_push_message(const shptr<Implementation>& impl, ::poseidon::Abstrac
         if(auto session = uconn->weak_session.lock()) {
           if(buf.size() == 0) {
             ::taxon::V_object obj = client_data;
-            obj.try_emplace(&"@opcode", client_opcode);
+            obj.try_emplace(&"%opcode", client_opcode);
             ::taxon::Value(obj).print_to(buf, ::taxon::option_json_mode);
           }
           session->ws_send(::poseidon::ws_TEXT, buf);
