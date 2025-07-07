@@ -5,10 +5,11 @@
    1. [`*user/kick`](#userkick)
    2. [`*user/check_role`](#usercheck_role)
    3. [`*user/push_message`](#userpush_message)
-   4. [`*user/ban/set`](#userbanset)
-   5. [`*user/ban/lift`](#userbanlift)
-   6. [`*nickname/acquire`](#nicknameacquire)
-   7. [`*nickname/release`](#nicknamerelease)
+   4. [`*user/reload_relay_conf`](#userreload_relay_conf)
+   5. [`*user/ban/set`](#userbanset)
+   6. [`*user/ban/lift`](#userbanlift)
+   7. [`*nickname/acquire`](#nicknameacquire)
+   8. [`*nickname/release`](#nicknamerelease)
 3. [Monitor Service Opcodes](#monitor-service-opcodes)
    1. [`*role/list`](#rolelist)
    2. [`*role/create`](#rolecreate)
@@ -115,6 +116,26 @@ strings:
 
   Sends a message to all clients in `username` and `username_list`. If a user is
   not online on this service, they are silently ignored.
+
+[back to table of contents](#table-of-contents)
+
+### `*user/reload_relay_conf`
+
+* Service Type
+
+  - `"agent"`
+
+* Request Parameters
+
+  - _None_
+
+* Response Parameters
+
+  - `status` <sub>string</sub> : [General status code.](#general-status-codes)
+
+* Description
+
+  Reloads relay rules for client opcodes from `relay.conf`.
 
 [back to table of contents](#table-of-contents)
 

@@ -81,6 +81,7 @@ strings:
 |Status Code                 |Description                                    |
 |:---------------------------|:----------------------------------------------|
 |`sc_ok`                     |Operation completed successfully.              |
+|`sc_opcode_denied`          |Opcode temporarily denied.                     |
 |`sc_role_selected`          |Role is already selected and online.           |
 |`sc_no_role_selected`       |No role selected.                              |
 |`sc_role_unavailable`       |Role not available to current user.            |

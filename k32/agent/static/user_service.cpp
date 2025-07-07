@@ -470,6 +470,7 @@ do_server_hws_callback(const shptr<Implementation>& impl,
           User_Service::ws_handler_type handler;
           impl->ws_handlers.find_and_copy(handler, opcode);
           if(!handler) {
+            POSEIDON_LOG_WARN(("Unknown opcode `$1` from user `$2`"), opcode, username);
             session->ws_shut_down(user_ws_status_unknown_opcode);
             return;
           }
@@ -960,6 +961,91 @@ do_star_user_push_message(const shptr<Implementation>& impl, ::poseidon::Abstrac
           }
           session->ws_send(::poseidon::ws_TEXT, buf);
         }
+  }
+
+void
+do_relay_deny(const shptr<Implementation>& /*impl*/, ::poseidon::Abstract_Fiber& /*fiber*/,
+              const phcow_string& /*username*/, ::taxon::V_object& response,
+              const ::taxon::V_object& /*request*/)
+  {
+    response.try_emplace(&"status", &"sc_opcode_denied");
+  }
+
+void
+do_relay_forward_to_logic(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& fiber,
+                          const phcow_string& username, ::taxon::V_object& response,
+                          const ::taxon::V_object& request)
+  {
+    ::poseidon::UUID logic_service_uuid = impl->connections.at(username).current_logic_srv;
+    if(logic_service_uuid.is_nil()) {
+      response.try_emplace(&"status", &"sc_no_role_selected");
+      return;
+    }
+
+    ::taxon::V_object tx_args;
+    tx_args.try_emplace(&"roid", impl->connections.at(username).current_roid);
+    tx_args.try_emplace(&"client_opcode", request.at(&"%opcode").as_string());
+    tx_args.try_emplace(&"client_req", request);
+
+    auto srv_q = new_sh<Service_Future>(logic_service_uuid, &"*role/on_client_request", tx_args);
+    service.launch(srv_q);
+    fiber.yield(srv_q);
+
+    if(auto ptr = srv_q->response(0).obj.ptr(&"client_resp"))
+      response = ptr->as_object();
+  }
+
+void
+do_reload_relay_conf(const shptr<Implementation>& impl)
+  {
+    cow_dictionary<User_Service::ws_handler_type> temp_ws_handlers;
+    ::poseidon::Config_File conf_file(&"relay.conf");
+
+    for(const auto& r : conf_file.root()) {
+      cow_string target;
+      if(r.second.is_string())
+        target = r.second.as_string();
+      else if(!r.second.is_null())
+        POSEIDON_THROW((
+            "Invalid `$1`: expecting a `string`, got `$2`",
+            "[in configuration file '$3']"),
+            r.first, r.second, conf_file.path());
+
+      if(r.first.empty() || target.empty())
+        continue;
+
+      User_Service::ws_handler_type handler;
+      if(target == "denied")
+        handler = bindw(impl, do_relay_deny);
+      else if(target == "logic")
+        handler = bindw(impl, do_relay_forward_to_logic);
+      else
+        POSEIDON_THROW((
+            "Invalid `$1`: unknown relay rule `$2`",
+            "[in configuration file '$3']"),
+            r.first, r.second, conf_file.path());
+
+      if(temp_ws_handlers.try_emplace(r.first, handler).second == false)
+        POSEIDON_THROW((
+            "Duplicate rule for `$1`",
+            "[in configuration file '$3']"),
+            r.first, r.second, conf_file.path());
+    }
+
+    for(const auto& r : temp_ws_handlers)
+      impl->ws_handlers.insert_or_assign(r.first, r.second);
+
+    POSEIDON_LOG_INFO(("Reloaded relay rules for client opcodes from '$1'"), conf_file.path());
+  }
+
+void
+do_star_user_reload_relay_conf(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& /*fiber*/,
+                               const ::poseidon::UUID& /*request_service_uuid*/,
+                               ::taxon::V_object& response, const ::taxon::V_object& /*request*/)
+  {
+    do_reload_relay_conf(impl);
+
+    response.try_emplace(&"status", &"gs_ok");
   }
 
 void
@@ -1459,10 +1545,14 @@ reload(const ::poseidon::Config_File& conf_file)
     this->m_impl->ws_handlers.insert_or_assign(&"+role/login", bindw(this->m_impl, do_plus_role_login));
     this->m_impl->ws_handlers.insert_or_assign(&"+role/logout", bindw(this->m_impl, do_plus_role_logout));
 
+    // Allow builtin handlers to be overridden; well, they may be.
+    do_reload_relay_conf(this->m_impl);
+
     // Set up request handlers.
     service.set_handler(&"*user/kick", bindw(this->m_impl, do_star_user_kick));
     service.set_handler(&"*user/check_role", bindw(this->m_impl, do_star_user_check_role));
     service.set_handler(&"*user/push_message", bindw(this->m_impl, do_star_user_push_message));
+    service.set_handler(&"*user/reload_relay_conf", bindw(this->m_impl, do_star_user_reload_relay_conf));
     service.set_handler(&"*user/ban/set", bindw(this->m_impl, do_star_user_ban_set));
     service.set_handler(&"*user/ban/lift", bindw(this->m_impl, do_star_user_ban_lift));
     service.set_handler(&"*nickname/acquire", bindw(this->m_impl, do_star_nickname_acquire));
