@@ -940,12 +940,12 @@ do_star_user_push_message(const shptr<Implementation>& impl, ::poseidon::Abstrac
     if(auto ptr = request.ptr(&"username"))
       username_list.emplace_back(ptr->as_string());
 
+    cow_string client_opcode = request.at(&"client_opcode").as_string();
+    POSEIDON_CHECK(client_opcode != "");
+
     ::taxon::V_object client_data;
     if(auto ptr = request.ptr(&"client_data"))
       client_data = ptr->as_object();
-
-    cow_string client_opcode = request.at(&"client_opcode").as_string();
-    POSEIDON_CHECK(client_opcode != "");
 
     ////////////////////////////////////////////////////////////
     //
