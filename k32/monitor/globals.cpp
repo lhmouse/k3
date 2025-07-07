@@ -17,8 +17,7 @@ using namespace k32::monitor;
 void
 poseidon_module_main(void)
   {
-    ::poseidon::Config_File conf_file;
-    conf_file.reload(&"k32.conf");
+    ::poseidon::Config_File conf_file(&"k32.conf");
     service.reload(conf_file, &"monitor");
     role_service.reload(conf_file);
   }

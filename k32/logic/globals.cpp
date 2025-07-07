@@ -18,8 +18,7 @@ using namespace k32::logic;
 void
 poseidon_module_main(void)
   {
-    ::poseidon::Config_File conf_file;
-    conf_file.reload(&"k32.conf");
+    ::poseidon::Config_File conf_file(&"k32.conf");
     service.reload(conf_file, &"logic");
     role_service.reload(conf_file);
 
