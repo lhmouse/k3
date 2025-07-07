@@ -26,6 +26,8 @@ struct Implementation
     seconds redis_role_ttl;
     seconds disconnect_to_logout_duration;
 
+    cow_dictionary<Role_Service::handler_type> handlers;
+
     ::poseidon::Easy_Timer save_timer;
     ::poseidon::Easy_Timer every_second_timer;
 
@@ -389,6 +391,39 @@ Role_Service()
 Role_Service::
 ~Role_Service()
   {
+  }
+
+void
+Role_Service::
+add_handler(const phcow_string& opcode, const handler_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->handlers.try_emplace(opcode, handler);
+    if(!r.second)
+      POSEIDON_THROW(("A handler for `$1` already exists"), opcode);
+  }
+
+bool
+Role_Service::
+set_handler(const phcow_string& opcode, const handler_type& handler)
+  {
+    if(!this->m_impl)
+      this->m_impl = new_sh<X_Implementation>();
+
+    auto r = this->m_impl->handlers.insert_or_assign(opcode, handler);
+    return r.second;
+  }
+
+bool
+Role_Service::
+remove_handler(const phcow_string& opcode) noexcept
+  {
+    if(!this->m_impl)
+      return false;
+
+    return this->m_impl->handlers.erase(opcode);
   }
 
 shptr<Role>
