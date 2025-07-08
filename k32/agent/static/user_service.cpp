@@ -1421,14 +1421,9 @@ reload(const ::poseidon::Config_File& conf_file)
     seconds redis_role_ttl = seconds(static_cast<int>(vint.value_or(900)));
 
     // `agent.client_port_list[]`
-    vint = conf_file.get_integer_opt(sformat("agent.client_port_list[$1]", service.service_index()), 1, 32767);
-    uint16_t client_port = static_cast<uint16_t>(vint.value_or(0));
-
-    if(client_port == 0)
-      POSEIDON_THROW((
-          "Invalid `agent.client_port_list[$3]`: no client port available",
-          "[in configuration file '$2']"),
-          client_port, conf_file.path(), service.service_index());
+    cow_string tstr = sformat("agent.client_port_list[$1]", service.service_index());
+    int64_t tint = conf_file.get_integer(tstr, 1, 32767);
+    uint16_t client_port = static_cast<uint16_t>(tint);
 
     // `agent.client_rate_limit`
     vint = conf_file.get_integer_opt(&"agent.client_rate_limit", 1, 65535);

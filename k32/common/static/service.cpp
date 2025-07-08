@@ -15,6 +15,7 @@
 #include <poseidon/base/abstract_task.hpp>
 #include <poseidon/static/task_scheduler.hpp>
 #include <poseidon/http/http_query_parser.hpp>
+#include <asteria/library/string.hpp>
 #define OPENSSL_API_COMPAT  0x10100000L
 #include <openssl/md5.h>
 #include <sys/types.h>
@@ -782,79 +783,30 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    // Define default values here. The operation shall be atomic.
-    ::asteria::V_string application_name, application_password, lock_directory;
-    int64_t zone_id = 0;
-    ::poseidon::DateTime zone_start_time;
+    // Read service configuration. These fields are required.
+    cow_string application_name = conf_file.get_string(&"application_name");
+    cow_string application_password = conf_file.get_string(&"application_password");
+    int zone_id = static_cast<int>(conf_file.get_integer(&"zone_id", 0, 9999999));
+    system_time zone_start_time = ::poseidon::DateTime(conf_file.get_string(&"zone_start_time")).as_system_time();
+    cow_string lock_directory = conf_file.get_string(&"lock_directory");
 
-    // `application_name`
-    auto conf_value = conf_file.query(&"application_name");
-    if(conf_value.is_string())
-      application_name = conf_value.as_string();
-    else if(!conf_value.is_null())
+    if(application_name.size() < 2)
       POSEIDON_THROW((
-          "Invalid `application_name`: expecting a `string`, got `$1`",
+          "Invalid `application_name`: name too short",
           "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+          application_name, conf_file.path());
 
-    if(application_name.empty())
+    if(auto m = ::asteria::std_string_pcre_match(application_name, nullopt, nullopt, &"[^A-Za-z0-9_.-:]", nullopt))
       POSEIDON_THROW((
-          "Invalid `application_name`: empty name not valid",
+          "Invalid `application_name`: character `$1` not allowed",
           "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    for(char ch : application_name) {
-      static constexpr char valid_chars[] =
-         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _+-,.()~!@#$%";
-
-      if(::rocket::xmemchr(valid_chars, ch, sizeof(valid_chars) - 1) == nullptr)
-        POSEIDON_THROW((
-            "Invalid `application_name`: character `$1` not allowed",
-            "[in configuration file '$2']"),
-            ch, conf_file.path());
-    }
-
-    // `application_password`
-    conf_value = conf_file.query(&"application_password");
-    if(conf_value.is_string())
-      application_password = conf_value.as_string();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `application_password`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    // `zone_id`
-    conf_value = conf_file.query(&"zone_id");
-    if(conf_value.is_integer())
-      zone_id = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `zone_id`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((zone_id < 1) || (zone_id > 99999999))
-      POSEIDON_THROW((
-          "Invalid `zone_id`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          zone_id, conf_file.path());
-
-    // `zone_start_time`
-    vstr = conf_file.get_string_opt(&"zone_start_time");
-    system_time zone_start_time;
-    if(vstr)
-      zone_start_time = ::poseidon::DateTime(*vstr).as_system_time();
+          m->front(), conf_file.path());
 
     if(zone_start_time > system_clock::now())
       POSEIDON_THROW((
           "Invalid `zone_start_time`: time point `$1` is in the future",
           "[in configuration file '$2']"),
           zone_start_time, conf_file.path());
-
-    // `lock_directory`
-    vstr = conf_file.get_string_opt(&"lock_directory");
-    cow_string lock_directory = vstr.value_or(&"");
 
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->service_type = service_type;
