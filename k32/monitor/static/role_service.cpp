@@ -594,27 +594,12 @@ reload(const ::poseidon::Config_File& conf_file)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    // Define default values here. The operation shall be atomic.
-    int64_t redis_role_ttl = 900;
-
     // `redis_role_ttl`
-    auto conf_value = conf_file.query(&"redis_role_ttl");
-    if(conf_value.is_integer())
-      redis_role_ttl = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `redis_role_ttl`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((redis_role_ttl < 600) || (redis_role_ttl > 999999999))
-      POSEIDON_THROW((
-          "Invalid `redis_role_ttl`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          redis_role_ttl, conf_file.path());
+    auto vint = conf_file.get_integer_opt(&"redis_role_ttl", 600, 999999999);
+    seconds redis_role_ttl = seconds(static_cast<int>(vint.value_or(900)));
 
     // Set up new configuration. This operation shall be atomic.
-    this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
+    this->m_impl->redis_role_ttl = redis_role_ttl;
 
     // Set up request handlers.
     service.set_handler(&"*role/list", bindw(this->m_impl, do_star_role_list));

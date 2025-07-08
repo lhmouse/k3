@@ -1005,22 +1005,21 @@ do_reload_relay_conf(const shptr<Implementation>& impl)
     ::poseidon::Config_File conf_file(&"relay.conf");
 
     for(const auto& r : conf_file.root()) {
-      cow_string target;
-      if(r.second.is_string())
-        target = r.second.as_string();
-      else if(!r.second.is_null())
+      if(r.second.is_null())
+        continue;
+      else if(!r.second.is_string())
         POSEIDON_THROW((
             "Invalid `$1`: expecting a `string`, got `$2`",
             "[in configuration file '$3']"),
             r.first, r.second, conf_file.path());
 
-      if(r.first.empty() || target.empty())
+      if(r.first.empty() || r.second.as_string().empty())
         continue;
 
       User_Service::ws_handler_type handler;
-      if(target == "denied")
+      if(r.second.as_string() == "denied")
         handler = bindw(impl, do_relay_deny);
-      else if(target == "logic")
+      else if(r.second.as_string() == "logic")
         handler = bindw(impl, do_relay_forward_to_logic);
       else
         POSEIDON_THROW((
@@ -1417,131 +1416,53 @@ reload(const ::poseidon::Config_File& conf_file)
     if(!this->m_impl)
       this->m_impl = new_sh<X_Implementation>();
 
-    // Define default values here. The operation shall be atomic.
-    int64_t redis_role_ttl = 900;
-    int64_t client_port = 0, client_rate_limit = 10, client_ping_interval = 0;
-    int64_t max_number_of_roles_per_user = 4;
-    int64_t nickname_length_limits_0 = 2, nickname_length_limits_1 = 16;
-
     // `redis_role_ttl`
-    auto conf_value = conf_file.query(&"redis_role_ttl");
-    if(conf_value.is_integer())
-      redis_role_ttl = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `redis_role_ttl`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+    auto vint = conf_file.get_integer_opt(&"redis_role_ttl", 600, 999999999);
+    seconds redis_role_ttl = seconds(static_cast<int>(vint.value_or(900)));
 
-    if((redis_role_ttl < 600) || (redis_role_ttl > 999999999))
-      POSEIDON_THROW((
-          "Invalid `redis_role_ttl`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          redis_role_ttl, conf_file.path());
+    // `agent.client_port_list[]`
+    vint = conf_file.get_integer_opt(sformat("agent.client_port_list[$1]", service.service_index()), 1, 32767);
+    uint16_t client_port = static_cast<uint16_t>(vint.value_or(0));
 
-    // `agent.client_port_list`
-    conf_value = conf_file.query(sformat("agent.client_port_list[$1]", service.service_index()));
-    if(conf_value.is_integer())
-      client_port = conf_value.as_integer();
-    else if(!conf_value.is_null())
+    if(client_port == 0)
       POSEIDON_THROW((
-          "Invalid `agent.client_port_list[$3]`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path(), service.service_index());
-
-    if((client_port < 1) || (client_port > 32767))
-      POSEIDON_THROW((
-          "Invalid `agent.client_port_list[$3]`: value `$1` out of range",
+          "Invalid `agent.client_port_list[$3]`: no client port available",
           "[in configuration file '$2']"),
           client_port, conf_file.path(), service.service_index());
 
     // `agent.client_rate_limit`
-    conf_value = conf_file.query(&"agent.client_rate_limit");
-    if(conf_value.is_integer())
-      client_rate_limit = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `agent.client_rate_limit`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((client_rate_limit < 1) || (client_rate_limit > 99999))
-      POSEIDON_THROW((
-          "Invalid `agent.client_rate_limit`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          client_rate_limit, conf_file.path());
+    vint = conf_file.get_integer_opt(&"agent.client_rate_limit", 1, 65535);
+    uint16_t client_rate_limit = static_cast<uint16_t>(vint.value_or(10));
 
     // `agent.client_ping_interval`
-    conf_value = conf_file.query(&"agent.client_ping_interval");
-    if(conf_value.is_integer())
-      client_ping_interval = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `agent.client_ping_interval`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((client_ping_interval < 1) || (client_ping_interval > 99999))
-      POSEIDON_THROW((
-          "Invalid `agent.client_ping_interval`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          client_ping_interval, conf_file.path());
+    vint = conf_file.get_integer_opt(&"agent.client_ping_interval", 1, 3600);
+    seconds client_ping_interval = seconds(static_cast<int>(vint.value_or(30)));
 
     // `agent.max_number_of_roles_per_user`
-    conf_value = conf_file.query(&"agent.max_number_of_roles_per_user");
-    if(conf_value.is_integer())
-      max_number_of_roles_per_user = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `agent.max_number_of_roles_per_user`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+    vint = conf_file.get_integer_opt(&"agent.max_number_of_roles_per_user", 1, 65535);
+    uint16_t max_number_of_roles_per_user = static_cast<uint16_t>(vint.value_or(4));
 
-    if((max_number_of_roles_per_user < 0) || (max_number_of_roles_per_user > 9999))
-      POSEIDON_THROW((
-          "Invalid `agent.max_number_of_roles_per_user`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          max_number_of_roles_per_user, conf_file.path());
+    // `agent.nickname_length_limits[]`
+    vint = conf_file.get_integer_opt(&"agent.nickname_length_limits[0]", 1, 255);
+    uint8_t nickname_length_limits_0 = static_cast<uint8_t>(vint.value_or(1));
 
-    // `agent.nickname_length_limits`
-    conf_value = conf_file.query(&"agent.nickname_length_limits[0]");
-    if(conf_value.is_integer())
-      nickname_length_limits_0 = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits[0]`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+    vint = conf_file.get_integer_opt(&"agent.nickname_length_limits[1]", 1, 255);
+    uint8_t nickname_length_limits_1 = static_cast<uint8_t>(vint.value_or(24));
 
-    if((nickname_length_limits_0 < 1) || (nickname_length_limits_0 > 255))
+    if(nickname_length_limits_0 > nickname_length_limits_1)
       POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits[0]`: value `$1` out of range",
+          "Invalid `agent.nickname_length_limits`: invalid range: `$1` > `$3`",
           "[in configuration file '$2']"),
-          nickname_length_limits_0, conf_file.path());
-
-    conf_value = conf_file.query(&"agent.nickname_length_limits[1]");
-    if(conf_value.is_integer())
-      nickname_length_limits_1 = conf_value.as_integer();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits[1]`: expecting an `integer`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
-
-    if((nickname_length_limits_1 < 1) || (nickname_length_limits_1 > 255))
-      POSEIDON_THROW((
-          "Invalid `agent.nickname_length_limits[1]`: value `$1` out of range",
-          "[in configuration file '$2']"),
-          nickname_length_limits_1, conf_file.path());
+          nickname_length_limits_0, conf_file.path(), nickname_length_limits_1);
 
     // Set up new configuration. This operation shall be atomic.
-    this->m_impl->redis_role_ttl = seconds(redis_role_ttl);
-    this->m_impl->client_port = static_cast<uint16_t>(client_port);
-    this->m_impl->client_rate_limit = static_cast<uint16_t>(client_rate_limit);
-    this->m_impl->client_ping_interval = seconds(client_ping_interval);
-    this->m_impl->max_number_of_roles_per_user = static_cast<uint16_t>(max_number_of_roles_per_user);
-    this->m_impl->nickname_length_limits[0] = static_cast<uint8_t>(nickname_length_limits_0);
-    this->m_impl->nickname_length_limits[1] = static_cast<uint8_t>(nickname_length_limits_1);
+    this->m_impl->redis_role_ttl = redis_role_ttl;
+    this->m_impl->client_port = client_port;
+    this->m_impl->client_rate_limit = client_rate_limit;
+    this->m_impl->client_ping_interval = client_ping_interval;
+    this->m_impl->max_number_of_roles_per_user = max_number_of_roles_per_user;
+    this->m_impl->nickname_length_limits[0] = nickname_length_limits_0;
+    this->m_impl->nickname_length_limits[1] = nickname_length_limits_1;
 
     // Set up builtin handlers.
     this->m_impl->ws_handlers.insert_or_assign(&"+role/create", bindw(this->m_impl, do_plus_role_create));

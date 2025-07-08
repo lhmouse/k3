@@ -841,37 +841,27 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
           zone_id, conf_file.path());
 
     // `zone_start_time`
-    conf_value = conf_file.query(&"zone_start_time");
-    if(conf_value.is_string())
-      zone_start_time = ::poseidon::DateTime(conf_value.as_string());
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `zone_start_time`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+    vstr = conf_file.get_string_opt(&"zone_start_time");
+    system_time zone_start_time;
+    if(vstr)
+      zone_start_time = ::poseidon::DateTime(*vstr).as_system_time();
 
-    if(zone_start_time.as_system_time() > system_clock::now())
+    if(zone_start_time > system_clock::now())
       POSEIDON_THROW((
-          "Invalid `zone_start_time`: value `$1` out of range",
+          "Invalid `zone_start_time`: time point `$1` is in the future",
           "[in configuration file '$2']"),
           zone_start_time, conf_file.path());
 
     // `lock_directory`
-    conf_value = conf_file.query(&"lock_directory");
-    if(conf_value.is_string())
-      lock_directory = conf_value.as_string();
-    else if(!conf_value.is_null())
-      POSEIDON_THROW((
-          "Invalid `lock_directory`: expecting a `string`, got `$1`",
-          "[in configuration file '$2']"),
-          conf_value, conf_file.path());
+    vstr = conf_file.get_string_opt(&"lock_directory");
+    cow_string lock_directory = vstr.value_or(&"");
 
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->service_type = service_type;
     this->m_impl->application_name = application_name;
     this->m_impl->application_password = application_password;
-    this->m_impl->zone_id = static_cast<int>(zone_id);
-    this->m_impl->zone_start_time = zone_start_time.as_system_time();
+    this->m_impl->zone_id = zone_id;
+    this->m_impl->zone_start_time = zone_start_time;
 
     // Set up constants.
     if(this->m_impl->service_uuid.is_nil())
