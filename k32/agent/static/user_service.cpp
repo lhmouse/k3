@@ -1393,7 +1393,7 @@ all_user_records() const noexcept
 
 const User_Record&
 User_Service::
-find_user_record(const phcow_string& username) const noexcept
+find_user_record_opt(const phcow_string& username) const noexcept
   {
     if(!this->m_impl)
       return User_Record::null;

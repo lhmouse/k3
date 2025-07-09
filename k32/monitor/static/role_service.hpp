@@ -28,7 +28,7 @@ class Role_Service
 
     // Gets properties of a role.
     const Role_Record&
-    find_role_record(int64_t roid) const noexcept;
+    find_role_record_opt(int64_t roid) const noexcept;
 
     // Reloads configuration.
     void

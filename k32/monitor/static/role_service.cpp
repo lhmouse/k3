@@ -575,7 +575,7 @@ all_role_records() const noexcept
 
 const Role_Record&
 Role_Service::
-find_role_record(int64_t roid) const noexcept
+find_role_record_opt(int64_t roid) const noexcept
   {
     if(!this->m_impl)
       return Role_Record::null;

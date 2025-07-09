@@ -99,7 +99,7 @@ class User_Service
 
     // Gets properties of a user.
     const User_Record&
-    find_user_record(const phcow_string& username) const noexcept;
+    find_user_record_opt(const phcow_string& username) const noexcept;
 
     // Reloads configuration.
     void

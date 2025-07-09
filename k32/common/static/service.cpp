@@ -763,7 +763,7 @@ all_service_records() const noexcept
 
 const Service_Record&
 Service::
-find_service_record(const ::poseidon::UUID& remote_service_uuid) const noexcept
+find_service_record_opt(const ::poseidon::UUID& remote_service_uuid) const noexcept
   {
     if(!this->m_impl)
       return Service_Record::null;
