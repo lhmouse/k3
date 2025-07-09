@@ -376,12 +376,6 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             return;
           }
 
-          do_publish_user_on_redis(fiber, uinfo, impl->redis_role_ttl);
-
-          if(auto ptr = impl->connections.ptr(uinfo.username))
-            if(auto old_session = ptr->weak_session.lock())
-              old_session->ws_shut_down(user_ws_status_login_conflict);
-
           // Find my roles.
           User_Connection uconn;
           uconn.weak_session = session;
@@ -421,6 +415,8 @@ do_server_hws_callback(const shptr<Implementation>& impl,
             POSEIDON_LOG_DEBUG(("Found role `$1` of user `$2`"), roid, uinfo.username);
             uconn.cached_raw_avatars.try_emplace(roid, avatar);
           }
+
+          do_publish_user_on_redis(fiber, uinfo, impl->redis_role_ttl);
 
           if(auto ptr = impl->connections.ptr(uinfo.username))
             if(auto old_session = ptr->weak_session.lock())
