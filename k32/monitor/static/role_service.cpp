@@ -595,8 +595,8 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // `redis_role_ttl`
-    auto vint = conf_file.get_integer_opt(&"redis_role_ttl", 600, 999999999);
-    seconds redis_role_ttl = seconds(static_cast<int>(vint.value_or(900)));
+    seconds redis_role_ttl = seconds(static_cast<int>(conf_file.get_integer_opt(
+                                    &"redis_role_ttl", 600, 999999999).value_or(900)));
 
     // Set up new configuration. This operation shall be atomic.
     this->m_impl->redis_role_ttl = redis_role_ttl;

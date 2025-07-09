@@ -1413,32 +1413,30 @@ reload(const ::poseidon::Config_File& conf_file)
       this->m_impl = new_sh<X_Implementation>();
 
     // `redis_role_ttl`
-    auto vint = conf_file.get_integer_opt(&"redis_role_ttl", 600, 999999999);
-    seconds redis_role_ttl = seconds(static_cast<int>(vint.value_or(900)));
+    seconds redis_role_ttl = seconds(static_cast<int>(conf_file.get_integer_opt(
+                                    &"redis_role_ttl", 600, 999999999).value_or(900)));
 
     // `agent.client_port_list[]`
-    cow_string tstr = sformat("agent.client_port_list[$1]", service.service_index());
-    int64_t tint = conf_file.get_integer(tstr, 1, 32767);
-    uint16_t client_port = static_cast<uint16_t>(tint);
+    uint16_t client_port = static_cast<uint16_t>(conf_file.get_integer(
+                        sformat("agent.client_port_list[$1]", service.service_index()), 1, 32767));
 
     // `agent.client_rate_limit`
-    vint = conf_file.get_integer_opt(&"agent.client_rate_limit", 1, 65535);
-    uint16_t client_rate_limit = static_cast<uint16_t>(vint.value_or(10));
+    uint16_t client_rate_limit = static_cast<uint16_t>(conf_file.get_integer_opt(
+                                    &"agent.client_rate_limit", 1, 65535).value_or(10));
 
     // `agent.client_ping_interval`
-    vint = conf_file.get_integer_opt(&"agent.client_ping_interval", 1, 3600);
-    seconds client_ping_interval = seconds(static_cast<int>(vint.value_or(30)));
+    seconds client_ping_interval = seconds(static_cast<int>(conf_file.get_integer_opt(
+                                    &"agent.client_ping_interval", 1, 3600).value_or(30)));
 
     // `agent.max_number_of_roles_per_user`
-    vint = conf_file.get_integer_opt(&"agent.max_number_of_roles_per_user", 1, 65535);
-    uint16_t max_number_of_roles_per_user = static_cast<uint16_t>(vint.value_or(4));
+    uint16_t max_number_of_roles_per_user = static_cast<uint16_t>(conf_file.get_integer_opt(
+                                    &"agent.max_number_of_roles_per_user", 1, 65535).value_or(4));
 
     // `agent.nickname_length_limits[]`
-    vint = conf_file.get_integer_opt(&"agent.nickname_length_limits[0]", 1, 255);
-    uint8_t nickname_length_limits_0 = static_cast<uint8_t>(vint.value_or(1));
-
-    vint = conf_file.get_integer_opt(&"agent.nickname_length_limits[1]", 1, 255);
-    uint8_t nickname_length_limits_1 = static_cast<uint8_t>(vint.value_or(24));
+    uint8_t nickname_length_limits_0 = static_cast<uint8_t>(conf_file.get_integer_opt(
+                                    &"agent.nickname_length_limits[0]", 1, 255).value_or(1));
+    uint8_t nickname_length_limits_1 = static_cast<uint8_t>(conf_file.get_integer_opt(
+                                    &"agent.nickname_length_limits[1]", 1, 255).value_or(24));
 
     if(nickname_length_limits_0 > nickname_length_limits_1)
       POSEIDON_THROW((
