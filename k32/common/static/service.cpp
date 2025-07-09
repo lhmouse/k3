@@ -785,10 +785,14 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
 
     // Read service configuration. These fields are required.
     cow_string application_name = conf_file.get_string(&"application_name");
+    POSEIDON_LOG_DEBUG(("Initializing: $1"), application_name);
     cow_string application_password = conf_file.get_string(&"application_password");
-    int zone_id = static_cast<int>(conf_file.get_integer(&"zone_id", 0, 9999999));
-    system_time zone_start_time = ::poseidon::DateTime(conf_file.get_string(&"zone_start_time")).as_system_time();
     cow_string lock_directory = conf_file.get_string(&"lock_directory");
+
+    int zone_id = static_cast<int>(conf_file.get_integer(&"zone_id", 0, 9999999));
+    cow_string zone_start_time_str = conf_file.get_string(&"zone_start_time");
+    POSEIDON_LOG_DEBUG(("Initializing: $1 $2, since $2"), zone_id, service_type, zone_start_time_str);
+    system_time zone_start_time = ::poseidon::DateTime(zone_start_time_str).as_system_time();
 
     if(application_name.size() < 2)
       POSEIDON_THROW((
