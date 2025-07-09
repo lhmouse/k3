@@ -15,7 +15,6 @@
 #include <poseidon/base/abstract_task.hpp>
 #include <poseidon/static/task_scheduler.hpp>
 #include <poseidon/http/http_query_parser.hpp>
-#include <asteria/library/string.hpp>
 #define OPENSSL_API_COMPAT  0x10100000L
 #include <openssl/md5.h>
 #include <sys/types.h>
@@ -791,7 +790,7 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
 
     int zone_id = static_cast<int>(conf_file.get_integer(&"zone_id", 0, 9999999));
     cow_string zone_start_time_str = conf_file.get_string(&"zone_start_time");
-    POSEIDON_LOG_DEBUG(("Initializing: $1 $2, since $2"), zone_id, service_type, zone_start_time_str);
+    POSEIDON_LOG_DEBUG(("Initializing: zone $1 started on $2"), zone_id, zone_start_time_str);
     system_time zone_start_time = ::poseidon::DateTime(zone_start_time_str).as_system_time();
 
     if(application_name.size() < 2)
@@ -800,11 +799,12 @@ reload(const ::poseidon::Config_File& conf_file, const cow_string& service_type)
           "[in configuration file '$2']"),
           application_name, conf_file.path());
 
-    if(auto m = ::asteria::std_string_pcre_match(application_name, nullopt, nullopt, &"[^A-Za-z0-9_.-:]", nullopt))
-      POSEIDON_THROW((
-          "Invalid `application_name`: character `$1` not allowed",
-          "[in configuration file '$2']"),
-          m->front(), conf_file.path());
+    for(char ch : application_name)
+      if(::iscntrl(ch) || (!::isalnum(ch) && !::strchr("_.-:~!()", ch)))
+        POSEIDON_THROW((
+            "Invalid `application_name`: character `$1` not allowed",
+            "[in configuration file '$2']"),
+            ch, conf_file.path());
 
     if(zone_start_time > system_clock::now())
       POSEIDON_THROW((
