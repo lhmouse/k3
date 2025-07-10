@@ -77,7 +77,6 @@ do_get_username(const shptr<Implementation>& impl, const shptr<::poseidon::WS_Se
 do_find_my_monitor()
   {
     ::poseidon::UUID monitor_service_uuid;
-
     for(const auto& r : service.all_service_records())
       if((r.second.zone_id == service.zone_id()) && (r.second.service_type == "monitor"))
         monitor_service_uuid = r.first;
