@@ -79,8 +79,7 @@ do_find_my_monitor()
     ::poseidon::UUID monitor_service_uuid;
 
     for(const auto& r : service.all_service_records())
-      if((r.second.zone_id == service.zone_id())
-            && (r.second.service_type == "monitor"))
+      if((r.second.zone_id == service.zone_id()) && (r.second.service_type == "monitor"))
         monitor_service_uuid = r.first;
 
     if(monitor_service_uuid == ::poseidon::UUID::min())
@@ -160,8 +159,7 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     double load_factor = HUGE_VAL;
 
     for(const auto& r : service.all_service_records())
-      if((r.second.zone_id == service.zone_id())
-            && (r.second.service_type == "logic")
+      if((r.second.zone_id == service.zone_id()) && (r.second.service_type == "logic")
             && (r.second.load_factor <= load_factor))
         logic_service_uuid = r.first;
 

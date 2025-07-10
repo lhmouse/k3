@@ -92,7 +92,7 @@ do_flush_role_to_mysql(::poseidon::Abstract_Fiber& fiber, Hydrated_Role& hyd)
   {
     ::poseidon::UUID monitor_service_uuid;
     for(const auto& r : service.all_service_records())
-      if(r.second.service_type == "monitor") {
+      if((r.second.zone_id == hyd.roinfo._home_zone) && (r.second.service_type == "monitor")) {
         monitor_service_uuid = r.first;
         if(r.first == hyd.role->mf_monitor_srv())
           break;

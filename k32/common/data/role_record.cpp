@@ -32,6 +32,7 @@ parse_from_string(const cow_string& str)
 
     this->_home_host = root.at(&"@home_host").as_string();
     this->_home_db = root.at(&"@home_db").as_string();
+    this->_home_zone = static_cast<int>(root.at(&"@home_zone").as_integer());
   }
 
 cow_string
@@ -50,6 +51,7 @@ serialize_to_string() const
 
     root.try_emplace(&"@home_host", this->_home_host);
     root.try_emplace(&"@home_db", this->_home_db);
+    root.try_emplace(&"@home_zone", static_cast<int64_t>(this->_home_zone));
 
     return ::taxon::Value(root).to_string();
   }

@@ -19,6 +19,7 @@ struct Role_Record
 
     cow_string _home_host;
     cow_string _home_db;
+    int _home_zone = 0;
 
 #ifdef K32_FRIENDS_3543B0B1_DC5A_4F34_B9BB_CAE513821771_
     Role_Record() noexcept = default;

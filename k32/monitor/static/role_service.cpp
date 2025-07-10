@@ -212,6 +212,7 @@ do_star_role_create(const shptr<Implementation>& impl, ::poseidon::Abstract_Fibe
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     roinfo._home_host = ::poseidon::hostname;
     roinfo._home_db = mysql_conn->service_uri();
+    roinfo._home_zone = service.zone_id();
 
     static constexpr char insert_into_role[] =
         R"!!!(
@@ -295,6 +296,7 @@ do_star_role_load(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber&
     auto mysql_conn = ::poseidon::mysql_connector.allocate_default_connection();
     roinfo._home_host = ::poseidon::hostname;
     roinfo._home_db = mysql_conn->service_uri();
+    roinfo._home_zone = service.zone_id();
 
     static constexpr char select_from_role[] =
         R"!!!(
