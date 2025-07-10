@@ -157,7 +157,6 @@ do_role_login_common(const shptr<Implementation>& impl, ::poseidon::Abstract_Fib
     // Select a logic server with lowest load factor.
     ::poseidon::UUID logic_service_uuid;
     double load_factor = HUGE_VAL;
-
     for(const auto& r : service.all_service_records())
       if((r.second.zone_id == service.zone_id()) && (r.second.service_type == "logic")
             && (r.second.load_factor <= load_factor))
