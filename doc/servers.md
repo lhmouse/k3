@@ -39,6 +39,7 @@ strings:
 |`gs_roid_conflict`           |Role ID already exists in database.           |
 |`gs_roid_not_found`          |Role ID not found in database.                |
 |`gs_roid_not_match`          |Role ID not match.                            |
+|`gs_service_uuid_not_match`  |Service UUID not match.                       |
 |`gs_role_not_loaded`         |Role not loaded in Redis.                     |
 |`gs_role_foreign`            |Role belongs to another server.               |
 |`gs_role_not_logged_in`      |Role not logged in.                           |

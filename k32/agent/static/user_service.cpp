@@ -894,7 +894,7 @@ do_star_user_kick(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber&
 
 void
 do_star_user_check_role(const shptr<Implementation>& impl, ::poseidon::Abstract_Fiber& /*fiber*/,
-                        const ::poseidon::UUID& /*request_service_uuid*/,
+                        const ::poseidon::UUID& request_service_uuid,
                         ::taxon::V_object& response, const ::taxon::V_object& request)
   {
     phcow_string username = request.at(&"username").as_string();
@@ -914,6 +914,11 @@ do_star_user_check_role(const shptr<Implementation>& impl, ::poseidon::Abstract_
 
     if(uconn.current_roid != roid) {
       response.try_emplace(&"status", &"gs_roid_not_match");
+      return;
+    }
+
+    if(uconn.current_logic_srv != request_service_uuid) {
+      response.try_emplace(&"status", &"gs_service_uuid_not_match");
       return;
     }
 
