@@ -9,26 +9,10 @@ namespace k32 {
 
 class Clock
   {
-  public:
-    struct system_time_fields
-      {
-        uint32_t year          : 12;  //    0 - 4095
-        uint32_t month         :  4;  //    1 - 12
-        uint32_t day_of_month  :  5;  //    1 - 31
-        uint32_t hour          :  5;  //    0 - 23
-        uint32_t minute        :  6;  //    0 - 59
-        uint32_t second        :  6;  //    0 - 60 (leap)
-        uint32_t milliseconds  : 10;  //    0 - 999
-        int32_t tz_offset      : 10;  // -720 - 720
-        uint32_t dst           :  1;  // daylight saving time
-        uint32_t day_of_week   :  3;  //    1 - 7
-        uint32_t reserved      :  2;
-      };
-
   private:
     seconds m_offset = 0s;
     mutable ::time_t m_cached_time = 0;
-    mutable system_time_fields m_cached_fields = { };
+    mutable Clock_Fields m_cached_fields = { };
 
   public:
     Clock();
@@ -57,7 +41,7 @@ class Clock
     system_time
     get_system_time() const noexcept;
 
-    system_time_fields
+    Clock_Fields
     get_system_time_fields() const noexcept;
   };
 

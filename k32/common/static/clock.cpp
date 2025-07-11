@@ -53,7 +53,7 @@ get_system_time() const noexcept
            + nanoseconds(ts.tv_nsec);
   }
 
-Clock::system_time_fields
+Clock_Fields
 Clock::
 get_system_time_fields() const noexcept
   {
